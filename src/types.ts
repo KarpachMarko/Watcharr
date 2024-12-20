@@ -921,7 +921,6 @@ export interface ManagedUser {
 
 export interface ServerConfig {
   DEFAULT_COUNTRY: string;
-  PROXY_AUTH_HEADER: string;
   JELLYFIN_HOST: string;
   USE_EMBY: boolean;
   SIGNUP_ENABLED: boolean;
@@ -932,6 +931,7 @@ export interface ServerConfig {
   RADARR: RadarrSettings[];
   TWITCH: TwitchSettings;
   DEBUG: boolean;
+  PROXY_AUTH_HEADER: string;
 }
 
 export interface SonarrSettings {

@@ -121,6 +121,28 @@
       error = "Plex login failed";
     }
   }
+
+  function proxyLogin() {
+    const nid = notify({ text: "Logging in", type: "loading" });
+    noAuthAxios
+      .post(`/auth/proxy`)
+      .then((resp) => {
+        if (resp.data?.token) {
+          console.log("Received token... logging in.");
+          localStorage.setItem("token", resp.data.token);
+          goto("/");
+          notify({ id: nid, text: `Welcome!`, type: "success" });
+        }
+      })
+      .catch((err) => {
+        if (err.response) {
+          error = err.response.data.error;
+        } else {
+          error = err.message;
+        }
+        unNotify(nid);
+      });
+  }
 </script>
 
 <div>
@@ -164,6 +186,18 @@
             {/if}
           {/if}
         </div>
+        {#if availableProviders?.findIndex((provider) => provider == "proxy") > -1}
+          <button
+            type="button"
+            name="proxy"
+            class="other"
+            on:click={() => {
+              proxyLogin();
+            }}
+          >
+            SSO
+          </button>
+        {/if}
         {#if availableProviders?.findIndex((provider) => provider == "plex") > -1}
           <p style="font-weight: bold; font-size: 14px;">or</p>
           <div class="login-btns">
