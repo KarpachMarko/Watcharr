@@ -57,7 +57,7 @@ type ServerConfig struct {
 	// Optional: Name of the authentication header
 	// to enable proxy authentication.
 	// VERY DANGEROUS if access is not controlled correctly!
-	PROXY_AUTH_HEADER string `json:",omitempty"`
+	HEADER_AUTH TrustedHeaderAuthSetting `json:",omitempty"`
 
 	SONARR []SonarrSettings `json:",omitempty"`
 	RADARR []RadarrSettings `json:",omitempty"`
@@ -81,22 +81,50 @@ type ServerConfig struct {
 // not editable on frontend, so not needed).
 func (c *ServerConfig) GetSafe() ServerConfig {
 	return ServerConfig{
-		SIGNUP_ENABLED:    c.SIGNUP_ENABLED,
-		DEFAULT_COUNTRY:   c.DEFAULT_COUNTRY,
-		JELLYFIN_HOST:     c.JELLYFIN_HOST,
-		USE_EMBY:          c.USE_EMBY,
-		TMDB_KEY:          c.TMDB_KEY,
-		PLEX_HOST:         c.PLEX_HOST,
-		PLEX_MACHINE_ID:   c.PLEX_MACHINE_ID,
-		PROXY_AUTH_HEADER: c.PROXY_AUTH_HEADER,
-		DEBUG:             c.DEBUG,
-		SONARR:            c.SONARR, // Dont act safe, this contains sonarr api key, needed for config
-		RADARR:            c.RADARR, // Dont act safe, this contains radarr api key, needed for config
+		SIGNUP_ENABLED:  c.SIGNUP_ENABLED,
+		DEFAULT_COUNTRY: c.DEFAULT_COUNTRY,
+		JELLYFIN_HOST:   c.JELLYFIN_HOST,
+		USE_EMBY:        c.USE_EMBY,
+		TMDB_KEY:        c.TMDB_KEY,
+		PLEX_HOST:       c.PLEX_HOST,
+		PLEX_MACHINE_ID: c.PLEX_MACHINE_ID,
+		DEBUG:           c.DEBUG,
+		SONARR:          c.SONARR, // Dont act safe, this contains sonarr api key, needed for config
+		RADARR:          c.RADARR, // Dont act safe, this contains radarr api key, needed for config
 		TWITCH: game.IGDB{
 			ClientID:     c.TWITCH.ClientID,
 			ClientSecret: c.TWITCH.ClientSecret,
 		}, // Dont act safe, this contains twitch secrets, needed for config
 	}
+}
+
+type ServerConfigGetByName struct {
+	Value any `json:"value"`
+}
+
+// Get config item by name.
+func (c *ServerConfig) Get(s string) (ServerConfigGetByName, error) {
+	switch s {
+	case "DEFAULT_COUNTRY":
+		return ServerConfigGetByName{Value: c.DEFAULT_COUNTRY}, nil
+	case "JELLYFIN_HOST":
+		return ServerConfigGetByName{Value: c.JELLYFIN_HOST}, nil
+	case "USE_EMBY":
+		return ServerConfigGetByName{Value: c.USE_EMBY}, nil
+	case "SIGNUP_ENABLED":
+		return ServerConfigGetByName{Value: c.SIGNUP_ENABLED}, nil
+	case "TMDB_KEY":
+		return ServerConfigGetByName{Value: c.TMDB_KEY}, nil
+	case "PLEX_HOST":
+		return ServerConfigGetByName{Value: c.PLEX_HOST}, nil
+	case "PLEX_MACHINE_ID":
+		return ServerConfigGetByName{Value: c.PLEX_MACHINE_ID}, nil
+	case "HEADER_AUTH":
+		return ServerConfigGetByName{Value: c.HEADER_AUTH}, nil
+	case "DEBUG":
+		return ServerConfigGetByName{Value: c.DEBUG}, nil
+	}
+	return ServerConfigGetByName{}, errors.New("invalid setting")
 }
 
 var (
@@ -174,8 +202,6 @@ func updateConfig(k string, v any) error {
 		setLoggingLevel()
 	} else if k == "DEFAULT_COUNTRY" {
 		Config.DEFAULT_COUNTRY = v.(string)
-	} else if k == "PROXY_AUTH_HEADER" {
-		Config.PROXY_AUTH_HEADER = v.(string)
 	} else {
 		return errors.New("invalid setting")
 	}

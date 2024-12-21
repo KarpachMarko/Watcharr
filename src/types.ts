@@ -931,7 +931,6 @@ export interface ServerConfig {
   RADARR: RadarrSettings[];
   TWITCH: TwitchSettings;
   DEBUG: boolean;
-  PROXY_AUTH_HEADER: string;
 }
 
 export interface SonarrSettings {

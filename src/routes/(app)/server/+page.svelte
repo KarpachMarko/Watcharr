@@ -24,6 +24,7 @@
   import TwitchModal from "./modals/TwitchModal.svelte";
   import RegionDropDown from "@/lib/RegionDropDown.svelte";
   import TaskScheduleModal from "./modals/TaskScheduleModal.svelte";
+  import TrustedHeaderAuthModal from "./modals/TrustedHeaderAuthModal.svelte";
 
   let serverConfig: ServerConfig;
   let sonarrModalOpen = false;
@@ -34,6 +35,7 @@
   let radarrModalEditing = false;
   let twitchModalOpen = false;
   let taskScheduleModalOpen = false;
+  let headerSSOModalOpen = false;
   // Disabled vars for disabling inputs until api request completes
   let signupDisabled = false;
   let debugDisabled = false;
@@ -157,23 +159,6 @@
           />
         </Setting>
         <Setting
-          title="Authentication Header"
-          desc="Name of the authentication header for proxy authentication. Only set this if Watcharr is running behind a trusted proxy"
-        >
-          <input
-            type="text"
-            placeholder="X-User"
-            on:blur={() => {
-              proxyHeaderDisabled = true;
-              updateServerConfig("PROXY_AUTH_HEADER", serverConfig.PROXY_AUTH_HEADER, () => {
-                proxyHeaderDisabled = false;
-              });
-            }}
-            disabled={proxyHeaderDisabled}
-            bind:value={serverConfig.PROXY_AUTH_HEADER}
-          />
-        </Setting>
-        <Setting
           title="{jellyfinOrEmby} Host"
           desc="Point to your {jellyfinOrEmby} server to enable related features. Don't change server after
         already using another."
@@ -282,6 +267,20 @@
         </Setting>
         {#if taskScheduleModalOpen}
           <TaskScheduleModal onClose={() => (taskScheduleModalOpen = false)}></TaskScheduleModal>
+        {/if}
+        <Setting>
+          <SettingButton
+            title="Trusted Header Authentication"
+            desc="Configure trusted header single sign-on."
+            icon={"arrow"}
+            onClick={() => {
+              headerSSOModalOpen = true;
+            }}
+          />
+        </Setting>
+        {#if headerSSOModalOpen}
+          <TrustedHeaderAuthModal onClose={() => (headerSSOModalOpen = false)}
+          ></TrustedHeaderAuthModal>
         {/if}
         <div>
           <h3>Services</h3>

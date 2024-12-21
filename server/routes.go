@@ -764,18 +764,18 @@ func (b *BaseRouter) addAuthRoutes() {
 	// Proxy Login
 	auth.POST("/proxy", func(c *gin.Context) {
 		var user User
-		if Config.PROXY_AUTH_HEADER == "" {
+		if !trustedHeaderAuthIsEnabled() {
 			slog.Error("Request made to login via Proxy, but PROXY_AUTH_HEADER has not been configured.")
 			c.JSON(http.StatusForbidden, ErrorResponse{Error: "Proxy authentication disabled"})
 			return
 		}
-		user.Username = c.GetHeader(Config.PROXY_AUTH_HEADER)
+		user.Username = c.GetHeader(Config.HEADER_AUTH.HEADER_NAME)
 		if user.Username == "" {
 			slog.Error("Request made to login via Proxy, but authentication header was not provided")
 			c.JSON(http.StatusForbidden, ErrorResponse{Error: "Authentication header missing"})
 			return
 		}
-		response, err := loginProxy(&user, b.db)
+		response, err := loginTrustedHeaderAuth(&user, b.db)
 		if err != nil {
 			c.JSON(http.StatusForbidden, ErrorResponse{Error: err.Error()})
 			return
@@ -807,8 +807,8 @@ func (b *BaseRouter) addAuthRoutes() {
 		if Config.PLEX_HOST != "" && Config.PLEX_MACHINE_ID != "" {
 			availableAuthProviders = append(availableAuthProviders, "plex")
 		}
-		if Config.PROXY_AUTH_HEADER != "" {
-			availableAuthProviders = append(availableAuthProviders, "proxy")
+		if trustedHeaderAuthIsEnabled() {
+			availableAuthProviders = append(availableAuthProviders, "header")
 		}
 		c.JSON(http.StatusOK, &AvailableAuthProvidersResponse{
 			AvailableAuthProviders: availableAuthProviders,
@@ -1141,6 +1141,17 @@ func (b *BaseRouter) addServerRoutes() {
 
 	// Get server config (minus very sensitive fields, like JWT_SECRET)
 	server.GET("/config", func(c *gin.Context) {
+		// s should be provided when asking for the value of just one setting.
+		s := c.Query("s")
+		if s != "" {
+			val, err := Config.Get(s)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, val)
+			return
+		}
 		// Return new ServerConfig with only the fields we want to show in settings ui
 		c.JSON(http.StatusOK, Config.GetSafe())
 	})

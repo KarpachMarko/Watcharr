@@ -186,7 +186,7 @@
             {/if}
           {/if}
         </div>
-        {#if availableProviders?.findIndex((provider) => provider == "proxy") > -1}
+        {#if availableProviders?.findIndex((provider) => provider == "header") > -1}
           <button
             type="button"
             name="proxy"
