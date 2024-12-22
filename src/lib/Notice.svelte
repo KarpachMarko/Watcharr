@@ -12,6 +12,7 @@
 <style lang="scss">
   div {
     padding: 10px 12px;
+    border-radius: 10px;
 
     &.warn {
       background-color: $warn;

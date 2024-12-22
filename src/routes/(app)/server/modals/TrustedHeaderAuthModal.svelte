@@ -62,7 +62,7 @@
     <SettingsList>
       <Notice
         title="This is dangerous!"
-        desc="If setup incorrectly, this could be very dangerous. If configured, please ensure your Watcharr instance is only available through your proxy and not available directly."
+        desc="If setup incorrectly, the authorization module for your server could be easily comprimised. If configured, please ensure your Watcharr instance is only available through your proxy and not available directly."
         type="warn"
       />
       <Setting title="Header Name" desc="Name of the header used for authentication.">
