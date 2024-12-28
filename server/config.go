@@ -54,8 +54,7 @@ type ServerConfig struct {
 	// Will be fetched automatically when PLEX_HOST is provided via web ui.
 	PLEX_MACHINE_ID string `json:",omitempty"`
 
-	// Optional: Name of the authentication header
-	// to enable proxy authentication.
+	// Optional: Trusted header authentication configuration.
 	// VERY DANGEROUS if access is not controlled correctly!
 	HEADER_AUTH TrustedHeaderAuthSetting `json:",omitempty"`
 
