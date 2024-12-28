@@ -162,6 +162,7 @@ type AvailableAuthProvidersResponse struct {
 	SignupEnabled          bool     `json:"signupEnabled"`
 	IsInSetup              bool     `json:"isInSetup"`
 	UseEmby                bool     `json:"useEmby"`
+	HeaderAuthAutoLogin    bool     `json:"headerAuthAutoLogin"`
 }
 
 type ArgonParams struct {

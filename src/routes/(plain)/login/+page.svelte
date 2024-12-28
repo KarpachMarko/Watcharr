@@ -31,6 +31,10 @@
         apPlex = availableProviders?.includes("plex");
         signupEnabled = r.data.signupEnabled;
         useEmby = r.data.useEmby;
+        if (r.data.headerAuthAutoLogin) {
+          console.log("handling headerAuthAutoLogin.. calling proxyLogin automatically now.");
+          proxyLogin(true);
+        }
       }
     });
   });
@@ -126,7 +130,7 @@
     }
   }
 
-  function proxyLogin() {
+  function proxyLogin(auto = false) {
     const nid = notify({ text: "Logging in", type: "loading" });
     noAuthAxios
       .post(`/auth/proxy`)
@@ -144,7 +148,11 @@
         } else {
           error = err.message;
         }
-        unNotify(nid);
+        if (auto) {
+          notify({ id: nid, text: `Automatic SSO Login Failed!`, type: "error" });
+        } else {
+          unNotify(nid);
+        }
       });
   }
 </script>

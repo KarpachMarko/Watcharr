@@ -800,22 +800,23 @@ func (b *BaseRouter) addAuthRoutes() {
 
 	// Get available auth providers
 	auth.GET("/available", func(c *gin.Context) {
-		availableAuthProviders := []string{}
-		if Config.JELLYFIN_HOST != "" {
-			availableAuthProviders = append(availableAuthProviders, "jellyfin")
-		}
-		if Config.PLEX_HOST != "" && Config.PLEX_MACHINE_ID != "" {
-			availableAuthProviders = append(availableAuthProviders, "plex")
-		}
-		if trustedHeaderAuthIsEnabled() {
-			availableAuthProviders = append(availableAuthProviders, "header")
-		}
-		c.JSON(http.StatusOK, &AvailableAuthProvidersResponse{
-			AvailableAuthProviders: availableAuthProviders,
+		resp := &AvailableAuthProvidersResponse{
+			AvailableAuthProviders: []string{},
 			SignupEnabled:          Config.SIGNUP_ENABLED,
 			IsInSetup:              ServerInSetup,
 			UseEmby:                Config.USE_EMBY,
-		})
+		}
+		if Config.JELLYFIN_HOST != "" {
+			resp.AvailableAuthProviders = append(resp.AvailableAuthProviders, "jellyfin")
+		}
+		if Config.PLEX_HOST != "" && Config.PLEX_MACHINE_ID != "" {
+			resp.AvailableAuthProviders = append(resp.AvailableAuthProviders, "plex")
+		}
+		if trustedHeaderAuthIsEnabled() {
+			resp.AvailableAuthProviders = append(resp.AvailableAuthProviders, "header")
+			resp.HeaderAuthAutoLogin = Config.HEADER_AUTH.AutoLogin
+		}
+		c.JSON(http.StatusOK, resp)
 	})
 
 	// IMPORTANT: Routes below here must be authenticated.

@@ -259,6 +259,7 @@ export interface AvailableAuthProviders {
   signupEnabled: boolean;
   isInSetup: boolean;
   useEmby: boolean;
+  headerAuthAutoLogin: boolean;
 }
 
 export interface TokenClaims {
