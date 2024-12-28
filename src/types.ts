@@ -69,7 +69,8 @@ export type PosterExtraDetails = {
 export enum UserType {
   // Assume watcharr user if none of these...
   Jellyfin = 1,
-  Plex = 2
+  Plex = 2,
+  Proxy = 3
 }
 
 interface dbModel {
@@ -967,6 +968,10 @@ export interface TrustedHeaderAuthSetting {
   enabled: boolean;
   headerName: string;
   autoLogin?: boolean;
+  logoutUrl?: string;
+}
+
+export interface TrustedHeaderAuthLogoutDetailsResponse {
   logoutUrl?: string;
 }
 

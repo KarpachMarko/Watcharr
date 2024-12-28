@@ -14,6 +14,7 @@
   let apPlex = false;
   let signupEnabled = true;
   let useEmby = false;
+  let noAuto = false;
 
   onMount(() => {
     if (localStorage.getItem("token")) {
@@ -31,7 +32,7 @@
         apPlex = availableProviders?.includes("plex");
         signupEnabled = r.data.signupEnabled;
         useEmby = r.data.useEmby;
-        if (r.data.headerAuthAutoLogin) {
+        if (r.data.headerAuthAutoLogin && !noAuto) {
           console.log("handling headerAuthAutoLogin.. calling proxyLogin automatically now.");
           proxyLogin(true);
         }
@@ -42,6 +43,10 @@
   afterUpdate(() => {
     if (!error && $page.url.searchParams.get("again")) {
       error = "Please Login Again";
+    }
+    if ($page.url.searchParams.get("noAuto") == "1") {
+      console.info("login: Found noAuto param.. auto logins should be disabled now.");
+      noAuto = true;
     }
   });
 

@@ -92,7 +92,7 @@
       <Setting title="Logout URL" desc="Where can we redirect so that the user can logout?">
         <input
           type="text"
-          placeholder="https://auth.example.com"
+          placeholder="https://auth.example.com/logout"
           on:blur={() => {}}
           disabled={formDisabled}
           bind:value={headerCfg.logoutUrl}

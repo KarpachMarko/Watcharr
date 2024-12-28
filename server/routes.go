@@ -765,14 +765,14 @@ func (b *BaseRouter) addAuthRoutes() {
 	auth.POST("/proxy", func(c *gin.Context) {
 		var user User
 		if !trustedHeaderAuthIsEnabled() {
-			slog.Error("Request made to login via Proxy, but PROXY_AUTH_HEADER has not been configured.")
-			c.JSON(http.StatusForbidden, ErrorResponse{Error: "Proxy authentication disabled"})
+			slog.Error("ProxyLogin: SSO has not been configured.")
+			c.JSON(http.StatusForbidden, ErrorResponse{Error: "proxy authentication is disabled"})
 			return
 		}
 		user.Username = c.GetHeader(Config.HEADER_AUTH.HeaderName)
 		if user.Username == "" {
-			slog.Error("Request made to login via Proxy, but authentication header was not provided")
-			c.JSON(http.StatusForbidden, ErrorResponse{Error: "Authentication header missing"})
+			slog.Error("ProxyLogin: Authentication header is missing.")
+			c.JSON(http.StatusForbidden, ErrorResponse{Error: "authentication header missing"})
 			return
 		}
 		response, err := loginTrustedHeaderAuth(&user, b.db)
@@ -822,6 +822,23 @@ func (b *BaseRouter) addAuthRoutes() {
 	// IMPORTANT: Routes below here must be authenticated.
 	auth.Use(AuthRequired(nil))
 	{
+		// Request details for logout process for proxy users.
+		// Any proxy user can request this for logout.
+		auth.GET("/proxy_logout_details", func(c *gin.Context) {
+			if !trustedHeaderAuthIsEnabled() {
+				slog.Error("GetProxy: SSO has not been configured.")
+				c.JSON(http.StatusForbidden, ErrorResponse{Error: "proxy authentication is disabled"})
+				return
+			}
+			userType := c.MustGet("userType").(UserType)
+			if userType != PROXY_USER {
+				slog.Error("GetProxy: Non proxy user attempted to fetch proxy logout details.")
+				c.JSON(http.StatusForbidden, ErrorResponse{Error: "you are not a proxy user"})
+				return
+			}
+			c.JSON(http.StatusOK, getTrustedHeaderAuthLogoutDetails())
+		})
+
 		// Request admin token
 		auth.GET("/admin_token", func(c *gin.Context) {
 			userId := c.MustGet("userId").(uint)

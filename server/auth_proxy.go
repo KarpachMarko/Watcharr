@@ -31,6 +31,10 @@ type TrustedHeaderAuthSetting struct {
 	LogoutUrl string `json:"logoutUrl,omitempty"`
 }
 
+type TrustedHeaderAuthLogoutDetailsResponse struct {
+	LogoutUrl string `json:"logoutUrl,omitempty"`
+}
+
 // Is trusted header auth configured on this server?
 func trustedHeaderAuthIsEnabled() bool {
 	return Config.HEADER_AUTH.Enabled && Config.HEADER_AUTH.HeaderName != ""
@@ -45,6 +49,15 @@ func setTrustedHeaderAuthSetting(has TrustedHeaderAuthSetting) error {
 		return errors.New("failed to write config")
 	}
 	return nil
+}
+
+// Gets proxy logout details.
+// Details are accessible to any user for the logout flow.
+// If proxy configured should be checked before using this.
+func getTrustedHeaderAuthLogoutDetails() *TrustedHeaderAuthLogoutDetailsResponse {
+	return &TrustedHeaderAuthLogoutDetailsResponse{
+		LogoutUrl: Config.HEADER_AUTH.LogoutUrl,
+	}
 }
 
 // Login via header sso

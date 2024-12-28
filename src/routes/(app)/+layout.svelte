@@ -5,6 +5,8 @@
   import PageError from "@/lib/PageError.svelte";
   import Spinner from "@/lib/Spinner.svelte";
   import tooltip from "@/lib/actions/tooltip";
+  import { clearWatcharrData } from "@/lib/logout";
+  import ProxyUserLogoutModal from "@/lib/logout/ProxyUserLogoutModal.svelte";
   import DetailedMenu from "@/lib/nav/DetailedMenu.svelte";
   import FilterMenu from "@/lib/nav/FilterMenu.svelte";
   import FollowingMenu from "@/lib/nav/FollowingMenu.svelte";
@@ -25,7 +27,7 @@
     userSettings,
     watchedList
   } from "@/store";
-  import { UserPermission } from "@/types";
+  import { UserPermission, UserType } from "@/types";
   import axios from "axios";
   import { onMount } from "svelte";
 
@@ -38,6 +40,7 @@
   let followingMenuShown = false;
   let detailedMenuShown = false;
   let tagMenuShown = false;
+  let proxyUserLogoutShown = false;
 
   $: settings = $userSettings;
   $: user = $userInfo;
@@ -91,8 +94,12 @@
   }
 
   function logout() {
-    localStorage.removeItem("token");
-    clearAllStores();
+    if (user?.type === UserType.Proxy) {
+      // Proxy users logout flow is different.
+      proxyUserLogoutShown = true;
+      return;
+    }
+    clearWatcharrData();
     goto("/login");
   }
 
@@ -365,6 +372,9 @@
               {/if}
             {/if}
             <button class="plain" on:click={() => logout()}>Logout</button>
+            {#if proxyUserLogoutShown}
+              <ProxyUserLogoutModal onClose={() => (proxyUserLogoutShown = false)} />
+            {/if}
             <!-- svelte-ignore missing-declaration -->
             <span>v{__WATCHARR_VERSION__}</span>
           </div>
