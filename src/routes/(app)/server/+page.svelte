@@ -24,6 +24,7 @@
   import TwitchModal from "./modals/TwitchModal.svelte";
   import RegionDropDown from "@/lib/RegionDropDown.svelte";
   import TaskScheduleModal from "./modals/TaskScheduleModal.svelte";
+  import TrustedHeaderAuthModal from "./modals/TrustedHeaderAuthModal.svelte";
 
   let serverConfig: ServerConfig;
   let sonarrModalOpen = false;
@@ -34,6 +35,7 @@
   let radarrModalEditing = false;
   let twitchModalOpen = false;
   let taskScheduleModalOpen = false;
+  let headerSSOModalOpen = false;
   // Disabled vars for disabling inputs until api request completes
   let signupDisabled = false;
   let debugDisabled = false;
@@ -226,7 +228,7 @@
             disabled={tmdbkDisabled}
           />
         </Setting>
-        <Setting title="Signup" desc="Allow signing up with web ui" row>
+        <Setting title="Signup" desc="Allow signing up with Watcharr credentials." row>
           <Checkbox
             name="SIGNUP_ENABLED"
             disabled={signupDisabled}
@@ -239,7 +241,7 @@
             }}
           />
         </Setting>
-        <Setting title="Debug" desc="Enable debug logging" row>
+        <Setting title="Debug" desc="Enable debug logging." row>
           <Checkbox
             name="DEBUG"
             disabled={debugDisabled}
@@ -264,6 +266,20 @@
         </Setting>
         {#if taskScheduleModalOpen}
           <TaskScheduleModal onClose={() => (taskScheduleModalOpen = false)}></TaskScheduleModal>
+        {/if}
+        <Setting>
+          <SettingButton
+            title="Trusted Header Authentication"
+            desc="Configure trusted header single sign-on."
+            icon={"arrow"}
+            onClick={() => {
+              headerSSOModalOpen = true;
+            }}
+          />
+        </Setting>
+        {#if headerSSOModalOpen}
+          <TrustedHeaderAuthModal onClose={() => (headerSSOModalOpen = false)}
+          ></TrustedHeaderAuthModal>
         {/if}
         <div>
           <h3>Services</h3>

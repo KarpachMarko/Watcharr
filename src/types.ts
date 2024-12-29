@@ -51,7 +51,8 @@ export type Icon =
   | "unpin"
   | "sparkles"
   | "tag"
-  | "ticket";
+  | "ticket"
+  | "lock-closed";
 
 export type Theme = "light" | "dark";
 
@@ -68,7 +69,8 @@ export type PosterExtraDetails = {
 export enum UserType {
   // Assume watcharr user if none of these...
   Jellyfin = 1,
-  Plex = 2
+  Plex = 2,
+  Proxy = 3
 }
 
 interface dbModel {
@@ -258,6 +260,7 @@ export interface AvailableAuthProviders {
   signupEnabled: boolean;
   isInSetup: boolean;
   useEmby: boolean;
+  headerAuthAutoLogin: boolean;
 }
 
 export interface TokenClaims {
@@ -933,6 +936,10 @@ export interface ServerConfig {
   DEBUG: boolean;
 }
 
+export interface ServerConfigByName<T> {
+  value: T;
+}
+
 export interface SonarrSettings {
   name: string;
   host?: string;
@@ -955,6 +962,17 @@ export interface RadarrSettings {
 export interface TwitchSettings {
   clientId: string;
   clientSecret: string;
+}
+
+export interface TrustedHeaderAuthSetting {
+  enabled: boolean;
+  headerName: string;
+  autoLogin?: boolean;
+  logoutUrl?: string;
+}
+
+export interface TrustedHeaderAuthLogoutDetailsResponse {
+  logoutUrl?: string;
 }
 
 export interface DropDownItem {

@@ -25,10 +25,12 @@ import (
 
 type UserType uint8
 
+// Assume watcharr user if none of these...
 var (
-	// Assume watcharr user if none of these...
 	JELLYFIN_USER UserType = 1
 	PLEX_USER     UserType = 2
+	// Registered via trusted header auth
+	PROXY_USER UserType = 3
 )
 
 // User Perms
@@ -160,6 +162,7 @@ type AvailableAuthProvidersResponse struct {
 	SignupEnabled          bool     `json:"signupEnabled"`
 	IsInSetup              bool     `json:"isInSetup"`
 	UseEmby                bool     `json:"useEmby"`
+	HeaderAuthAutoLogin    bool     `json:"headerAuthAutoLogin"`
 }
 
 type ArgonParams struct {

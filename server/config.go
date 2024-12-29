@@ -54,6 +54,10 @@ type ServerConfig struct {
 	// Will be fetched automatically when PLEX_HOST is provided via web ui.
 	PLEX_MACHINE_ID string `json:",omitempty"`
 
+	// Optional: Trusted header authentication configuration.
+	// VERY DANGEROUS if access is not controlled correctly!
+	HEADER_AUTH TrustedHeaderAuthSetting `json:",omitempty"`
+
 	SONARR []SonarrSettings `json:",omitempty"`
 	RADARR []RadarrSettings `json:",omitempty"`
 	TWITCH game.IGDB        `json:",omitempty"`
@@ -91,6 +95,35 @@ func (c *ServerConfig) GetSafe() ServerConfig {
 			ClientSecret: c.TWITCH.ClientSecret,
 		}, // Dont act safe, this contains twitch secrets, needed for config
 	}
+}
+
+type ServerConfigGetByName struct {
+	Value any `json:"value"`
+}
+
+// Get config item by name.
+func (c *ServerConfig) Get(s string) (ServerConfigGetByName, error) {
+	switch s {
+	case "DEFAULT_COUNTRY":
+		return ServerConfigGetByName{Value: c.DEFAULT_COUNTRY}, nil
+	case "JELLYFIN_HOST":
+		return ServerConfigGetByName{Value: c.JELLYFIN_HOST}, nil
+	case "USE_EMBY":
+		return ServerConfigGetByName{Value: c.USE_EMBY}, nil
+	case "SIGNUP_ENABLED":
+		return ServerConfigGetByName{Value: c.SIGNUP_ENABLED}, nil
+	case "TMDB_KEY":
+		return ServerConfigGetByName{Value: c.TMDB_KEY}, nil
+	case "PLEX_HOST":
+		return ServerConfigGetByName{Value: c.PLEX_HOST}, nil
+	case "PLEX_MACHINE_ID":
+		return ServerConfigGetByName{Value: c.PLEX_MACHINE_ID}, nil
+	case "HEADER_AUTH":
+		return ServerConfigGetByName{Value: c.HEADER_AUTH}, nil
+	case "DEBUG":
+		return ServerConfigGetByName{Value: c.DEBUG}, nil
+	}
+	return ServerConfigGetByName{}, errors.New("invalid setting")
 }
 
 var (
@@ -171,7 +204,12 @@ func updateConfig(k string, v any) error {
 	} else {
 		return errors.New("invalid setting")
 	}
-	return writeConfig()
+	err := writeConfig()
+	if err != nil {
+		slog.Error("updateConfig: Failed to write updated config!", "error", err)
+		return errors.New("failed to write config")
+	}
+	return nil
 }
 
 // Write current Config to file

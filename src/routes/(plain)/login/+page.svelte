@@ -10,8 +10,11 @@
   let error: string;
   let login = true;
   let availableProviders: string[] = [];
+  let apHeader = false;
+  let apPlex = false;
   let signupEnabled = true;
   let useEmby = false;
+  let noAuto = false;
 
   onMount(() => {
     if (localStorage.getItem("token")) {
@@ -25,8 +28,14 @@
           goto("/setup");
         }
         availableProviders = r.data.available;
+        apHeader = availableProviders?.includes("header");
+        apPlex = availableProviders?.includes("plex");
         signupEnabled = r.data.signupEnabled;
         useEmby = r.data.useEmby;
+        if (r.data.headerAuthAutoLogin && !noAuto) {
+          console.log("handling headerAuthAutoLogin.. calling proxyLogin automatically now.");
+          proxyLogin(true);
+        }
       }
     });
   });
@@ -34,6 +43,10 @@
   afterUpdate(() => {
     if (!error && $page.url.searchParams.get("again")) {
       error = "Please Login Again";
+    }
+    if ($page.url.searchParams.get("noAuto") == "1") {
+      console.info("login: Found noAuto param.. auto logins should be disabled now.");
+      noAuto = true;
     }
   });
 
@@ -121,6 +134,32 @@
       error = "Plex login failed";
     }
   }
+
+  function proxyLogin(auto = false) {
+    const nid = notify({ text: "Logging in", type: "loading" });
+    noAuthAxios
+      .post(`/auth/proxy`)
+      .then((resp) => {
+        if (resp.data?.token) {
+          console.log("Received token... logging in.");
+          localStorage.setItem("token", resp.data.token);
+          goto("/");
+          notify({ id: nid, text: `Welcome!`, type: "success" });
+        }
+      })
+      .catch((err) => {
+        if (err.response) {
+          error = err.response.data.error;
+        } else {
+          error = err.message;
+        }
+        if (auto) {
+          notify({ id: nid, text: `Automatic SSO Login Failed!`, type: "error" });
+        } else {
+          unNotify(nid);
+        }
+      });
+  }
 </script>
 
 <div>
@@ -164,20 +203,36 @@
             {/if}
           {/if}
         </div>
-        {#if availableProviders?.findIndex((provider) => provider == "plex") > -1}
+        {#if apHeader || apPlex}
           <p style="font-weight: bold; font-size: 14px;">or</p>
-          <div class="login-btns">
-            <button
-              type="button"
-              on:click={() => {
-                plexLogin();
-              }}
-              name="plex"
-              class="plex other"
-            >
-              <Icon i="plex" wh={18} />Continue with Plex
-            </button>
-          </div>
+          {#if apHeader}
+            <div class="login-btns">
+              <button
+                type="button"
+                name="proxy"
+                class="proxy other"
+                on:click={() => {
+                  proxyLogin();
+                }}
+              >
+                <Icon i="lock-closed" wh={18} />Continue with Single Sign-On
+              </button>
+            </div>
+          {/if}
+          {#if apPlex}
+            <div class="login-btns">
+              <button
+                type="button"
+                on:click={() => {
+                  plexLogin();
+                }}
+                name="plex"
+                class="plex other"
+              >
+                <Icon i="plex" wh={18} />Continue with Plex
+              </button>
+            </div>
+          {/if}
         {/if}
       {:else}
         <div class="login-btns">
@@ -237,6 +292,11 @@
     flex-flow: row;
     gap: 10px;
     width: 100%;
+
+    /* Hardcoded point for when main watcharr/jellyfin btns break. */
+    @media screen and (max-width: 320px) {
+      flex-wrap: wrap;
+    }
 
     button {
       display: flex;

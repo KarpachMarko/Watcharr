@@ -761,6 +761,28 @@ func (b *BaseRouter) addAuthRoutes() {
 		c.Status(400)
 	})
 
+	// Proxy Login
+	auth.POST("/proxy", func(c *gin.Context) {
+		var user User
+		if !trustedHeaderAuthIsEnabled() {
+			slog.Error("ProxyLogin: SSO has not been configured.")
+			c.JSON(http.StatusForbidden, ErrorResponse{Error: "proxy authentication is disabled"})
+			return
+		}
+		user.Username = c.GetHeader(Config.HEADER_AUTH.HeaderName)
+		if user.Username == "" {
+			slog.Error("ProxyLogin: Authentication header is missing.")
+			c.JSON(http.StatusForbidden, ErrorResponse{Error: "authentication header missing"})
+			return
+		}
+		response, err := loginTrustedHeaderAuth(&user, b.db)
+		if err != nil {
+			c.JSON(http.StatusForbidden, ErrorResponse{Error: err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, response)
+	})
+
 	// Register
 	auth.POST("/register", func(c *gin.Context) {
 		var user UserRegisterRequest
@@ -778,24 +800,45 @@ func (b *BaseRouter) addAuthRoutes() {
 
 	// Get available auth providers
 	auth.GET("/available", func(c *gin.Context) {
-		availableAuthProviders := []string{}
-		if Config.JELLYFIN_HOST != "" {
-			availableAuthProviders = append(availableAuthProviders, "jellyfin")
-		}
-		if Config.PLEX_HOST != "" && Config.PLEX_MACHINE_ID != "" {
-			availableAuthProviders = append(availableAuthProviders, "plex")
-		}
-		c.JSON(http.StatusOK, &AvailableAuthProvidersResponse{
-			AvailableAuthProviders: availableAuthProviders,
+		resp := &AvailableAuthProvidersResponse{
+			AvailableAuthProviders: []string{},
 			SignupEnabled:          Config.SIGNUP_ENABLED,
 			IsInSetup:              ServerInSetup,
 			UseEmby:                Config.USE_EMBY,
-		})
+		}
+		if Config.JELLYFIN_HOST != "" {
+			resp.AvailableAuthProviders = append(resp.AvailableAuthProviders, "jellyfin")
+		}
+		if Config.PLEX_HOST != "" && Config.PLEX_MACHINE_ID != "" {
+			resp.AvailableAuthProviders = append(resp.AvailableAuthProviders, "plex")
+		}
+		if trustedHeaderAuthIsEnabled() {
+			resp.AvailableAuthProviders = append(resp.AvailableAuthProviders, "header")
+			resp.HeaderAuthAutoLogin = Config.HEADER_AUTH.AutoLogin
+		}
+		c.JSON(http.StatusOK, resp)
 	})
 
 	// IMPORTANT: Routes below here must be authenticated.
 	auth.Use(AuthRequired(nil))
 	{
+		// Request details for logout process for proxy users.
+		// Any proxy user can request this for logout.
+		auth.GET("/proxy_logout_details", func(c *gin.Context) {
+			if !trustedHeaderAuthIsEnabled() {
+				slog.Error("GetProxy: SSO has not been configured.")
+				c.JSON(http.StatusForbidden, ErrorResponse{Error: "proxy authentication is disabled"})
+				return
+			}
+			userType := c.MustGet("userType").(UserType)
+			if userType != PROXY_USER {
+				slog.Error("GetProxy: Non proxy user attempted to fetch proxy logout details.")
+				c.JSON(http.StatusForbidden, ErrorResponse{Error: "you are not a proxy user"})
+				return
+			}
+			c.JSON(http.StatusOK, getTrustedHeaderAuthLogoutDetails())
+		})
+
 		// Request admin token
 		auth.GET("/admin_token", func(c *gin.Context) {
 			userId := c.MustGet("userId").(uint)
@@ -1116,18 +1159,53 @@ func (b *BaseRouter) addServerRoutes() {
 
 	// Get server config (minus very sensitive fields, like JWT_SECRET)
 	server.GET("/config", func(c *gin.Context) {
+		// s should be provided when asking for the value of just one setting.
+		s := c.Query("s")
+		if s != "" {
+			val, err := Config.Get(s)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, val)
+			return
+		}
 		// Return new ServerConfig with only the fields we want to show in settings ui
 		c.JSON(http.StatusOK, Config.GetSafe())
 	})
 
 	// Update config
 	server.POST("/config", func(c *gin.Context) {
+		// If query param `s` provided, handle specific setting.
+		// In this case, request body should be new setting value.
+		s := c.Query("s")
+		if s != "" {
+			switch s {
+			case "HEADER_AUTH":
+				var ur TrustedHeaderAuthSetting
+				err := c.ShouldBindJSON(&ur)
+				if err != nil {
+					c.AbortWithStatusJSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+					return
+				}
+				err = setTrustedHeaderAuthSetting(ur)
+				if err != nil {
+					c.AbortWithStatusJSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+					return
+				}
+				c.Status(http.StatusOK)
+				return
+			}
+			c.AbortWithStatusJSON(http.StatusBadRequest, ErrorResponse{Error: "unsupported setting"})
+			return
+		}
+		// No `s` param.. handle normally with `updateConfig` func.
 		var ur KeyValueRequest
 		err := c.ShouldBindJSON(&ur)
 		if err == nil {
 			err := updateConfig(ur.Key, ur.Value)
 			if err != nil {
-				c.JSON(http.StatusForbidden, ErrorResponse{Error: err.Error()})
+				c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 				return
 			}
 			c.Status(http.StatusOK)

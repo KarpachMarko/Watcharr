@@ -6,6 +6,7 @@ import { goto } from "$app/navigation";
 import axios from "axios";
 import { baseURL } from "@/lib/util/api";
 import { notify } from "@/lib/util/notify";
+import { clearWatcharrData } from "@/lib/logout";
 
 axios.interceptors.request.use(
   (config) => {
@@ -38,7 +39,7 @@ axios.interceptors.response.use(
     if (error.response?.status === 401) {
       console.error("Recieved 401 response, going to login.");
       notify({ text: "Request Authorization Failed!", type: "error" });
-      localStorage.removeItem("token");
+      clearWatcharrData();
       goto("/login?again=1");
     }
     return Promise.reject(error);
