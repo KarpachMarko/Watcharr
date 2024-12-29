@@ -64,7 +64,7 @@ func getTrustedHeaderAuthLogoutDetails() *TrustedHeaderAuthLogoutDetailsResponse
 func loginTrustedHeaderAuth(user *User, db *gorm.DB) (AuthResponse, error) {
 	slog.Debug("loginTrustedHeaderAuth: A user is logging in", "username_from_header", user.Username)
 	dbUser := new(User)
-	res := db.Where("username = ? AND (type IS NULL OR type = 0 OR type = ?)", user.Username, PROXY_USER).Take(&dbUser)
+	res := db.Where("username = ? AND type = ?", user.Username, PROXY_USER).Take(&dbUser)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			slog.Info("loginTrustedHeaderAuth: Creating new User from authentication header", "username_from_header", user.Username)
