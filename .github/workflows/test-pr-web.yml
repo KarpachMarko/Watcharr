@@ -8,6 +8,11 @@ on:
       - v*
     paths:
       - ".github/workflows/test-pr-web.yml"
+      - "package*.json"
+      - "svelte.config.json"
+      - "vite.config.json"
+      - "tsconfig.json"
+      - ".prettier*"
       - "src/**"
 
 jobs:
