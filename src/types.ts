@@ -979,7 +979,6 @@ export interface DropDownItem {
   id: number | string;
   value: string;
   icon?: Icon;
-  disabled?: boolean;
 }
 
 export interface ListBoxItem {
