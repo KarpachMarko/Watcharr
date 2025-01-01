@@ -67,7 +67,7 @@ export type PosterExtraDetails = {
 };
 
 export enum UserType {
-  // Assume watcharr user if none of these...
+  Watcharr = 0,
   Jellyfin = 1,
   Plex = 2,
   Proxy = 3
@@ -978,7 +978,8 @@ export interface TrustedHeaderAuthLogoutDetailsResponse {
 export interface DropDownItem {
   id: number | string;
   value: string;
-  icon: Icon;
+  icon?: Icon;
+  disabled?: boolean;
 }
 
 export interface ListBoxItem {

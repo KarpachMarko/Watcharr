@@ -25,8 +25,8 @@ import (
 
 type UserType uint8
 
-// Assume watcharr user if none of these...
 var (
+	WATCHARR_USER UserType = 0
 	JELLYFIN_USER UserType = 1
 	PLEX_USER     UserType = 2
 	// Registered via trusted header auth
