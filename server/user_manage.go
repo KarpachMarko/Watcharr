@@ -19,7 +19,8 @@ type ManagedUser struct {
 }
 
 type UpdateUserRequest struct {
-	Permissions *int `json:"permissions"`
+	Permissions *int      `json:"permissions"`
+	Type        *UserType `json:"type"`
 }
 
 func getAllUsers(db *gorm.DB) ([]ManagedUser, error) {
@@ -34,7 +35,7 @@ func getAllUsers(db *gorm.DB) ([]ManagedUser, error) {
 // Update a user. For management views, for admin to update another user.
 func manageUser(db *gorm.DB, userId uint, ur UpdateUserRequest) error {
 	// Error now if no userId or any UpdateUserRequest property was provided.
-	if userId == 0 || (ur.Permissions == nil) {
+	if userId == 0 || (ur.Permissions == nil && ur.Type == nil) {
 		slog.Error("manageUser: invalid arguments", "user_id", userId)
 		return errors.New("invalid arguments, ensure a valid userId and at least one property has been provided for updating")
 	}
@@ -47,6 +48,16 @@ func manageUser(db *gorm.DB, userId uint, ur UpdateUserRequest) error {
 			toUpdate["permissions"] = PERM_NONE
 		} else {
 			toUpdate["permissions"] = *ur.Permissions
+		}
+	}
+	if ur.Type != nil {
+		t := *ur.Type
+		if t == WATCHARR_USER || t == PROXY_USER {
+			// Currently only swapping between watcharr/proxy user is supported.
+			slog.Debug("manageUser: User type is being updated.", "new_type", t)
+			toUpdate["type"] = t
+		} else {
+			slog.Warn("manageUser: User type will not be updated. Only watcharr/proxy types are supported for swapping.", "tried_type", t)
 		}
 	}
 	if res := db.Model(&User{}).Where("id = ?", userId).Updates(toUpdate); res.Error != nil {

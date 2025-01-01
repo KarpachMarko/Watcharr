@@ -1,15 +1,17 @@
 <script lang="ts">
   import Checkbox from "@/lib/Checkbox.svelte";
+  import DropDown from "@/lib/DropDown.svelte";
   import Modal from "@/lib/Modal.svelte";
   import Setting from "@/lib/settings/Setting.svelte";
   import SettingsList from "@/lib/settings/SettingsList.svelte";
   import { userHasPermission } from "@/lib/util/helpers";
   import { notify } from "@/lib/util/notify";
-  import { UserPermission, type ManagedUser } from "@/types";
+  import { UserPermission, UserType, type ManagedUser } from "@/types";
   import axios from "axios";
 
   interface UpdateUserRequest {
     permissions?: number;
+    type?: UserType;
   }
 
   export let user: ManagedUser;
@@ -20,10 +22,12 @@
 
   // Things we have changed
   let changedPerms = false;
+  let originalUser = structuredClone(user);
 
   async function save() {
+    const changedType = user.type !== originalUser.type;
     // If nothing changed.. error
-    if (!changedPerms) {
+    if (!changedPerms && !changedType) {
       error = "Nothing has been changed";
       return;
     }
@@ -32,6 +36,9 @@
         const toUpdate: UpdateUserRequest = {};
         if (changedPerms) {
           toUpdate["permissions"] = user.permissions;
+        }
+        if (changedType) {
+          toUpdate["type"] = user.type;
         }
         const res = await axios.post(`/server/users/${user.id}`, toUpdate);
         if (res.status === 200) {
@@ -62,9 +69,9 @@
     <span class="error">{error}!</span>
   {/if}
 
-  <h3 class="norm">Permissions</h3>
-
   <SettingsList>
+    <h3 class="norm">Permissions</h3>
+
     <Setting title="Admin" desc="Give user admin, overrides all other permissions." row>
       <Checkbox
         name="USER_PERM_ADMIN"
@@ -98,6 +105,41 @@
       />
     </Setting>
 
+    <h3 class="norm">Other</h3>
+
+    <Setting
+      title="User Type"
+      desc="The type of this user, affects how they login and certain features. Currently only possible to swap between Watcharr/Proxy types."
+    >
+      {#if !user.type || user.type === UserType.Proxy}
+        <DropDown
+          placeholder="Unknown"
+          bind:active={user.type}
+          options={[
+            {
+              id: 0,
+              value: "Watcharr"
+            },
+            // {
+            //   id: UserType.Jellyfin,
+            //   value: "Jellyfin",
+            // },
+            // {
+            //   id: UserType.Plex,
+            //   value: "Plex",
+            // },
+            {
+              id: UserType.Proxy,
+              value: "Proxy"
+            }
+          ]}
+          isDropDownItem={true}
+        />
+      {:else}
+        <p>This option is not supported for this user type yet.</p>
+      {/if}
+    </Setting>
+
     <div class="btns">
       <button on:click={() => save()}>Save</button>
     </div>
@@ -105,10 +147,6 @@
 </Modal>
 
 <style lang="scss">
-  h3 {
-    margin-bottom: 10px;
-  }
-
   .btns {
     display: flex;
     flex-flow: row;

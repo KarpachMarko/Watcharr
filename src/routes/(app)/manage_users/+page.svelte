@@ -6,6 +6,7 @@
   import { UserPermission, type ManagedUser } from "@/types";
   import axios from "axios";
   import EditUserModal from "./modals/EditUserModal.svelte";
+  import UserTypeIcon from "@/lib/user/UserTypeIcon.svelte";
 
   const currentYear = new Date(Date.now()).getFullYear();
 
@@ -37,17 +38,7 @@
           <tr>
             <td class="username">
               <div class={`type-${u.type}`}>
-                {#if u.type == 1}
-                  <Icon i="jellyfin" wh={20} />
-                {:else if u.type == 2}
-                  <Icon i="plex" wh={20} />
-                {:else}
-                  <span
-                    style="font-family: 'Rampart One'; font-weight: bold; font-size: 21px; line-height: 20px; user-select: none;"
-                  >
-                    W
-                  </span>
-                {/if}
+                <UserTypeIcon type={u.type} />
                 {u.username}
                 {#if userHasPermission(u.permissions, UserPermission.PERM_ADMIN)}
                   <span class="tag">Admin</span>
