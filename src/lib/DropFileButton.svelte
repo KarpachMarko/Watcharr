@@ -1,130 +1,134 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import type { Icon as IconT } from "@/types";
-  import Icon from "./Icon.svelte";
+	import { onMount } from "svelte";
+	import type { Icon as IconT } from "@/types";
+	import Icon from "./Icon.svelte";
 
-  interface Props {
-    text: string;
-    icon?: IconT;
-    filesSelected: (f?: FileList | null) => void;
-    allowSelectMultipleFiles?: boolean;
-  }
+	interface Props {
+		text: string;
+		icon?: IconT;
+		filesSelected: (f?: FileList | null) => void;
+		allowSelectMultipleFiles?: boolean;
+	}
 
-  let {
-    text,
-    icon = "document",
-    filesSelected,
-    allowSelectMultipleFiles = false
-  }: Props = $props();
+	let {
+		text,
+		icon = "document",
+		filesSelected,
+		allowSelectMultipleFiles = false,
+	}: Props = $props();
 
-  let fileInput: HTMLInputElement = $state();
-  let dragEnterTarget: EventTarget | null = $state();
-  let isDragOver = $state(false);
+	let fileInput: HTMLInputElement = $state();
+	let dragEnterTarget: EventTarget | null = $state();
+	let isDragOver = $state(false);
 
-  function importFile() {
-    fileInput.click();
-  }
+	function importFile() {
+		fileInput.click();
+	}
 
-  onMount(() => {
-    if (fileInput) {
-      fileInput.addEventListener("change", () => {
-        filesSelected(fileInput.files);
-      });
-    }
-  });
+	onMount(() => {
+		if (fileInput) {
+			fileInput.addEventListener("change", () => {
+				filesSelected(fileInput.files);
+			});
+		}
+	});
 </script>
 
 <div class="drop-file-btn">
-  <button
-    onclick={importFile}
-    ondragover={(ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-    }}
-    ondragenter={(ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      dragEnterTarget = ev.target;
-      console.log("enter");
-      isDragOver = true;
-    }}
-    ondragleave={(ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (dragEnterTarget === ev.target) {
-        console.log("leave");
-        isDragOver = false;
-      }
-    }}
-    ondrop={(ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      filesSelected(ev.dataTransfer?.files);
-    }}
-    class={isDragOver ? "dragging-over" : ""}
-  >
-    <Icon i={isDragOver ? "add" : icon} wh="100%" />
-    <div>
-      <h4 class="norm">
-        {#if isDragOver}
-          Import {text}
-        {:else}
-          {text}
-        {/if}
-      </h4>
-    </div>
-  </button>
-  <input type="file" multiple={allowSelectMultipleFiles} bind:this={fileInput} />
+	<button
+		onclick={importFile}
+		ondragover={(ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+		}}
+		ondragenter={(ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+			dragEnterTarget = ev.target;
+			console.log("enter");
+			isDragOver = true;
+		}}
+		ondragleave={(ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+			if (dragEnterTarget === ev.target) {
+				console.log("leave");
+				isDragOver = false;
+			}
+		}}
+		ondrop={(ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+			filesSelected(ev.dataTransfer?.files);
+		}}
+		class={isDragOver ? "dragging-over" : ""}
+	>
+		<Icon i={isDragOver ? "add" : icon} wh="100%" />
+		<div>
+			<h4 class="norm">
+				{#if isDragOver}
+					Import {text}
+				{:else}
+					{text}
+				{/if}
+			</h4>
+		</div>
+	</button>
+	<input
+		type="file"
+		multiple={allowSelectMultipleFiles}
+		bind:this={fileInput}
+	/>
 </div>
 
 <style lang="scss">
-  .drop-file-btn {
-    button {
-      display: flex;
-      flex-flow: column;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-      height: 180px;
-      padding: 20px;
-      background-color: $accent-color;
-      border: unset;
-      border-radius: 10px;
-      user-select: none;
-      transition: 180ms ease-in-out;
+	.drop-file-btn {
+		button {
+			display: flex;
+			flex-flow: column;
+			justify-content: center;
+			align-items: center;
+			gap: 10px;
+			height: 180px;
+			padding: 20px;
+			background-color: $accent-color;
+			border: unset;
+			border-radius: 10px;
+			user-select: none;
+			transition: 180ms ease-in-out;
 
-      :global {
-        #reel path {
-          transition: 180ms ease-in-out;
+			:global {
+				#reel path {
+					transition: 180ms ease-in-out;
 
-          &:first-of-type {
-            fill: transparent;
-          }
+					&:first-of-type {
+						fill: transparent;
+					}
 
-          &:last-of-type {
-            fill: $text-color;
-          }
-        }
-      }
+					&:last-of-type {
+						fill: $text-color;
+					}
+				}
+			}
 
-      &:hover,
-      &.dragging-over {
-        color: $bg-color;
-        background-color: $accent-color-hover;
+			&:hover,
+			&.dragging-over {
+				color: $bg-color;
+				background-color: $accent-color-hover;
 
-        :global(#reel path:last-of-type) {
-          fill: $bg-color;
-        }
-      }
-    }
+				:global(#reel path:last-of-type) {
+					fill: $bg-color;
+				}
+			}
+		}
 
-    input[type="file"] {
-      width: 0px;
-      overflow: hidden;
-      border: unset;
-      background-color: transparent;
-      position: absolute;
-      top: -500px;
-    }
-  }
+		input[type="file"] {
+			width: 0px;
+			overflow: hidden;
+			border: unset;
+			background-color: transparent;
+			position: absolute;
+			top: -500px;
+		}
+	}
 </style>

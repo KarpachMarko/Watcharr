@@ -1,338 +1,348 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import { page } from "$app/stores";
-  import Icon from "@/lib/Icon.svelte";
-  import { type AvailableAuthProviders } from "@/types";
-  import { noAuthAxios } from "@/lib/util/api";
-  import { onMount } from "svelte";
-  import { notify, unNotify } from "@/lib/util/notify";
+	import { goto } from "$app/navigation";
+	import { page } from "$app/stores";
+	import Icon from "@/lib/Icon.svelte";
+	import { type AvailableAuthProviders } from "@/types";
+	import { noAuthAxios } from "@/lib/util/api";
+	import { onMount } from "svelte";
+	import { notify, unNotify } from "@/lib/util/notify";
 
-  let error: string;
-  let login = true;
-  let availableProviders: string[] = [];
-  let apHeader = false;
-  let apPlex = false;
-  let signupEnabled = true;
-  let useEmby = false;
-  let noAuto = false;
+	let error: string;
+	let login = true;
+	let availableProviders: string[] = [];
+	let apHeader = false;
+	let apPlex = false;
+	let signupEnabled = true;
+	let useEmby = false;
+	let noAuto = false;
 
-  onMount(() => {
-    if (localStorage.getItem("token")) {
-      goto("/");
-    }
+	onMount(() => {
+		if (localStorage.getItem("token")) {
+			goto("/");
+		}
 
-    noAuthAxios.get<AvailableAuthProviders>("/auth/available").then((r) => {
-      if (r?.data) {
-        if (r.data.isInSetup) {
-          console.log("Server is in setup.. navigating to web setup page.");
-          goto("/setup");
-        }
-        availableProviders = r.data.available;
-        apHeader = availableProviders?.includes("header");
-        apPlex = availableProviders?.includes("plex");
-        signupEnabled = r.data.signupEnabled;
-        useEmby = r.data.useEmby;
-        if (r.data.headerAuthAutoLogin && !noAuto) {
-          console.log("handling headerAuthAutoLogin.. calling proxyLogin automatically now.");
-          proxyLogin(true);
-        }
-      }
-    });
-  });
+		noAuthAxios.get<AvailableAuthProviders>("/auth/available").then((r) => {
+			if (r?.data) {
+				if (r.data.isInSetup) {
+					console.log("Server is in setup.. navigating to web setup page.");
+					goto("/setup");
+				}
+				availableProviders = r.data.available;
+				apHeader = availableProviders?.includes("header");
+				apPlex = availableProviders?.includes("plex");
+				signupEnabled = r.data.signupEnabled;
+				useEmby = r.data.useEmby;
+				if (r.data.headerAuthAutoLogin && !noAuto) {
+					console.log(
+						"handling headerAuthAutoLogin.. calling proxyLogin automatically now.",
+					);
+					proxyLogin(true);
+				}
+			}
+		});
+	});
 
-  $effect(() => {
-    if (!error && $page.url.searchParams.get("again")) {
-      error = "Please Login Again";
-    }
-    if ($page.url.searchParams.get("noAuto") == "1") {
-      console.info("login: Found noAuto param.. auto logins should be disabled now.");
-      noAuto = true;
-    }
-  });
+	$effect(() => {
+		if (!error && $page.url.searchParams.get("again")) {
+			error = "Please Login Again";
+		}
+		if ($page.url.searchParams.get("noAuto") == "1") {
+			console.info(
+				"login: Found noAuto param.. auto logins should be disabled now.",
+			);
+			noAuto = true;
+		}
+	});
 
-  function handleLogin(ev: SubmitEvent) {
-    const fd = new FormData(ev.target! as HTMLFormElement);
-    const user = fd.get("username");
-    const pass = fd.get("password");
+	function handleLogin(ev: SubmitEvent) {
+		const fd = new FormData(ev.target! as HTMLFormElement);
+		const user = fd.get("username");
+		const pass = fd.get("password");
 
-    if (!user || !pass) {
-      error = "Username and Password fields are required";
-      return;
-    }
+		if (!user || !pass) {
+			error = "Username and Password fields are required";
+			return;
+		}
 
-    let customAuthEP = "";
-    if ((ev.submitter as HTMLButtonElement)?.name === "jellyfin") {
-      customAuthEP = "jellyfin";
-    }
+		let customAuthEP = "";
+		if ((ev.submitter as HTMLButtonElement)?.name === "jellyfin") {
+			customAuthEP = "jellyfin";
+		}
 
-    const nid = notify({ text: "Logging in", type: "loading" });
-    noAuthAxios
-      .post(`/auth${login ? `/${customAuthEP}` : "/register"}`, {
-        username: user,
-        password: pass
-      })
-      .then((resp) => {
-        if (resp.data?.token) {
-          console.log("Received token... logging in.");
-          localStorage.setItem("token", resp.data.token);
-          if (useEmby) {
-            localStorage.setItem("useEmby", "1");
-          } else {
-            localStorage.removeItem("useEmby");
-          }
-          goto("/");
-          notify({ id: nid, text: `Welcome ${user}!`, type: "success" });
-        }
-      })
-      .catch((err) => {
-        if (err.response) {
-          error = err.response.data.error;
-        } else {
-          error = err.message;
-        }
-        unNotify(nid);
-      });
-  }
+		const nid = notify({ text: "Logging in", type: "loading" });
+		noAuthAxios
+			.post(`/auth${login ? `/${customAuthEP}` : "/register"}`, {
+				username: user,
+				password: pass,
+			})
+			.then((resp) => {
+				if (resp.data?.token) {
+					console.log("Received token... logging in.");
+					localStorage.setItem("token", resp.data.token);
+					if (useEmby) {
+						localStorage.setItem("useEmby", "1");
+					} else {
+						localStorage.removeItem("useEmby");
+					}
+					goto("/");
+					notify({ id: nid, text: `Welcome ${user}!`, type: "success" });
+				}
+			})
+			.catch((err) => {
+				if (err.response) {
+					error = err.response.data.error;
+				} else {
+					error = err.message;
+				}
+				unNotify(nid);
+			});
+	}
 
-  async function plexLogin() {
-    try {
-      const { preparePlexAuth, doPlexLogin, plexPinPoll } = await import("@/lib/util/plex");
-      const p = preparePlexAuth();
-      const pin = await doPlexLogin(p);
-      plexPinPoll(pin, p, (err, token) => {
-        if (err) {
-          error = "Plex Auth Failed";
-          console.error("Plex auth failed!", err);
-          return;
-        }
-        const nid = notify({ text: "Logging in", type: "loading" });
-        noAuthAxios
-          .post("/auth/plex", {
-            token,
-            clientIdentifier: p.clientId
-          })
-          .then((resp) => {
-            if (resp.data?.token) {
-              console.log("Received token... logging in.");
-              localStorage.setItem("token", resp.data.token);
-              goto("/");
-              notify({ id: nid, text: `Welcome!`, type: "success" });
-            }
-          })
-          .catch((err) => {
-            console.error("plexLogin: Fail", err);
-            if (err.response) {
-              error = err.response.data.error;
-            } else {
-              error = err.message;
-            }
-            notify({ id: nid, text: `Failed!`, type: "error" });
-          });
-      });
-    } catch (err) {
-      console.error("plexLogin: failed!", err);
-      error = "Plex login failed";
-    }
-  }
+	async function plexLogin() {
+		try {
+			const { preparePlexAuth, doPlexLogin, plexPinPoll } = await import(
+				"@/lib/util/plex"
+			);
+			const p = preparePlexAuth();
+			const pin = await doPlexLogin(p);
+			plexPinPoll(pin, p, (err, token) => {
+				if (err) {
+					error = "Plex Auth Failed";
+					console.error("Plex auth failed!", err);
+					return;
+				}
+				const nid = notify({ text: "Logging in", type: "loading" });
+				noAuthAxios
+					.post("/auth/plex", {
+						token,
+						clientIdentifier: p.clientId,
+					})
+					.then((resp) => {
+						if (resp.data?.token) {
+							console.log("Received token... logging in.");
+							localStorage.setItem("token", resp.data.token);
+							goto("/");
+							notify({ id: nid, text: `Welcome!`, type: "success" });
+						}
+					})
+					.catch((err) => {
+						console.error("plexLogin: Fail", err);
+						if (err.response) {
+							error = err.response.data.error;
+						} else {
+							error = err.message;
+						}
+						notify({ id: nid, text: `Failed!`, type: "error" });
+					});
+			});
+		} catch (err) {
+			console.error("plexLogin: failed!", err);
+			error = "Plex login failed";
+		}
+	}
 
-  function proxyLogin(auto = false) {
-    const nid = notify({ text: "Logging in", type: "loading" });
-    noAuthAxios
-      .post(`/auth/proxy`)
-      .then((resp) => {
-        if (resp.data?.token) {
-          console.log("Received token... logging in.");
-          localStorage.setItem("token", resp.data.token);
-          goto("/");
-          notify({ id: nid, text: `Welcome!`, type: "success" });
-        }
-      })
-      .catch((err) => {
-        if (err.response) {
-          error = err.response.data.error;
-        } else {
-          error = err.message;
-        }
-        if (auto) {
-          notify({ id: nid, text: `Automatic SSO Login Failed!`, type: "error" });
-        } else {
-          unNotify(nid);
-        }
-      });
-  }
+	function proxyLogin(auto = false) {
+		const nid = notify({ text: "Logging in", type: "loading" });
+		noAuthAxios
+			.post(`/auth/proxy`)
+			.then((resp) => {
+				if (resp.data?.token) {
+					console.log("Received token... logging in.");
+					localStorage.setItem("token", resp.data.token);
+					goto("/");
+					notify({ id: nid, text: `Welcome!`, type: "success" });
+				}
+			})
+			.catch((err) => {
+				if (err.response) {
+					error = err.response.data.error;
+				} else {
+					error = err.message;
+				}
+				if (auto) {
+					notify({
+						id: nid,
+						text: `Automatic SSO Login Failed!`,
+						type: "error",
+					});
+				} else {
+					unNotify(nid);
+				}
+			});
+	}
 </script>
 
 <div>
-  <div class="inner">
-    <h2>
-      {#if login}
-        Get Back In!
-      {:else}
-        Lucky You Found Us!
-      {/if}
-    </h2>
+	<div class="inner">
+		<h2>
+			{#if login}
+				Get Back In!
+			{:else}
+				Lucky You Found Us!
+			{/if}
+		</h2>
 
-    {#if error}
-      <span class="error">{error}!</span>
-    {/if}
+		{#if error}
+			<span class="error">{error}!</span>
+		{/if}
 
-    <form on:submit|preventDefault={handleLogin}>
-      <label for="username">Username</label>
-      <input type="text" name="username" placeholder="Username" />
+		<form on:submit|preventDefault={handleLogin}>
+			<label for="username">Username</label>
+			<input type="text" name="username" placeholder="Username" />
 
-      <label for="password">Password</label>
-      <input type="password" name="password" placeholder="Password" />
+			<label for="password">Password</label>
+			<input type="password" name="password" placeholder="Password" />
 
-      {#if login}
-        <span class="login-with" style="font-weight: bold">Login With</span>
-        <div class="login-btns">
-          <button type="submit"><span class="watcharr">W</span>Watcharr</button>
-          {#if availableProviders?.length > 0}
-            {#if availableProviders.find((ap) => ap === "jellyfin")}
-              {#if useEmby}
-                <button type="submit" name="jellyfin" class="other">
-                  <Icon i="emby" wh={18} />
-                  emby
-                </button>
-              {:else}
-                <button type="submit" name="jellyfin" class="other">
-                  <Icon i="jellyfin" wh={18} />
-                  jellyfin
-                </button>
-              {/if}
-            {/if}
-          {/if}
-        </div>
-        {#if apHeader || apPlex}
-          <p style="font-weight: bold; font-size: 14px;">or</p>
-          {#if apHeader}
-            <div class="login-btns">
-              <button
-                type="button"
-                name="proxy"
-                class="proxy other"
-                on:click={() => {
-                  proxyLogin();
-                }}
-              >
-                <Icon i="lock-closed" wh={18} />Continue with Single Sign-On
-              </button>
-            </div>
-          {/if}
-          {#if apPlex}
-            <div class="login-btns">
-              <button
-                type="button"
-                on:click={() => {
-                  plexLogin();
-                }}
-                name="plex"
-                class="plex other"
-              >
-                <Icon i="plex" wh={18} />Continue with Plex
-              </button>
-            </div>
-          {/if}
-        {/if}
-      {:else}
-        <div class="login-btns">
-          <button type="submit">Sign Up</button>
-        </div>
-      {/if}
-    </form>
+			{#if login}
+				<span class="login-with" style="font-weight: bold">Login With</span>
+				<div class="login-btns">
+					<button type="submit"><span class="watcharr">W</span>Watcharr</button>
+					{#if availableProviders?.length > 0}
+						{#if availableProviders.find((ap) => ap === "jellyfin")}
+							{#if useEmby}
+								<button type="submit" name="jellyfin" class="other">
+									<Icon i="emby" wh={18} />
+									emby
+								</button>
+							{:else}
+								<button type="submit" name="jellyfin" class="other">
+									<Icon i="jellyfin" wh={18} />
+									jellyfin
+								</button>
+							{/if}
+						{/if}
+					{/if}
+				</div>
+				{#if apHeader || apPlex}
+					<p style="font-weight: bold; font-size: 14px;">or</p>
+					{#if apHeader}
+						<div class="login-btns">
+							<button
+								type="button"
+								name="proxy"
+								class="proxy other"
+								on:click={() => {
+									proxyLogin();
+								}}
+							>
+								<Icon i="lock-closed" wh={18} />Continue with Single Sign-On
+							</button>
+						</div>
+					{/if}
+					{#if apPlex}
+						<div class="login-btns">
+							<button
+								type="button"
+								on:click={() => {
+									plexLogin();
+								}}
+								name="plex"
+								class="plex other"
+							>
+								<Icon i="plex" wh={18} />Continue with Plex
+							</button>
+						</div>
+					{/if}
+				{/if}
+			{:else}
+				<div class="login-btns">
+					<button type="submit">Sign Up</button>
+				</div>
+			{/if}
+		</form>
 
-    {#if signupEnabled}
-      <button
-        class="plain"
-        on:click={() => {
-          login = !login;
-        }}
-      >
-        {#if login}
-          Not a user?
-        {:else}
-          Already a user?
-        {/if}
-      </button>
-    {/if}
-  </div>
+		{#if signupEnabled}
+			<button
+				class="plain"
+				on:click={() => {
+					login = !login;
+				}}
+			>
+				{#if login}
+					Not a user?
+				{:else}
+					Already a user?
+				{/if}
+			</button>
+		{/if}
+	</div>
 </div>
 
 <style lang="scss">
-  div,
-  form {
-    display: flex;
-    flex-flow: column;
-    align-items: center;
-    gap: 10px;
-    margin: 0 35px;
-  }
+	div,
+	form {
+		display: flex;
+		flex-flow: column;
+		align-items: center;
+		gap: 10px;
+		margin: 0 35px;
+	}
 
-  .inner,
-  form {
-    width: 100%;
-    max-width: 400px;
-  }
+	.inner,
+	form {
+		width: 100%;
+		max-width: 400px;
+	}
 
-  .inner h2 {
-    font-weight: normal;
-  }
+	.inner h2 {
+		font-weight: normal;
+	}
 
-  label {
-    align-self: flex-start;
-    font-weight: bold;
-  }
+	label {
+		align-self: flex-start;
+		font-weight: bold;
+	}
 
-  span.login-with {
-    font-size: 14px;
-  }
+	span.login-with {
+		font-size: 14px;
+	}
 
-  .login-btns {
-    display: flex;
-    flex-flow: row;
-    gap: 10px;
-    width: 100%;
+	.login-btns {
+		display: flex;
+		flex-flow: row;
+		gap: 10px;
+		width: 100%;
 
-    /* Hardcoded point for when main watcharr/jellyfin btns break. */
-    @media screen and (max-width: 320px) {
-      flex-wrap: wrap;
-    }
+		/* Hardcoded point for when main watcharr/jellyfin btns break. */
+		@media screen and (max-width: 320px) {
+			flex-wrap: wrap;
+		}
 
-    button {
-      display: flex;
-      flex-flow: row;
-      gap: 10px;
-      text-transform: capitalize;
+		button {
+			display: flex;
+			flex-flow: row;
+			gap: 10px;
+			text-transform: capitalize;
 
-      .watcharr {
-        font-family: "Rampart One";
-        font-size: 19px;
-        line-height: 19px;
-      }
+			.watcharr {
+				font-family: "Rampart One";
+				font-size: 19px;
+				line-height: 19px;
+			}
 
-      &.other {
-        overflow: hidden;
-        animation: 250ms ease otherbtn;
+			&.other {
+				overflow: hidden;
+				animation: 250ms ease otherbtn;
 
-        @keyframes otherbtn {
-          from {
-            width: 0px;
-          }
-          to {
-            width: 100%;
-          }
-        }
-      }
-    }
-  }
+				@keyframes otherbtn {
+					from {
+						width: 0px;
+					}
+					to {
+						width: 100%;
+					}
+				}
+			}
+		}
+	}
 
-  .error {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-    padding: 10px;
-    background-color: rgb(221, 48, 48);
-    text-transform: capitalize;
-    color: white;
-  }
+	.error {
+		display: flex;
+		justify-content: center;
+		width: 100%;
+		padding: 10px;
+		background-color: rgb(221, 48, 48);
+		text-transform: capitalize;
+		color: white;
+	}
 </style>

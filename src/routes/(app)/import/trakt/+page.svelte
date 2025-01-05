@@ -4,101 +4,104 @@
  -->
 
 <script lang="ts">
-  import JobWatcherModal from "@/lib/JobWatcherModal.svelte";
-  import { notify } from "@/lib/util/notify";
-  import { store } from "@/store.svelte";
-  import type { JobCreatedResponse } from "@/types";
-  import axios from "axios";
+	import JobWatcherModal from "@/lib/JobWatcherModal.svelte";
+	import { notify } from "@/lib/util/notify";
+	import { store } from "@/store.svelte";
+	import type { JobCreatedResponse } from "@/types";
+	import axios from "axios";
 
-  let modalOpen = $state(false);
-  let traktUsername = $state("");
+	let modalOpen = $state(false);
+	let traktUsername = $state("");
 
-  async function startJob(): Promise<{ jobId: string } | undefined> {
-    const r = await axios.post<JobCreatedResponse>("/import/trakt", { username: traktUsername });
-    console.log("startSync: Response:", r.data);
-    if (!r.data.jobId) {
-      notify({
-        type: "error",
-        text: "No job id was returned! Cannot watch job, if it even started.",
-      });
-      return;
-    }
-    return { jobId: r.data.jobId };
-  }
+	async function startJob(): Promise<{ jobId: string } | undefined> {
+		const r = await axios.post<JobCreatedResponse>("/import/trakt", {
+			username: traktUsername,
+		});
+		console.log("startSync: Response:", r.data);
+		if (!r.data.jobId) {
+			notify({
+				type: "error",
+				text: "No job id was returned! Cannot watch job, if it even started.",
+			});
+			return;
+		}
+		return { jobId: r.data.jobId };
+	}
 </script>
 
 <div class="content">
-  <div class="inner">
-    <h2>Trakt Import</h2>
-    <h5 class="norm">
-      Provide the username to your <b>public</b> Trakt profile to start the import job.
-    </h5>
+	<div class="inner">
+		<h2>Trakt Import</h2>
+		<h5 class="norm">
+			Provide the username to your <b>public</b> Trakt profile to start the import
+			job.
+		</h5>
 
-    <input
-      type="text"
-      placeholder={store.userInfo?.username ?? "Trakt Username"}
-      bind:value={traktUsername}
-    />
-    <button onclick={() => (modalOpen = true)}>Start Import</button>
-  </div>
+		<input
+			type="text"
+			placeholder={store.userInfo?.username ?? "Trakt Username"}
+			bind:value={traktUsername}
+		/>
+		<button onclick={() => (modalOpen = true)}>Start Import</button>
+	</div>
 
-  {#if modalOpen}
-    <JobWatcherModal
-      modalTitle="Trakt Import"
-      messages={{ starting: "Trakt import job is starting" }}
-      getJobId={startJob}
-      onClose={() => (modalOpen = false)}
-    />
-  {/if}
+	{#if modalOpen}
+		<JobWatcherModal
+			modalTitle="Trakt Import"
+			messages={{ starting: "Trakt import job is starting" }}
+			getJobId={startJob}
+			onClose={() => (modalOpen = false)}
+		/>
+	{/if}
 </div>
 
 <style lang="scss">
-  .content {
-    display: flex;
-    width: 100%;
-    justify-content: center;
-    padding: 0 30px 30px 30px;
+	.content {
+		display: flex;
+		width: 100%;
+		justify-content: center;
+		padding: 0 30px 30px 30px;
 
-    .inner {
-      display: flex;
-      flex-flow: column;
-      min-width: 400px;
-      max-width: 400px;
-      overflow: hidden;
+		.inner {
+			display: flex;
+			flex-flow: column;
+			min-width: 400px;
+			max-width: 400px;
+			overflow: hidden;
 
-      @media screen and (max-width: 420px) {
-        min-width: 100%;
-      }
-    }
-  }
+			@media screen and (max-width: 420px) {
+				min-width: 100%;
+			}
+		}
+	}
 
-  input,
-  button {
-    margin-top: 15px;
-  }
+	input,
+	button {
+		margin-top: 15px;
+	}
 
-  ul {
-    display: flex;
-    flex-flow: column;
-    gap: 5px;
-    margin: 10px;
-    list-style: none;
+	ul {
+		display: flex;
+		flex-flow: column;
+		gap: 5px;
+		margin: 10px;
+		list-style: none;
 
-    li {
-      display: flex;
-      flex-flow: row;
-      align-items: center;
-      padding: 10px;
-      background-color: $accent-color;
-      border-radius: 5px;
+		li {
+			display: flex;
+			flex-flow: row;
+			align-items: center;
+			padding: 10px;
+			background-color: $accent-color;
+			border-radius: 5px;
 
-      a {
-        margin-left: auto;
+			a {
+				margin-left: auto;
 
-        button {
-          width: max-content;
-        }
-      }
-    }
-  }
+				button {
+					width: max-content;
+				}
+			}
+		}
+	}
 </style>

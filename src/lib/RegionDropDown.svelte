@@ -1,41 +1,45 @@
 <script lang="ts">
-  import axios from "axios";
-  import DropDown from "./DropDown.svelte";
-  import type { DropDownItem, TMDBRegions } from "@/types";
-  import Error from "./Error.svelte";
+	import axios from "axios";
+	import DropDown from "./DropDown.svelte";
+	import type { DropDownItem, TMDBRegions } from "@/types";
+	import Error from "./Error.svelte";
 
-  interface Props {
-    selectedCountry?: string;
-    disabled?: boolean;
-    onChange: (country: string) => void;
-  }
+	interface Props {
+		selectedCountry?: string;
+		disabled?: boolean;
+		onChange: (country: string) => void;
+	}
 
-  let { selectedCountry = $bindable("US"), disabled = false, onChange }: Props = $props();
+	let {
+		selectedCountry = $bindable("US"),
+		disabled = false,
+		onChange,
+	}: Props = $props();
 
-  let mappedCountries: DropDownItem[] = $state();
+	let mappedCountries: DropDownItem[] = $state();
 
-  async function getCountries() {
-    const c = (await axios.get(`/content/regions`)).data as TMDBRegions;
-    mappedCountries = c.results
-      .map((cc) => {
-        return {
-          id: cc.iso_3166_1,
-          value: cc.english_name
-        } as DropDownItem;
-      })
-      .sort((a, b) => a.value.localeCompare(b.value));
-  }
+	async function getCountries() {
+		const c = (await axios.get(`/content/regions`)).data as TMDBRegions;
+		mappedCountries = c.results
+			.map((cc) => {
+				return {
+					id: cc.iso_3166_1,
+					value: cc.english_name,
+				} as DropDownItem;
+			})
+			.sort((a, b) => a.value.localeCompare(b.value));
+	}
 </script>
 
 {#await getCountries() then}
-  <DropDown
-    placeholder="Select a country"
-    bind:active={selectedCountry}
-    options={mappedCountries}
-    onChange={() => onChange(selectedCountry)}
-    isDropDownItem={true}
-    {disabled}
-  />
+	<DropDown
+		placeholder="Select a country"
+		bind:active={selectedCountry}
+		options={mappedCountries}
+		onChange={() => onChange(selectedCountry)}
+		isDropDownItem={true}
+		{disabled}
+	/>
 {:catch err}
-  <Error error={err} pretty="Failed to load countries!" />
+	<Error error={err} pretty="Failed to load countries!" />
 {/await}

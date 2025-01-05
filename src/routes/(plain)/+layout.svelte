@@ -1,33 +1,33 @@
 <script lang="ts">
-  interface Props {
-    children?: import('svelte').Snippet;
-  }
+	interface Props {
+		children?: import("svelte").Snippet;
+	}
 
-  let { children }: Props = $props();
+	let { children }: Props = $props();
 </script>
 
 <nav>
-  <a href="/"><h1>Watcharr</h1></a>
+	<a href="/"><h1>Watcharr</h1></a>
 </nav>
 
 {@render children?.()}
 
 <style lang="scss">
-  nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 10px 20px 28px 20px;
-    position: relative;
+	nav {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin: 10px 20px 28px 20px;
+		position: relative;
 
-    a {
-      text-decoration: none;
-    }
+		a {
+			text-decoration: none;
+		}
 
-    h1 {
-      color: white;
-      -webkit-text-stroke: 1.5px black;
-      font-size: 35px;
-    }
-  }
+		h1 {
+			color: white;
+			-webkit-text-stroke: 1.5px black;
+			font-size: 35px;
+		}
+	}
 </style>

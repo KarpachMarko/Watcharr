@@ -11,103 +11,105 @@
  -->
 
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import { store } from "@/store.svelte";
-  import { ImportResponseType, type ImportedList } from "@/types";
-  import { onMount } from "svelte";
-  import { get } from "svelte/store";
+	import { goto } from "$app/navigation";
+	import { store } from "@/store.svelte";
+	import { ImportResponseType, type ImportedList } from "@/types";
+	import { onMount } from "svelte";
+	import { get } from "svelte/store";
 
-  let failed: ImportedList[] = $state([]);
-  let successCount = $state(0);
+	let failed: ImportedList[] = $state([]);
+	let successCount = $state(0);
 
-  onMount(() => {
-    if (store.parsedImportedList) {
-      for (let i = 0; i < store.parsedImportedList.length; i++) {
-        const item = store.parsedImportedList[i];
-        console.log(item);
-        if (
-          item.state === ImportResponseType.IMPORT_FAILED ||
-          item.state === ImportResponseType.IMPORT_NOTFOUND
-        ) {
-          failed.push(item);
-          failed = failed;
-        } else {
-          successCount++;
-        }
-      }
-      console.log("failedlen", failed.length);
-    } else {
-      goto("/import");
-    }
-  });
+	onMount(() => {
+		if (store.parsedImportedList) {
+			for (let i = 0; i < store.parsedImportedList.length; i++) {
+				const item = store.parsedImportedList[i];
+				console.log(item);
+				if (
+					item.state === ImportResponseType.IMPORT_FAILED ||
+					item.state === ImportResponseType.IMPORT_NOTFOUND
+				) {
+					failed.push(item);
+					failed = failed;
+				} else {
+					successCount++;
+				}
+			}
+			console.log("failedlen", failed.length);
+		} else {
+			goto("/import");
+		}
+	});
 </script>
 
 <div class="content">
-  <div class="inner">
-    <h2>Some Content Failed To Import</h2>
-    <h5 class="norm">You can search for the failed imports and manually add them.</h5>
-    <h4 class="norm">{successCount} succeeded and {failed.length} failed.</h4>
+	<div class="inner">
+		<h2>Some Content Failed To Import</h2>
+		<h5 class="norm">
+			You can search for the failed imports and manually add them.
+		</h5>
+		<h4 class="norm">{successCount} succeeded and {failed.length} failed.</h4>
 
-    {#if failed}
-      <ul>
-        {#each failed as l}
-          <li>
-            <span>{l.name}</span>
-          </li>
-        {/each}
-      </ul>
-    {:else}
-      No List
-    {/if}
-  </div>
+		{#if failed}
+			<ul>
+				{#each failed as l}
+					<li>
+						<span>{l.name}</span>
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			No List
+		{/if}
+	</div>
 </div>
 
 <style lang="scss">
-  .content {
-    display: flex;
-    width: 100%;
-    justify-content: center;
-    padding: 0 30px 30px 30px;
+	.content {
+		display: flex;
+		width: 100%;
+		justify-content: center;
+		padding: 0 30px 30px 30px;
 
-    .inner {
-      display: flex;
-      flex-flow: column;
-      min-width: 400px;
-      max-width: 600px;
-      overflow: hidden;
+		.inner {
+			display: flex;
+			flex-flow: column;
+			min-width: 400px;
+			max-width: 600px;
+			overflow: hidden;
 
-      @media screen and (max-width: 420px) {
-        min-width: 100%;
-      }
-    }
-  }
+			@media screen and (max-width: 420px) {
+				min-width: 100%;
+			}
+		}
+	}
 
-  h4 {
-    margin-top: 15px;
-  }
+	h4 {
+		margin-top: 15px;
+	}
 
-  ul {
-    display: flex;
-    flex-flow: column;
-    gap: 5px;
-    margin: 10px;
-    list-style: none;
+	ul {
+		display: flex;
+		flex-flow: column;
+		gap: 5px;
+		margin: 10px;
+		list-style: none;
 
-    li {
-      display: flex;
-      flex-flow: row;
-      align-items: center;
-      padding: 10px;
-      background-color: $accent-color;
-      border-radius: 5px;
+		li {
+			display: flex;
+			flex-flow: row;
+			align-items: center;
+			padding: 10px;
+			background-color: $accent-color;
+			border-radius: 5px;
 
-      a {
-        margin-left: auto;
+			a {
+				margin-left: auto;
 
-        button {
-          width: max-content;
-        }
-      }
-    }
-  }
+				button {
+					width: max-content;
+				}
+			}
+		}
+	}
 </style>

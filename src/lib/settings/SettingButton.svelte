@@ -1,63 +1,58 @@
 <script lang="ts">
-  import Icon from "../Icon.svelte";
-  import type { Icon as IconT } from "@/types";
+	import Icon from "../Icon.svelte";
+	import type { Icon as IconT } from "@/types";
 
-  interface Props {
-    title: string;
-    desc: string;
-    icon?: IconT;
-    onClick: () => void;
-  }
+	interface Props {
+		title: string;
+		desc: string;
+		icon?: IconT;
+		onClick: () => void;
+	}
 
-  let {
-    title,
-    desc,
-    icon = "arrow",
-    onClick
-  }: Props = $props();
+	let { title, desc, icon = "arrow", onClick }: Props = $props();
 </script>
 
 <button class="plain" onclick={onClick}>
-  <div>
-    <h4 class="norm">{title}</h4>
-    <h5 class="norm">{desc}</h5>
-  </div>
-  <Icon i={icon} facing="right" />
+	<div>
+		<h4 class="norm">{title}</h4>
+		<h5 class="norm">{desc}</h5>
+	</div>
+	<Icon i={icon} facing="right" />
 </button>
 
 <style lang="scss">
-  h4 {
-    font-size: 16px;
-  }
+	h4 {
+		font-size: 16px;
+	}
 
-  h5 {
-    font-weight: normal;
-    font-size: 13.28px;
-  }
+	h5 {
+		font-weight: normal;
+		font-size: 13.28px;
+	}
 
-  button {
-    display: flex;
-    flex-flow: row;
-    align-items: center;
-    width: 100%;
-    text-align: left;
-    border: 2px dashed $text-color;
-    border-radius: 10px;
-    padding: 15px;
-    transition: all 200ms ease;
-    margin-top: 10px;
+	button {
+		display: flex;
+		flex-flow: row;
+		align-items: center;
+		width: 100%;
+		text-align: left;
+		border: 2px dashed $text-color;
+		border-radius: 10px;
+		padding: 15px;
+		transition: all 200ms ease;
+		margin-top: 10px;
 
-    & > div {
-      margin-right: auto;
-    }
+		& > div {
+			margin-right: auto;
+		}
 
-    &:hover {
-      border-style: solid;
-    }
+		&:hover {
+			border-style: solid;
+		}
 
-    :global(svg) {
-      width: 24px;
-      min-width: 24px;
-    }
-  }
+		:global(svg) {
+			width: 24px;
+			min-width: 24px;
+		}
+	}
 </style>

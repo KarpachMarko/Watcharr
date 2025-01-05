@@ -9,6 +9,6 @@ import { clearAllStores } from "@/store.svelte";
  * should not be included here (eg: redirecting to /login).
  */
 export function clearWatcharrData() {
-  localStorage.removeItem("token");
-  clearAllStores();
+	localStorage.removeItem("token");
+	clearAllStores();
 }

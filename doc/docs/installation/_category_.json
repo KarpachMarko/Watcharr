@@ -1,8 +1,8 @@
 {
-  "label": "Installation",
-  "position": 2,
-  "link": {
-    "type": "generated-index",
-    "description": "Choose how you would like to install Watcharr."
-  }
+	"label": "Installation",
+	"position": 2,
+	"link": {
+		"type": "generated-index",
+		"description": "Choose how you would like to install Watcharr."
+	}
 }

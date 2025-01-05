@@ -1,137 +1,140 @@
 <script lang="ts">
-  import { updateActivity, removeActivity } from "@/lib/util/api";
-  import Modal from "./Modal.svelte";
-  import type { Activity } from "@/types";
-  import { notify } from "./util/notify";
+	import { updateActivity, removeActivity } from "@/lib/util/api";
+	import Modal from "./Modal.svelte";
+	import type { Activity } from "@/types";
+	import { notify } from "./util/notify";
 
-  interface Props {
-    watchedId: number;
-    activity: Activity;
-    activityMessage: string;
-    onClose: () => void;
-  }
+	interface Props {
+		watchedId: number;
+		activity: Activity;
+		activityMessage: string;
+		onClose: () => void;
+	}
 
-  let {
-    watchedId,
-    activity,
-    activityMessage,
-    onClose
-  }: Props = $props();
+	let { watchedId, activity, activityMessage, onClose }: Props = $props();
 
-  let isDateTimeChanged: boolean = $derived(currentDateString != selectedDateString || currentTimeString != selectedTimeString);
-  let isDateTimeValid = $state(true);
-  let currentDateObject = new Date(Date.parse(activity.customDate ?? activity.createdAt));
-  let currentDateString = dateToInputDateString(currentDateObject);
-  let currentTimeString = dateToInputTimeString(currentDateObject);
-  let selectedDateString = $state(currentDateString);
-  let selectedTimeString = $state(currentTimeString);
+	let isDateTimeChanged: boolean = $derived(
+		currentDateString != selectedDateString ||
+			currentTimeString != selectedTimeString,
+	);
+	let isDateTimeValid = $state(true);
+	let currentDateObject = new Date(
+		Date.parse(activity.customDate ?? activity.createdAt),
+	);
+	let currentDateString = dateToInputDateString(currentDateObject);
+	let currentTimeString = dateToInputTimeString(currentDateObject);
+	let selectedDateString = $state(currentDateString);
+	let selectedTimeString = $state(currentTimeString);
 
-  
+	function dateToInputDateString(date: Date) {
+		const year = date.getFullYear();
+		const month = (date.getMonth() + 1).toString().padStart(2, "0");
+		const day = date.getDate().toString().padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	}
 
-  function dateToInputDateString(date: Date) {
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const day = date.getDate().toString().padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
+	function dateToInputTimeString(date: Date) {
+		const hours = date.getHours().toString().padStart(2, "0");
+		const minutes = date.getMinutes().toString().padStart(2, "0");
+		return `${hours}:${minutes}`;
+	}
 
-  function dateToInputTimeString(date: Date) {
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    return `${hours}:${minutes}`;
-  }
+	function validateNewDate() {
+		try {
+			const epochMillis = Date.parse(
+				`${selectedDateString} ${selectedTimeString}`,
+			);
+			const dateObj = new Date(epochMillis);
+			if (isNaN(dateObj.getTime())) {
+				isDateTimeValid = false;
+				return;
+			}
+			isDateTimeValid = true;
+			return dateObj;
+		} catch (err) {
+			console.error("ActivityEditor: validateNewDate failed!", err);
+			isDateTimeValid = false;
+		}
+	}
 
-  function validateNewDate() {
-    try {
-      const epochMillis = Date.parse(`${selectedDateString} ${selectedTimeString}`);
-      const dateObj = new Date(epochMillis);
-      if (isNaN(dateObj.getTime())) {
-        isDateTimeValid = false;
-        return;
-      }
-      isDateTimeValid = true;
-      return dateObj;
-    } catch (err) {
-      console.error("ActivityEditor: validateNewDate failed!", err);
-      isDateTimeValid = false;
-    }
-  }
+	function update() {
+		const dateObj = validateNewDate();
+		if (dateObj && isDateTimeValid && isDateTimeChanged) {
+			updateActivity(watchedId, activity.id, dateObj);
+			onClose();
+			return;
+		}
+		notify({ text: "Unable to try updating!", type: "error" });
+		console.error(
+			"ActivityEditor: Can't try updating, data missing/invalid:",
+			dateObj,
+			isDateTimeValid,
+			isDateTimeChanged,
+		);
+	}
 
-  function update() {
-    const dateObj = validateNewDate();
-    if (dateObj && isDateTimeValid && isDateTimeChanged) {
-      updateActivity(watchedId, activity.id, dateObj);
-      onClose();
-      return;
-    }
-    notify({ text: "Unable to try updating!", type: "error" });
-    console.error(
-      "ActivityEditor: Can't try updating, data missing/invalid:",
-      dateObj,
-      isDateTimeValid,
-      isDateTimeChanged
-    );
-  }
-
-  function remove() {
-    removeActivity(watchedId, activity.id);
-    onClose();
-  }
+	function remove() {
+		removeActivity(watchedId, activity.id);
+		onClose();
+	}
 </script>
 
 <Modal title="Edit Activity" desc={activityMessage} maxWidth="400px" {onClose}>
-  <div class="centered">
-    <h3>Date</h3>
-    <input
-      id="activity-date"
-      type="date"
-      bind:value={selectedDateString}
-      onchange={validateNewDate}
-      class:invalid={!isDateTimeValid}
-    />
-    <h3>Time</h3>
-    <input
-      id="activity-time"
-      type="time"
-      bind:value={selectedTimeString}
-      onchange={validateNewDate}
-    />
+	<div class="centered">
+		<h3>Date</h3>
+		<input
+			id="activity-date"
+			type="date"
+			bind:value={selectedDateString}
+			onchange={validateNewDate}
+			class:invalid={!isDateTimeValid}
+		/>
+		<h3>Time</h3>
+		<input
+			id="activity-time"
+			type="time"
+			bind:value={selectedTimeString}
+			onchange={validateNewDate}
+		/>
 
-    <div class="button-row">
-      <button class="danger" onclick={remove}>Delete</button>
-      <div>
-        <button onclick={update} disabled={!(isDateTimeChanged && isDateTimeValid)}>Update</button>
-      </div>
-    </div>
-  </div>
+		<div class="button-row">
+			<button class="danger" onclick={remove}>Delete</button>
+			<div>
+				<button
+					onclick={update}
+					disabled={!(isDateTimeChanged && isDateTimeValid)}>Update</button
+				>
+			</div>
+		</div>
+	</div>
 </Modal>
 
 <style lang="scss">
-  .centered {
-    display: flex;
-    flex-flow: column;
-    gap: 10px;
-    height: 100%;
+	.centered {
+		display: flex;
+		flex-flow: column;
+		gap: 10px;
+		height: 100%;
 
-    h3 {
-      font-size: 16px;
-      font-family:
-        sans-serif,
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont;
-    }
+		h3 {
+			font-size: 16px;
+			font-family:
+				sans-serif,
+				system-ui,
+				-apple-system,
+				BlinkMacSystemFont;
+		}
 
-    .button-row {
-      display: flex;
-      flex-flow: row;
-      justify-content: space-between;
-      margin-top: 10px;
+		.button-row {
+			display: flex;
+			flex-flow: row;
+			justify-content: space-between;
+			margin-top: 10px;
 
-      button {
-        margin-top: auto;
-        width: max-content;
-      }
-    }
-  }
+			button {
+				margin-top: auto;
+				width: max-content;
+			}
+		}
+	}
 </style>

@@ -2,14 +2,14 @@ import { error } from "@sveltejs/kit";
 import type { PageLoad } from "../../search/[query]/$types";
 
 export const load = (async ({ params }) => {
-  const { id } = params;
+	const { id } = params;
 
-  if (!id) {
-    error(400);
-    return;
-  }
+	if (!id) {
+		error(400);
+		return;
+	}
 
-  return {
-    tvId: Number(id)
-  };
+	return {
+		tvId: Number(id),
+	};
 }) satisfies PageLoad;
