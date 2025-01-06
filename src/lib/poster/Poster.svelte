@@ -66,7 +66,7 @@
 	// If mouse in on poster. Added to fix #656.
 	let mouseOverPoster = $state(false);
 
-	let containerEl: HTMLDivElement = $state();
+	let containerEl: HTMLDivElement | undefined = $state();
 
 	let title = $derived(media.title || media.name);
 	// For now, if the content is on watched list, we can assume we have a local

@@ -82,7 +82,7 @@
 </button>
 
 <style lang="scss">
-	button {
+	button.status {
 		padding: 3px;
 		position: relative;
 		font-family: "Rampart One";

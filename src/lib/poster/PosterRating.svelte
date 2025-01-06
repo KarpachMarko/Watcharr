@@ -163,7 +163,7 @@
 </button>
 
 <style lang="scss">
-	button {
+	button.rating {
 		padding: 3px;
 		position: relative;
 		font-family: "Rampart One";
@@ -205,7 +205,7 @@
 			&.star {
 				color: $text-color;
 				font-size: 39px;
-				letter-spacing: 10px;
+				letter-spacing: 8px;
 				line-height: 52px;
 				height: 42px;
 			}

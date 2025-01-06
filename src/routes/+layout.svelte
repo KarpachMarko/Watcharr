@@ -5,6 +5,7 @@
 	import { startStoreSaver, store } from "@/store.svelte";
 	import { onMount } from "svelte";
 	import { pwaInfo } from "virtual:pwa-info";
+
 	interface Props {
 		children?: import("svelte").Snippet;
 	}
@@ -62,4 +63,5 @@
 		</div>
 	{/each}
 </div>
+
 {@render children?.()}
