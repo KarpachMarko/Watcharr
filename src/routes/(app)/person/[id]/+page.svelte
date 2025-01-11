@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from "$app/state";
 	import Error from "@/lib/Error.svelte";
 	import PageError from "@/lib/PageError.svelte";
 	import Poster from "@/lib/poster/Poster.svelte";
@@ -8,9 +7,12 @@
 	import DropDown from "@/lib/DropDown.svelte";
 	import { getWatchedDependedProps } from "@/lib/util/helpers";
 	import { store } from "@/store.svelte.js";
-	import type { TMDBPersonCombinedCredits, TMDBPersonDetails } from "@/types";
+	import type {
+		TMDBPersonCombinedCredits,
+		TMDBPersonCombinedCreditsCast,
+		TMDBPersonDetails,
+	} from "@/types";
 	import axios from "axios";
-	import { onMount } from "svelte";
 	import Checkbox from "@/lib/Checkbox.svelte";
 	import Icon from "@/lib/Icon.svelte";
 
@@ -62,6 +64,39 @@
 		); // remove duplicate entries. If an actor has multiple roles in a single movie, it would otherwise show up multiple times
 	}
 
+	function newestOldestSort(
+		a: TMDBPersonCombinedCreditsCast,
+		b: TMDBPersonCombinedCreditsCast,
+		/**
+		 * 0 = Newest,
+		 * 1 = Oldest
+		 */
+		n: 0 | 1,
+	) {
+		const dateA = new Date(a.release_date || a.first_air_date).valueOf();
+		const dateB = new Date(b.release_date || b.first_air_date).valueOf();
+
+		// Assume missing release date means future release (TBD)
+		if (
+			!a.release_date &&
+			!a.first_air_date &&
+			!b.release_date &&
+			!b.first_air_date
+		) {
+			// Both releases have no date, return as equals
+			// here to avoid an infinite loop.
+			return 0;
+		}
+		if (!a.release_date && !a.first_air_date) return n === 0 ? -1 : 1;
+		if (!b.release_date && !b.first_air_date) return n === 0 ? 1 : -1;
+
+		if (n === 0) {
+			return dateB - dateA;
+		} else {
+			return dateA - dateB;
+		}
+	}
+
 	function sortCredits(sortOption: string) {
 		if (!credits || !credits.cast) return;
 		switch (sortOption) {
@@ -69,28 +104,10 @@
 				credits.cast.sort((a, b) => b.vote_count - a.vote_count);
 				break;
 			case "Newest":
-				credits.cast.sort((a, b) => {
-					const dateA = new Date(a.release_date || a.first_air_date).valueOf();
-					const dateB = new Date(b.release_date || b.first_air_date).valueOf();
-
-					// if a date is missing it should be sorted first since it's probably a future release
-					if (!a.release_date && !a.first_air_date) return -1;
-					if (!b.release_date && !b.first_air_date) return 1;
-
-					return dateB - dateA;
-				});
+				credits.cast.sort((a, b) => newestOldestSort(a, b, 0));
 				break;
 			case "Oldest":
-				credits.cast.sort((a, b) => {
-					const dateA = new Date(a.release_date || a.first_air_date).valueOf();
-					const dateB = new Date(b.release_date || b.first_air_date).valueOf();
-
-					// if a date is missing it should be sorted last since it's probably a future release
-					if (!a.release_date && !a.first_air_date) return 1;
-					if (!b.release_date && !b.first_air_date) return -1;
-
-					return dateA - dateB;
-				});
+				credits.cast.sort((a, b) => newestOldestSort(a, b, 1));
 				break;
 		}
 		credits.cast = credits.cast;
