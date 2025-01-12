@@ -96,20 +96,33 @@ if (browser) {
  * our `store`.
  */
 function rehydrateStore() {
+	console.info("rehydrateStore: Running..");
 	const raf = localStorage.getItem("activeFilter");
 	if (raf) {
 		store.activeSort = JSON.parse(raf);
+		console.debug(
+			"rehydrateStore: Restored activeSort:",
+			$state.snapshot(store.activeSort),
+		);
 	}
 
 	const filters = localStorage.getItem("activeFilterReal");
 	if (filters) {
 		store.activeFilters = JSON.parse(filters);
+		console.debug(
+			"rehydrateStore: Restored activeFilters:",
+			$state.snapshot(store.activeFilters),
+		);
 	}
 
 	const theme = localStorage.getItem("theme") as Theme;
 	if (theme) {
 		store.appTheme = theme;
 		toggleTheme(theme);
+		console.debug(
+			"rehydrateStore: Restored appTheme:",
+			$state.snapshot(store.appTheme),
+		);
 	} else {
 		let defTheme: Theme = "light";
 		if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
@@ -121,11 +134,19 @@ function rehydrateStore() {
 		);
 		store.appTheme = defTheme;
 		toggleTheme(defTheme);
+		console.debug(
+			"rehydrateStore: appTheme hydrated from system default:",
+			$state.snapshot(store.appTheme),
+		);
 	}
 
 	const wlDetailedViewR = localStorage.getItem("wlDetailedView");
 	if (wlDetailedViewR) {
 		store.wlDetailedView = JSON.parse(wlDetailedViewR);
+		console.debug(
+			"rehydrateStore: Restored wlDetailedView:",
+			$state.snapshot(store.wlDetailedView),
+		);
 	}
 }
 
@@ -134,22 +155,39 @@ function rehydrateStore() {
  * in localStorage.
  */
 export function startStoreSaver() {
-	// Save changes
+	console.info("startStoreSaver: Creating savers.");
+
 	$effect(() => {
-		if (store.activeSort)
+		if (store.activeSort) {
 			localStorage.setItem("activeFilter", JSON.stringify(store.activeSort));
+			console.debug(
+				"StoreSaver: Saved activeSort:",
+				localStorage.getItem("activeFilter"),
+			);
+		}
 	});
 
 	$effect(() => {
-		if (store.activeFilters)
+		if (store.activeFilters) {
 			localStorage.setItem(
 				"activeFilterReal",
 				JSON.stringify(store.activeFilters),
 			);
+			console.debug(
+				"StoreSaver: Saved activeFilterReal:",
+				localStorage.getItem("activeFilterReal"),
+			);
+		}
 	});
 
 	$effect(() => {
-		if (store.appTheme) localStorage.setItem("theme", store.appTheme);
+		if (store.appTheme) {
+			localStorage.setItem("theme", store.appTheme);
+			console.debug(
+				"StoreSaver: Saved appTheme:",
+				localStorage.getItem("theme"),
+			);
+		}
 	});
 
 	$effect(() => {
@@ -158,8 +196,13 @@ export function startStoreSaver() {
 				"wlDetailedView",
 				JSON.stringify(store.wlDetailedView),
 			);
+			console.debug(
+				"StoreSaver: Saved wlDetailedView:",
+				localStorage.getItem("wlDetailedView"),
+			);
 		} else {
 			localStorage.removeItem("wlDetailedView");
+			console.debug("StoreSaver: Removed wlDetailedView");
 		}
 	});
 }
