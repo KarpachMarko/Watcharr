@@ -16,11 +16,10 @@
 
 	let { activity, wListId }: Props = $props();
 
-	let clickedActivity: Activity = $state();
+	let clickedActivity: Activity | undefined = $state();
 	let groupedActivities: { [index: string]: any } = $derived(
 		getGroupedActivity(activity),
 	);
-	let isActivityEditorVisible: boolean = $state();
 
 	function getMsg(a: Activity) {
 		switch (a?.type) {
@@ -187,7 +186,6 @@
 
 	function openEditor(a: Activity) {
 		clickedActivity = a;
-		isActivityEditorVisible = true;
 		return;
 	}
 
@@ -202,12 +200,12 @@
 	}
 </script>
 
-{#if isActivityEditorVisible}
+{#if clickedActivity}
 	<ActivityEditor
 		watchedId={wListId}
 		activity={clickedActivity}
 		activityMessage={getMsg(clickedActivity)}
-		onClose={() => (isActivityEditorVisible = false)}
+		onClose={() => (clickedActivity = undefined)}
 	/>
 {/if}
 
@@ -221,7 +219,7 @@
 				{#each groupedActivities[k] as a}
 					{@const d = new Date(getCreatedAtVis(a))}
 					<li>
-						<button class="unset" onclick={() => openEditor(a)}>
+						<button class="plain" onclick={() => openEditor(a)}>
 							<span title={d.toDateString()}>{toDayTime(d)}</span>
 							<span>{getMsg(a)}</span>
 						</button>
