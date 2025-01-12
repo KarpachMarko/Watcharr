@@ -23,7 +23,9 @@
 	let watched: Watched[] = $state([]);
 
 	$effect(() => {
-		if (list) watched = list;
+		if (list) {
+			watched = list;
+		}
 	});
 
 	$effect(() => {
@@ -207,6 +209,16 @@
 			});
 		}
 	}
+
+	/**
+	 * Callback for when a watched list item is updated through poster,
+	 * this allows us to run the filt() func again so the sorting is
+	 * updated.
+	 */
+	function itemUpdated() {
+		console.debug("itemUpdated");
+		filt();
+	}
 </script>
 
 <PosterList>
@@ -232,6 +244,7 @@
 					}}
 					fluidSize={true}
 					pinned={w.pinned}
+					onUpdated={itemUpdated}
 				/>
 			{:else if w.content}
 				<Poster
@@ -258,6 +271,7 @@
 					}}
 					fluidSize={true}
 					pinned={w.pinned}
+					onUpdated={itemUpdated}
 				/>
 			{/if}
 		{/each}

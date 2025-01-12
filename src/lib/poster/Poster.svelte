@@ -4,6 +4,7 @@
 		addClassToParent,
 		calculateTransformOrigin,
 		isTouch,
+		mouseOverEl,
 	} from "@/lib/util/helpers";
 	import { goto } from "$app/navigation";
 	import { baseURL, removeWatched, updateWatched } from "../util/api";
@@ -44,6 +45,10 @@
 		hideIfNotOnList?: boolean;
 		// When provided, default click handlers will instead run this callback.
 		onClick?: (() => void) | undefined;
+		/**
+		 * Ran when watched item is updated via poster.
+		 */
+		onUpdated?: (() => void) | undefined;
 	}
 
 	let {
@@ -59,6 +64,7 @@
 		pinned = false,
 		hideIfNotOnList = false,
 		onClick = undefined,
+		onUpdated = undefined,
 	}: Props = $props();
 
 	// If poster is active (scaled up)
@@ -85,7 +91,12 @@
 
 	function handleStarClick(r: number) {
 		if (r == rating) return;
-		updateWatched(media.id, media.media_type, undefined, r);
+		updateWatched(media.id, media.media_type, undefined, r).then(() => {
+			if (typeof onUpdated === "function") {
+				onUpdated();
+				runPosterMouseLeaveIfNeeded();
+			}
+		});
 	}
 
 	function handleStatusClick(type: WatchedStatus | "DELETE") {
@@ -101,7 +112,12 @@
 			return;
 		}
 		if (type == status) return;
-		updateWatched(media.id, media.media_type, type);
+		updateWatched(media.id, media.media_type, type).then(() => {
+			if (typeof onUpdated === "function") {
+				onUpdated();
+				runPosterMouseLeaveIfNeeded();
+			}
+		});
 	}
 
 	function handleInnerKeyUp(e: KeyboardEvent) {
@@ -129,6 +145,39 @@
 			}
 		}
 	});
+
+	/**
+	 * Manual way to check if we need to run the mouseleave
+	 * event for the poster containerEl.
+	 */
+	function runPosterMouseLeaveIfNeeded() {
+		// Timeout to give enough time for the element to
+		// actually move if it needs to.
+		setTimeout(() => {
+			if (!mouseOverEl(containerEl)) {
+				posterOnMouseLeave();
+			}
+		}, 100);
+	}
+
+	function posterOnMouseLeave() {
+		mouseOverPoster = false;
+		posterActive = false;
+		const ae = document.activeElement;
+		if (
+			ae &&
+			ae instanceof HTMLElement &&
+			(ae.parentElement?.id === "ilikemoviessueme" ||
+				ae.parentElement?.parentElement?.id === "ilikemoviessueme")
+		) {
+			// Stops the poster being re-focused after the browser window
+			// loses focus, then regains it (ex: you middle click the poster,
+			// go to the opened tab (or lose browser window focus, then when
+			// you come back the poster is sent `focusin` and stuck activated
+			// until mouseleave again).
+			ae.blur();
+		}
+	}
 </script>
 
 <!-- HACK: disabled this issue for now, it should probably be fixed properly -->
@@ -155,24 +204,7 @@
 			posterActive = false;
 		}
 	}}
-	onmouseleave={() => {
-		mouseOverPoster = false;
-		posterActive = false;
-		const ae = document.activeElement;
-		if (
-			ae &&
-			ae instanceof HTMLElement &&
-			(ae.parentElement?.id === "ilikemoviessueme" ||
-				ae.parentElement?.parentElement?.id === "ilikemoviessueme")
-		) {
-			// Stops the poster being re-focused after the browser window
-			// loses focus, then regains it (ex: you middle click the poster,
-			// go to the opened tab (or lose browser window focus, then when
-			// you come back the poster is sent `focusin` and stuck activated
-			// until mouseleave again).
-			ae.blur();
-		}
-	}}
+	onmouseleave={posterOnMouseLeave}
 	onclick={() => (posterActive = true)}
 	onkeyup={(e) => {
 		if (e.key === "Tab") {

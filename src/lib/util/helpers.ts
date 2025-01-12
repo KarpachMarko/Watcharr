@@ -393,3 +393,13 @@ export function toRelativeTime(s: number) {
 	}
 	return "now";
 }
+
+/**
+ * Tests whether the mouse is hovering over `el`.
+ */
+export function mouseOverEl(el?: HTMLElement) {
+	if (!el) {
+		return false;
+	}
+	return el.matches(":hover");
+}
