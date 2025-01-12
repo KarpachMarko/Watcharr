@@ -23,6 +23,7 @@
 			console.error("filterClicked() ran without a valid modeType:", modeType);
 			return;
 		}
+		store.activeSort = [type, mode];
 	}
 </script>
 
@@ -62,7 +63,7 @@
 </div>
 
 <style lang="scss">
-	div {
+	div.sort-menu {
 		width: 180px;
 		right: 90px;
 
