@@ -12,6 +12,7 @@
 		} else {
 			store.activeFilters[type] = [...store.activeFilters[type], f];
 		}
+		store.activeFilters = store.activeFilters;
 	}
 </script>
 
