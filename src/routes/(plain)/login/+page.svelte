@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import { page } from "$app/stores";
+	import { page } from "$app/state";
 	import Icon from "@/lib/Icon.svelte";
 	import { type AvailableAuthProviders } from "@/types";
 	import { noAuthAxios } from "@/lib/util/api";
@@ -19,6 +19,16 @@
 	onMount(() => {
 		if (localStorage.getItem("token")) {
 			goto("/");
+		}
+
+		if (!error && page.url.searchParams.get("again")) {
+			error = "Please Login Again";
+		}
+		if (page.url.searchParams.get("noAuto") == "1") {
+			console.info(
+				"login: Found noAuto param.. auto logins should be disabled now.",
+			);
+			noAuto = true;
 		}
 
 		noAuthAxios.get<AvailableAuthProviders>("/auth/available").then((r) => {
@@ -42,19 +52,8 @@
 		});
 	});
 
-	$effect(() => {
-		if (!error && $page.url.searchParams.get("again")) {
-			error = "Please Login Again";
-		}
-		if ($page.url.searchParams.get("noAuto") == "1") {
-			console.info(
-				"login: Found noAuto param.. auto logins should be disabled now.",
-			);
-			noAuto = true;
-		}
-	});
-
 	function handleLogin(ev: SubmitEvent) {
+		ev.preventDefault();
 		const fd = new FormData(ev.target! as HTMLFormElement);
 		const user = fd.get("username");
 		const pass = fd.get("password");
@@ -186,7 +185,7 @@
 			<span class="error">{error}!</span>
 		{/if}
 
-		<form on:submit|preventDefault={handleLogin}>
+		<form onsubmit={handleLogin}>
 			<label for="username">Username</label>
 			<input type="text" name="username" placeholder="Username" />
 
@@ -221,7 +220,7 @@
 								type="button"
 								name="proxy"
 								class="proxy other"
-								on:click={() => {
+								onclick={() => {
 									proxyLogin();
 								}}
 							>
@@ -233,7 +232,7 @@
 						<div class="login-btns">
 							<button
 								type="button"
-								on:click={() => {
+								onclick={() => {
 									plexLogin();
 								}}
 								name="plex"
@@ -254,7 +253,7 @@
 		{#if signupEnabled}
 			<button
 				class="plain"
-				on:click={() => {
+				onclick={() => {
 					login = !login;
 				}}
 			>
