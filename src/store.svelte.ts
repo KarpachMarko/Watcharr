@@ -222,7 +222,7 @@ function rehydrateStore() {
 		_store.activeSort = JSON.parse(raf);
 		console.debug(
 			"rehydrateStore: Restored activeSort:",
-			$state.snapshot(_store.activeSort),
+			$state.snapshot(store.activeSort),
 		);
 	}
 	// Restore activeFilters
