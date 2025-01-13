@@ -399,7 +399,6 @@
 								onClose={() => (proxyUserLogoutShown = false)}
 							/>
 						{/if}
-						<!-- svelte-ignore missing_declaration -->
 						<span>v{__WATCHARR_VERSION__}</span>
 					</div>
 				</div>
