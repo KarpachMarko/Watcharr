@@ -278,10 +278,15 @@
 					top: calc(-100% - 120px);
 				}
 
-				button.plain span {
-					/* Overriding color so dash for thumbs ratings stays text-color */
-					color: $text-color;
-					font-family: "Rampart One";
+				button.plain {
+					min-height: 40px;
+					overflow: hidden;
+
+					span {
+						/* Overriding color so dash for thumbs ratings stays text-color */
+						color: $text-color;
+						font-family: "Rampart One";
+					}
 				}
 			}
 		}
