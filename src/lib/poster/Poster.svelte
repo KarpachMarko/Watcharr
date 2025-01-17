@@ -371,10 +371,6 @@
 				color: white;
 				word-wrap: break-word;
 
-				a {
-					color: white;
-				}
-
 				time {
 					font-size: 14px;
 					font-weight: 400;

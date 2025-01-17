@@ -13,7 +13,7 @@
 </script>
 
 {#if i === "Apple TV Plus"}
-	<a href="https://tv.apple.com/" target="_blank">
+	<a aria-label={i} href="https://tv.apple.com/" target="_blank">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			viewBox="0 0 45.046 17.091"
@@ -26,7 +26,7 @@
 		</svg>
 	</a>
 {:else if i === "Apple TV"}
-	<a href="https://tv.apple.com/" target="_blank">
+	<a aria-label={i} href="https://tv.apple.com/" target="_blank">
 		<svg
 			viewBox="0 0 24 24"
 			xmlns="http://www.w3.org/2000/svg"
@@ -39,7 +39,11 @@
 		</svg>
 	</a>
 {:else if i === "Amazon Prime Video"}
-	<a href="https://www.amazon.com/gp/video/storefront/" target="_blank">
+	<a
+		aria-label={i}
+		href="https://www.amazon.com/gp/video/storefront/"
+		target="_blank"
+	>
 		<svg
 			viewBox="0 0 24 24"
 			xmlns="http://www.w3.org/2000/svg"
@@ -52,7 +56,7 @@
 		</svg>
 	</a>
 {:else if i === "Disney Plus"}
-	<a href="https://disneyplus.com/" target="_blank">
+	<a aria-label={i} href="https://disneyplus.com/" target="_blank">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			viewBox="0 0 1041 565"
@@ -93,7 +97,7 @@
 		</svg>
 	</a>
 {:else if i === "Netflix"}
-	<a href="https://netflix.com/" target="_blank">
+	<a aria-label={i} href="https://netflix.com/" target="_blank">
 		<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="30">
 			<path
 				d="M5.398 0v.006c3.028 8.556 5.37 15.175 8.348 23.596 2.344.058 4.85.398 4.854.398-2.8-7.924-5.923-16.747-8.487-24zm8.489 0v9.63L18.6 22.951c-.043-7.86-.004-15.913.002-22.95zM5.398 1.05V24c1.873-.225 2.81-.312 4.715-.398v-9.22z"
@@ -101,7 +105,7 @@
 		</svg>
 	</a>
 {:else if i === "Sky Go"}
-	<a href="https://go.sky.com/" target="_blank">
+	<a aria-label={i} href="https://go.sky.com/" target="_blank">
 		<svg
 			viewBox="0 0 24 24"
 			xmlns="http://www.w3.org/2000/svg"
@@ -114,7 +118,7 @@
 		</svg>
 	</a>
 {:else if i === "Paramount Plus"}
-	<a href="https://paramountplus.com" target="_blank">
+	<a aria-label={i} href="https://paramountplus.com" target="_blank">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			width="100"
@@ -127,7 +131,7 @@
 		</svg>
 	</a>
 {:else if i === "BBC iPlayer"}
-	<a href="https://www.bbc.co.uk/iplayer" target="_blank">
+	<a aria-label={i} href="https://www.bbc.co.uk/iplayer" target="_blank">
 		<svg
 			width={80}
 			height={wh}
@@ -140,7 +144,7 @@
 		</svg>
 	</a>
 {:else if i === "Hulu"}
-	<a href="https://hulu.com" target="_blank">
+	<a aria-label={i} href="https://hulu.com" target="_blank">
 		<svg
 			width={wh}
 			height={wh}

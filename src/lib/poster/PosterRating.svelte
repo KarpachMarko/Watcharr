@@ -106,6 +106,7 @@
 		].join(" ")}
 	>
 		{#if isUsingThumbs}
+			<!-- svelte-ignore node_invalid_placement_ssr -->
 			<button
 				onclick={() => handleStarClick(1)}
 				class="plain{rating && rating > 0 && rating < 5 ? ' active' : ''}"
@@ -113,6 +114,7 @@
 			>
 				<i style="display: flex; width: 35px;"><Icon i="thumb-down" /></i>
 			</button>
+			<!-- svelte-ignore node_invalid_placement_ssr -->
 			<button
 				onclick={() => handleStarClick(5)}
 				class="plain{rating && rating > 4 && rating < 9 ? ' active' : ''}"
@@ -124,6 +126,7 @@
 					-
 				</span>
 			</button>
+			<!-- svelte-ignore node_invalid_placement_ssr -->
 			<button
 				onclick={() => handleStarClick(9)}
 				class="plain{rating && rating > 8 ? ' active' : ''}"
@@ -137,6 +140,7 @@
 					? [5, 4, 3, 2, 1]
 					: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]}
 			{#each stars as v}
+				<!-- svelte-ignore node_invalid_placement_ssr -->
 				<button
 					class="plain{rating === v ? ' active' : ''}"
 					onclick={(ev) => {

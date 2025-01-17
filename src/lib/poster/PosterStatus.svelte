@@ -59,6 +59,7 @@
 		].join(" ")}
 	>
 		{#each Object.entries(watchedStatuses) as [statusName, icon]}
+			<!-- svelte-ignore node_invalid_placement_ssr -->
 			<button
 				class="plain{status && status !== statusName ? ' not-active' : ''}"
 				onclick={() => handleStatusClick(statusName)}
@@ -70,6 +71,7 @@
 			</button>
 		{/each}
 		{#if status}
+			<!-- svelte-ignore node_invalid_placement_ssr -->
 			<button
 				class="plain not-active"
 				onclick={() => handleStatusClick("DELETE")}

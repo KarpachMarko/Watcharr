@@ -9,7 +9,11 @@
 	let { value = $bindable("#000000"), style = "" }: Props = $props();
 </script>
 
-<button class="plain" style={`background-color: ${value};${style}`}>
+<button
+	aria-label="Open color picker"
+	class="plain"
+	style={`background-color: ${value};${style}`}
+>
 	<input type="color" bind:value />
 </button>
 
