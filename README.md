@@ -34,21 +34,21 @@ Feel free to abuse this demo instance (nicely), which runs on the latest `dev` b
 
 <img src="./screenshot/devices-mock.png" alt="Overview" />
 
-| Homepage                                                   | Watched Show Hover                                                      |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------- |
-| <img src="./screenshot/homepage.png" alt="Watched List" /> | <img src="./screenshot/homepage-poster-hover.png" alt="Watched List" /> |
+| Homepage                                                       | Watched Show Hover                                                          |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| <img src="./screenshot/homepage.png?v=2" alt="Watched List" /> | <img src="./screenshot/homepage-poster-hover.png?v=2" alt="Watched List" /> |
 
-| Watched Show Status Change                                                              | Movie Details                                                                  |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| <img src="./screenshot/homepage-poster-change-status.png" alt="Changing Show Status" /> | <img src="./screenshot/content-details-page.png" alt="Content Details Page" /> |
+| Watched Show Status Change                                                                  | Movie Details                                                                      |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| <img src="./screenshot/homepage-poster-change-status.png?v=2" alt="Changing Show Status" /> | <img src="./screenshot/content-details-page.png?v=2" alt="Content Details Page" /> |
 
-| User Profile                                                        | Discover                                                         |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| <img src="./screenshot/user-profile.png" alt="User Profile Page" /> | <img src="./screenshot/discover-page.png" alt="Discover Page" /> |
+| User Profile                                                            | Discover                                                             |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| <img src="./screenshot/user-profile.png?v=2" alt="User Profile Page" /> | <img src="./screenshot/discover-page.png?v=2" alt="Discover Page" /> |
 
-| Dark Homepage                                                          | Dark Content Details                                                                   |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| <img src="./screenshot/homepage-dark.png" alt="Dark Theme Homepage" /> | <img src="./screenshot/content-details-page-dark.png" alt="Dark Theme Content Page" /> |
+| Dark Homepage                                                              | Dark Content Details                                                                       |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| <img src="./screenshot/homepage-dark.png?v=2" alt="Dark Theme Homepage" /> | <img src="./screenshot/content-details-page-dark.png?v=2" alt="Dark Theme Content Page" /> |
 
 </p>
 
