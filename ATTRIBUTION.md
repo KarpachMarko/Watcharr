@@ -8,6 +8,8 @@ We haven't rebuilt the wheel from scratch, here are the tools that have helped t
 
 Look at our [package.json](./package.json) for the packages we directly use.
 
+- [Penpot](https://github.com/penpot/penpot) For initial UI design and creating the logo.
+
 ## Server
 
 Look at our [go.mod](./server/go.mod) for the packages we use.
