@@ -39,32 +39,32 @@ export function HomepageTwoColFeats() {
 			<TwoColFeat
 				title="Neat UI"
 				description="We just look lightweight."
-				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/homepage.png"
+				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/homepage.png?v=2"
 			/>
 			<TwoColFeat
 				title="Easy To Use"
 				description="Not much to it, other than ease of use."
-				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/homepage-poster-change-status.png"
+				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/homepage-poster-change-status.png?v=2"
 			/>
 			<TwoColFeat
 				title="In-Depth Details"
 				description="About your favourite content."
-				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/content-details-page.png"
+				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/content-details-page.png?v=2"
 			/>
 			<TwoColFeat
 				title="Personal Stats and Configuration"
 				description="Make it how you like."
-				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/user-profile.png"
+				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/user-profile.png?v=2"
 			/>
 			<TwoColFeat
 				title="Discovery"
 				description="Find the latest trending content."
-				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/discover-page.png"
+				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/discover-page.png?v=2"
 			/>
 			<TwoColFeat
 				title="Dark Theme"
 				description="For you who are still unsatisfied. ;("
-				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/content-details-page-dark.png"
+				imgSrc="https://github.com/sbondCo/Watcharr/raw/dev/screenshot/content-details-page-dark.png?v=2"
 			/>
 		</section>
 	);

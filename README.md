@@ -18,35 +18,37 @@ I am built with Go and Svelte(Kit).
 
 Feel free to abuse this demo instance (nicely), which runs on the latest `dev` build (there may be bugs, as new features are tested on here too): [https://beta.watcharr.app/](https://beta.watcharr.app/)
 
-[Track Progress Until Next Version](https://github.com/orgs/sbondCo/projects/9/views/3)
+[Track progress for the next version](https://github.com/orgs/sbondCo/projects/9/views/3).
 
 ### Contents
 
 - [Screenshots](#screenshots)
-- [Setup](#set-up)
-- [Contributing](CONTRIBUTING.md)
+- [Set Up](#set-up)
 - [Community Made Tools](#community-made-tools)
 - [Getting Help](#getting-help)
+- [Contributing](#contributing)
 
 # Screenshots
 
 <p align="center">
 
-| Homepage                                                   | Watched Show Hover                                                      |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------- |
-| <img src="./screenshot/homepage.png" alt="Watched List" /> | <img src="./screenshot/homepage-poster-hover.png" alt="Watched List" /> |
+<img src="./screenshot/devices-mock.png" alt="Overview" />
 
-| Watched Show Status Change                                                              | Movie Details                                                                  |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| <img src="./screenshot/homepage-poster-change-status.png" alt="Changing Show Status" /> | <img src="./screenshot/content-details-page.png" alt="Content Details Page" /> |
+| Homepage                                                       | Watched Show Hover                                                          |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| <img src="./screenshot/homepage.png?v=2" alt="Watched List" /> | <img src="./screenshot/homepage-poster-hover.png?v=2" alt="Watched List" /> |
 
-| User Profile                                                        | Discover                                                         |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| <img src="./screenshot/user-profile.png" alt="User Profile Page" /> | <img src="./screenshot/discover-page.png" alt="Discover Page" /> |
+| Watched Show Status Change                                                                  | Movie Details                                                                      |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| <img src="./screenshot/homepage-poster-change-status.png?v=2" alt="Changing Show Status" /> | <img src="./screenshot/content-details-page.png?v=2" alt="Content Details Page" /> |
 
-| Dark Homepage                                                          | Dark Content Details                                                                   |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| <img src="./screenshot/homepage-dark.png" alt="Dark Theme Homepage" /> | <img src="./screenshot/content-details-page-dark.png" alt="Dark Theme Content Page" /> |
+| User Profile                                                            | Discover                                                             |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| <img src="./screenshot/user-profile.png?v=2" alt="User Profile Page" /> | <img src="./screenshot/discover-page.png?v=2" alt="Discover Page" /> |
+
+| Dark Homepage                                                              | Dark Content Details                                                                       |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| <img src="./screenshot/homepage-dark.png?v=2" alt="Dark Theme Homepage" /> | <img src="./screenshot/content-details-page-dark.png?v=2" alt="Dark Theme Content Page" /> |
 
 </p>
 
@@ -69,3 +71,7 @@ Thanks to anyone that has made a script or tool for Watcharr. Feel free to add y
 If something isn't working for you or you are stuck, [creating an issue](https://github.com/sbondCo/Watcharr/issues/new) is the best way to get help! Every type of issue is accepted, so don't be afraid to ask anything!
 
 You can also [join our space on Matrix](https://matrix.to/#/#watcharr:matrix.org) for support.
+
+# Contributing
+
+Please continue to our [contributing guide](CONTRIBUTING.md).
