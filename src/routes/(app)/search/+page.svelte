@@ -198,7 +198,8 @@
 		let p = spl[0]?.toLowerCase();
 		switch (p) {
 			// Default names that are supported right out of the box
-			case "tmdb":
+			case "movie": // tmdb id target
+			case "tv": // tmdb id target
 			case "imdb":
 			case "tvdb":
 			case "youtube":
@@ -226,6 +227,9 @@
 				break;
 			case "game":
 				p = "igdb";
+				break;
+			case "series":
+				p = "tv";
 				break;
 			// If none match, then is invalid provider.
 			default:
@@ -278,7 +282,15 @@
 						return;
 					}
 					allSearchResults.push(...data);
-				} else if (extProvider.provider === "tmdb") {
+				} else if (
+					extProvider.provider === "tv" ||
+					extProvider.provider === "movie"
+				) {
+					// HACK I can't be bothered doing a test api call here,
+					// assuming that people paste the id in, this should work
+					// without the debounce going to an incomplete id.
+					// Flesh out if anyone has issues.
+					goto(`/${extProvider.provider}/${extProvider.id}`);
 				} else {
 					// Else call tmdb `external id` endpoint
 					console.log("Search: Performing external id search.");
