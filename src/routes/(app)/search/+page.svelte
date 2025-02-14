@@ -291,6 +291,7 @@
 					// without the debounce going to an incomplete id.
 					// Flesh out if anyone has issues.
 					goto(`/${extProvider.provider}/${extProvider.id}`);
+					return;
 				} else {
 					// Else call tmdb `external id` endpoint
 					console.log("Search: Performing external id search.");
