@@ -183,6 +183,24 @@ func (i *IGDB) Search(q string) (GameSearchResponse, error) {
 	return resp, nil
 }
 
+// Should return same details as `Search`, we both are for search page only minimal details required.
+func (i *IGDB) SearchById(id string) (GameSearchResponse, error) {
+	slog.Debug("IGDB Search called", "id", id)
+	var resp GameSearchResponse
+	err := i.req(
+		igdbHost,
+		"/games",
+		map[string]string{},
+		"fields name, cover.image_id, version_title, summary, first_release_date; where id = "+id+";",
+		&resp,
+	)
+	if err != nil {
+		slog.Error("IGDB Search request failed!", "error", err)
+		return GameSearchResponse{}, errors.New("request failed")
+	}
+	return resp, nil
+}
+
 func (i *IGDB) GameDetails(id string) (GameDetailsResponse, error) {
 	slog.Debug("IGDB GameDetails called", "id", id)
 	var resp []GameDetailsResponse

@@ -413,6 +413,20 @@ func (b *BaseRouter) addGameRoutes() {
 		c.JSON(http.StatusOK, games)
 	}))
 
+	// Search for game by id (for search page, same minimal details as /search returned)
+	gamer.GET("/search/:id", cache.CachePage(b.ms, exp, func(c *gin.Context) {
+		if c.Param("id") == "" {
+			c.Status(400)
+			return
+		}
+		games, err := igdb.SearchById(c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, games)
+	}))
+
 	// Game details for game page
 	gamer.GET("/:id", cache.CachePage(b.ms, exp, func(c *gin.Context) {
 		if c.Param("id") == "" {

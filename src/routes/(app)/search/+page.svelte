@@ -150,6 +150,23 @@
 		}
 	}
 
+	async function searchGamesById(id: string) {
+		try {
+			const games = await axios.get<GameSearch[]>(`/game/search/${id}`, {
+				signal: reqController.signal,
+			});
+			return {
+				data: games?.data?.map((g) => ({
+					...g,
+					media_type: "game",
+				})) as GameWithMediaType[],
+			};
+		} catch (err) {
+			console.error(`searchGamesById: failed!`, id, err);
+			throw err;
+		}
+	}
+
 	async function searchExternalId(id: string, provider: string) {
 		try {
 			return await axios.get<ContentSearch>(
@@ -181,6 +198,8 @@
 		let p = spl[0]?.toLowerCase();
 		switch (p) {
 			// Default names that are supported right out of the box
+			case "movie": // tmdb id target
+			case "tv": // tmdb id target
 			case "imdb":
 			case "tvdb":
 			case "youtube":
@@ -189,6 +208,7 @@
 			case "instagram":
 			case "twitter":
 			case "tiktok":
+			case "igdb":
 				break;
 			// Any aliases we want to support
 			case "i":
@@ -204,6 +224,12 @@
 				break;
 			case "thetvdb":
 				p = "tvdb";
+				break;
+			case "game":
+				p = "igdb";
+				break;
+			case "series":
+				p = "tv";
 				break;
 			// If none match, then is invalid provider.
 			default:
@@ -237,42 +263,74 @@
 		reqController = new AbortController();
 		try {
 			if (isExtSearch) {
-				console.log("Search: Performing external id search.");
-				const resp = await searchExternalId(
-					extProvider.id,
-					extProvider.provider,
-				);
-				const data = resp.data;
-				if (!data || !data.results) {
-					console.warn("Search: No results from external id search.");
-					return;
-				}
-				if (
-					data.results.length === 1 &&
-					data.results[0].media_type &&
-					data.results[0].id
-				) {
-					console.info(
-						"Search: Only one result from external id search. Redirecting..",
-						data.results[0],
-					);
-					const mediaType = data.results[0].media_type;
-					if (
-						mediaType !== "movie" &&
-						mediaType !== "tv" &&
-						mediaType !== "person"
-					) {
-						console.info(
-							"Search: Unsupported media type found in only result.. not redirecting.",
-							mediaType,
-						);
-					} else {
-						goto(`/${data.results[0].media_type}/${data.results[0].id}`);
+				if (extProvider.provider === "igdb") {
+					console.log("Search: Performing igdb id search.");
+					const resp = await searchGamesById(extProvider.id);
+					const data = resp.data;
+					const resultsAmt = data.length;
+					if (!data || resultsAmt <= 0) {
+						console.warn("Search: No results from game id search.");
 						return;
 					}
+					if (resultsAmt === 1) {
+						console.info(
+							"Search: Only one result from game id search. Redirecting..",
+							data[0],
+						);
+
+						goto(`/game/${data[0].id}`);
+						return;
+					}
+					allSearchResults.push(...data);
+				} else if (
+					extProvider.provider === "tv" ||
+					extProvider.provider === "movie"
+				) {
+					// HACK I can't be bothered doing a test api call here,
+					// assuming that people paste the id in, this should work
+					// without the debounce going to an incomplete id.
+					// Flesh out if anyone has issues.
+					goto(`/${extProvider.provider}/${extProvider.id}`);
+					return;
+				} else {
+					// Else call tmdb `external id` endpoint
+					console.log("Search: Performing external id search.");
+					const resp = await searchExternalId(
+						extProvider.id,
+						extProvider.provider,
+					);
+					const data = resp.data;
+					if (!data || !data.results) {
+						console.warn("Search: No results from external id search.");
+						return;
+					}
+					if (
+						data.results.length === 1 &&
+						data.results[0].media_type &&
+						data.results[0].id
+					) {
+						console.info(
+							"Search: Only one result from external id search. Redirecting..",
+							data.results[0],
+						);
+						const mediaType = data.results[0].media_type;
+						if (
+							mediaType !== "movie" &&
+							mediaType !== "tv" &&
+							mediaType !== "person"
+						) {
+							console.info(
+								"Search: Unsupported media type found in only result.. not redirecting.",
+								mediaType,
+							);
+						} else {
+							goto(`/${data.results[0].media_type}/${data.results[0].id}`);
+							return;
+						}
+					}
+					allSearchResults.push(...data.results);
 				}
 				console.info("Search: Multiple results from external id search.");
-				allSearchResults.push(...data.results);
 				searchResults = allSearchResults;
 				curPage++;
 			} else if (activeSearchFilter) {
