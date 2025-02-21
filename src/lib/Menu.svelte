@@ -100,10 +100,31 @@
 					}
 				}
 
+				a.menu-footer,
+				button.menu-footer {
+					font-size: 11px;
+					padding: 2px;
+					text-align: center;
+					transition: inherit;
+					color: $text-color-accent;
+					cursor: pointer;
+					border: none;
+					display: inline;
+					font-weight: initial;
+					width: auto;
+
+					&:hover,
+					&:focus-visible {
+						text-decoration: underline;
+						background-color: $bg-color;
+						color: $text-color;
+					}
+				}
+
 				span {
 					margin-top: 8px;
 					font-size: 11px;
-					color: gray;
+					color: $text-color-accent;
 					text-align: center;
 				}
 			}

@@ -7,9 +7,11 @@
 	import { goto } from "$app/navigation";
 	import { clearWatcharrData } from "../logout";
 	import { notify } from "../util/notify";
+	import AboutModal from "./AboutModal.svelte";
 
 	let user = $derived(store.userInfo);
 	let proxyUserLogoutShown = $state(false);
+	let aboutModalOpen = $state(false);
 
 	function logout() {
 		if (user?.type === UserType.Proxy) {
@@ -61,6 +63,10 @@
 			notify({ id: nid, type: "error", text: "Failed to get link" });
 		}
 	}
+
+	function closeAbout() {
+		aboutModalOpen = false;
+	}
 </script>
 
 <Menu conf={{ arrowRight: "10px" }}>
@@ -85,5 +91,26 @@
 	{#if proxyUserLogoutShown}
 		<ProxyUserLogoutModal onClose={() => (proxyUserLogoutShown = false)} />
 	{/if}
-	<span>v{__WATCHARR_VERSION__}</span>
+	<span>
+		<button
+			class="menu-footer"
+			onclick={() => {
+				aboutModalOpen = !aboutModalOpen;
+			}}
+		>
+			about
+		</button>
+		|
+		<a
+			class="menu-footer"
+			href="https://github.com/sbondCo/Watcharr/releases"
+			target="_blank"
+		>
+			v{__WATCHARR_VERSION__}
+		</a>
+	</span>
 </Menu>
+
+{#if aboutModalOpen}
+	<AboutModal onClose={closeAbout} />
+{/if}
