@@ -191,6 +191,14 @@ export interface WatchedEpisodeAddResponse {
 	episodeStatusChangedHookResponse?: EpisodeStatusChangedHookResponse;
 }
 
+export interface WatchedAddedToContent {
+	watched?: Watched;
+	failedToGetWatched: boolean;
+}
+
+export type TMDBShowDetailsWithWatched = WatchedAddedToContent &
+	TMDBShowDetails;
+
 export interface EpisodeStatusChangedHookResponse {
 	newShowStatus?: WatchedStatus;
 	watchedSeason?: WatchedSeason;
