@@ -491,10 +491,9 @@
 							? v.reviews[0].review?.text
 							: "",
 
-					rating:
-						v.reviews?.length
-							? validifyRating(Number(v.reviews[0].rating))
-							: undefined,
+					rating: v.reviews?.length
+						? validifyRating(Number(v.reviews[0].rating))
+						: undefined,
 
 					datesWatched:
 						v.lot === "movie" && v.seen_history?.length
