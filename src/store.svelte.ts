@@ -12,7 +12,7 @@ import type {
 } from "./types";
 import type { Notification } from "./lib/util/notify";
 import { browser } from "$app/environment";
-import { toggleTheme } from "./lib/util/helpers";
+import { toggleTheme } from "./lib/util/theme";
 
 export const defaultSort = ["DATEADDED", "DOWN"];
 
@@ -54,7 +54,7 @@ const _store: Store = $state({
 	notifications: [],
 	activeSort: defaultSort,
 	activeFilters: { type: [], status: [] },
-	appTheme: "light",
+	appTheme: "system",
 	importedList: undefined,
 	parsedImportedList: undefined,
 	searchQuery: "",
@@ -186,7 +186,7 @@ export const clearAllStores = () => {
 	store.watchedList = [];
 	store.notifications = [];
 	store.activeSort = defaultSort;
-	store.appTheme = "light";
+	store.appTheme = "system";
 	store.importedList = undefined;
 	store.parsedImportedList = undefined;
 	store.searchQuery = "";
@@ -244,10 +244,7 @@ function rehydrateStore() {
 			$state.snapshot(store.appTheme),
 		);
 	} else {
-		let defTheme: Theme = "light";
-		if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-			defTheme = "dark";
-		}
+		let defTheme: Theme = "system";
 		_store.appTheme = defTheme;
 		toggleTheme(defTheme, false);
 		console.debug(

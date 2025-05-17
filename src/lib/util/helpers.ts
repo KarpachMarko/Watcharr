@@ -1,10 +1,8 @@
-import { store } from "@/store.svelte";
 import {
 	UserPermission,
 	type Icon,
 	type MediaType,
 	type TMDBContentCreditsCrew,
-	type Theme,
 	type TokenClaims,
 	type Watched,
 	type WatchedStatus,
@@ -292,26 +290,6 @@ export function getOrdinalSuffix(i: number) {
 		return "rd";
 	}
 	return "th";
-}
-
-/**
- * Toggle site wide theme.
- * @param theme The theme to switch to.
- * @param updateStore Should the store be updated to new theme?
- * **If set to `false`, state should be manually updated.**
- */
-export function toggleTheme(theme: Theme, updateStore = true) {
-	if (theme === "dark") {
-		document.documentElement.classList.add("theme-dark");
-		if (updateStore) {
-			store.appTheme = "dark";
-		}
-	} else {
-		document.documentElement.classList.remove("theme-dark");
-		if (updateStore) {
-			store.appTheme = "light";
-		}
-	}
 }
 
 export function parseTokenPayload(): TokenClaims | undefined {

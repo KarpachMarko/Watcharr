@@ -7,11 +7,7 @@
 	import Stat from "@/lib/stats/Stat.svelte";
 	import Stats from "@/lib/stats/Stats.svelte";
 	import { updateUserSetting } from "@/lib/util/api";
-	import {
-		getOrdinalSuffix,
-		monthsShort,
-		toggleTheme,
-	} from "@/lib/util/helpers";
+	import { getOrdinalSuffix, monthsShort } from "@/lib/util/helpers";
 	import { store } from "@/store.svelte";
 	import { UserType, type Image, type Profile } from "@/types";
 	import axios from "axios";
@@ -21,6 +17,7 @@
 	import SyncModal from "./modals/SyncModal.svelte";
 	import RegionDropDown from "@/lib/RegionDropDown.svelte";
 	import RatingSetting from "@/lib/rating/RatingSetting.svelte";
+	import { toggleTheme } from "@/lib/util/theme";
 
 	let user = $derived(store.userInfo);
 	let settings = $derived(store.userSettings);
@@ -218,6 +215,13 @@
 			<div class="theme">
 				<h4 class="norm">Theme</h4>
 				<div class="row">
+					<button
+						class={`plain${selectedTheme === "system" ? " selected" : ""}`}
+						id="system"
+						onclick={() => toggleTheme("system")}
+					>
+						<span>system</span>
+					</button>
 					<button
 						class={`plain${selectedTheme === "light" ? " selected" : ""}`}
 						id="light"
@@ -498,6 +502,20 @@
 				&#dark {
 					background-color: black;
 					outline-color: white;
+					&:hover {
+						color: white;
+						-webkit-text-stroke: 0.5px white;
+					}
+				}
+
+				&#system {
+					background: linear-gradient(to right bottom, white 50%, black 50.3%);
+					outline-color: black;
+
+					span {
+						mix-blend-mode: difference;
+					}
+
 					&:hover {
 						color: white;
 						-webkit-text-stroke: 0.5px white;
