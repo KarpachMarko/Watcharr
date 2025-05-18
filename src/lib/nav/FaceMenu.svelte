@@ -69,7 +69,7 @@
 	}
 </script>
 
-<Menu conf={{ arrowRight: "10px" }}>
+<Menu conf={{ width: "140px", arrowRight: "10px" }}>
 	{#if user?.username}
 		<h5 title={user.username}>Hi {user.username}!</h5>
 	{/if}
