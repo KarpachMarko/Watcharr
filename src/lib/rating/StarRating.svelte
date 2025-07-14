@@ -365,7 +365,12 @@ shownPerc: {shownPerc}<br /> -->
 			handleRatingHoverEnd();
 		}}
 		onclick={() => {
-			saveSelectedRating();
+			// If tapping a star on mobile we don't want to save
+			// with onclick event, only the touch end to avoid double
+			// save.
+			if (!isTouch()) {
+				saveSelectedRating();
+			}
 		}}
 		onkeydown={(ev) => handleKeyDown(ev)}
 		role="button"
