@@ -191,6 +191,9 @@ export interface WatchedAddedToContent {
 export type TMDBShowDetailsWithWatched = WatchedAddedToContent &
 	TMDBShowDetails;
 
+export type TMDBMovieDetailsWithWatched = WatchedAddedToContent &
+	TMDBMovieDetails;
+
 export interface EpisodeStatusChangedHookResponse {
 	newShowStatus?: WatchedStatus;
 	watchedSeason?: WatchedSeason;

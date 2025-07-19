@@ -15,6 +15,7 @@
 		TMDBContentCredits,
 		TMDBContentCreditsCrew,
 		TMDBMovieDetails,
+		TMDBMovieDetailsWithWatched,
 		WatchedStatus,
 	} from "@/types";
 	import axios from "axios";
@@ -36,17 +37,12 @@
 	let { data } = $props();
 
 	let trailer: string | undefined = $state();
-	let requestModalShown = $state(false);
 	let trailerShown = $state(false);
+	let requestModalShown = $state(false);
 	let jellyfinUrl: string | undefined = $state();
 	let arrRequestButtonComp: ArrRequestButton | undefined = $state();
-	let movie: TMDBMovieDetails | undefined = $state();
+	let movie: TMDBMovieDetailsWithWatched | undefined = $state();
 	let pageError: Error | undefined = $state();
-	let wListItem = $derived(
-		store.watchedList.find(
-			(w) => w.content?.type === "movie" && w.content?.tmdbId === data.movieId,
-		),
-	);
 
 	$effect(() => {
 		(async () => {
@@ -60,23 +56,27 @@
 					await axios.get(`/content/movie/${data.movieId}`, {
 						params: { region: store.userSettings?.country },
 					})
-				).data as TMDBMovieDetails;
-				if (resp.videos?.results?.length > 0) {
-					const t = resp.videos.results.find(
-						(v) => v.type?.toLowerCase() === "trailer",
-					);
-					if (t?.key) {
-						if (t?.site?.toLowerCase() === "youtube") {
-							trailer = `https://www.youtube.com/embed/${t?.key}`;
+				).data as TMDBMovieDetailsWithWatched;
+				if (resp) {
+					if (resp.videos?.results?.length > 0) {
+						const t = resp.videos.results.find(
+							(v) => v.type?.toLowerCase() === "trailer",
+						);
+						if (t?.key) {
+							if (t?.site?.toLowerCase() === "youtube") {
+								trailer = `https://www.youtube.com/embed/${t?.key}`;
+							}
 						}
 					}
+					contentExistsOnJellyfin("movie", resp.title, resp.id).then((j) => {
+						if (j?.hasContent && j?.url !== "") {
+							jellyfinUrl = j.url;
+						}
+					});
+					movie = resp;
+				} else {
+					movie = undefined;
 				}
-				contentExistsOnJellyfin("movie", resp.title, resp.id).then((j) => {
-					if (j?.hasContent && j?.url !== "") {
-						jellyfinUrl = j.url;
-					}
-				});
-				movie = resp;
 			} catch (err: any) {
 				movie = undefined;
 				pageError = err;
@@ -98,19 +98,33 @@
 		newRating?: number,
 		newThoughts?: string,
 		pinned?: boolean,
-	): Promise<boolean> {
+	) {
 		if (!data.movieId) {
 			console.error("contentChanged: no movieId");
-			return false;
+			return;
 		}
-		return await updateWatched(
-			data.movieId,
-			"movie",
-			newStatus,
-			newRating,
-			newThoughts,
-			pinned,
-		);
+		if (!movie) {
+			console.error("contentChanged: no movie");
+			return;
+		}
+		movie.watched = await updateWatched(movie.watched, {
+			contentId: data.movieId,
+			contentType: "tv",
+			status: newStatus,
+			rating: newRating,
+			thoughts: newThoughts,
+			pinned: pinned,
+		});
+	}
+
+	async function deleteWatched() {
+		if (movie?.watched) {
+			if (await removeWatched(movie.watched.id)) {
+				movie.watched = undefined;
+			}
+			return;
+		}
+		console.error("deleteWatched: no wlistItem.. can't delete");
 	}
 </script>
 
@@ -182,7 +196,11 @@
 						{/if}
 						{#if jellyfinUrl}
 							<a class="btn" href={jellyfinUrl} target="_blank">
-								<Icon i="jellyfin" wh={14} />Play On Jellyfin
+								{#if localStorage.getItem("useEmby")}
+									<Icon i="emby" wh={14} />Play On Emby
+								{:else}
+									<Icon i="jellyfin" wh={14} />Play On Jellyfin
+								{/if}
 							</a>
 						{/if}
 						{#if store.serverFeatures?.radarr && data.movieId}
@@ -194,30 +212,27 @@
 								bind:this={arrRequestButtonComp}
 							/>
 						{/if}
-						{#if wListItem}
+						{#if movie.watched}
 							<div class="other-side">
-								<AddToTagButton watchedItem={wListItem} />
+								<AddToTagButton watchedItem={movie.watched} />
 								<button
 									onclick={() => {
-										if (wListItem?.pinned) {
+										if (movie?.watched?.pinned) {
 											contentChanged(undefined, undefined, undefined, false);
 										} else {
 											contentChanged(undefined, undefined, undefined, true);
 										}
 									}}
 									use:tooltip={{
-										text: `${wListItem?.pinned ? "Unpin from" : "Pin to"} top of list`,
+										text: `${movie.watched?.pinned ? "Unpin from" : "Pin to"} top of list`,
 										pos: "bot",
 									}}
 								>
-									<Icon i={wListItem?.pinned ? "unpin" : "pin"} wh={19} />
+									<Icon i={movie.watched?.pinned ? "unpin" : "pin"} wh={19} />
 								</button>
 								<button
 									class="delete-btn"
-									onclick={() =>
-										wListItem
-											? removeWatched(wListItem.id)
-											: console.error("no wlistItem.. can't delete")}
+									onclick={() => deleteWatched()}
 									use:tooltip={{ text: "Delete", pos: "bot" }}
 								>
 									<Icon i="trash" wh={19} />
@@ -247,17 +262,17 @@
 			<div class="review">
 				<!-- <span>What did you think?</span> -->
 				<Rating
-					rating={wListItem?.rating}
+					rating={movie.watched?.rating}
 					onChange={(n) => contentChanged(undefined, n)}
 				/>
 				<Status
-					status={wListItem?.status}
+					status={movie.watched?.status}
 					onChange={(n) => contentChanged(n)}
 				/>
-				{#if wListItem}
+				{#if movie.watched}
 					<MyThoughts
 						contentTitle={movie.title}
-						thoughts={wListItem?.thoughts}
+						thoughts={movie.watched?.thoughts}
 						onChange={(newThoughts) => {
 							return contentChanged(undefined, undefined, newThoughts);
 						}}
@@ -302,8 +317,11 @@
 
 			<SimilarContent type="movie" similar={movie.similar} />
 
-			{#if wListItem}
-				<Activity wListId={wListItem.id} activity={wListItem.activity} />
+			{#if movie.watched}
+				<Activity
+					wListId={movie.watched.id}
+					activity={movie.watched.activity}
+				/>
 			{/if}
 		</div>
 	</div>

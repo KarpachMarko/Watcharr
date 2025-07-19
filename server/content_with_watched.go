@@ -116,6 +116,47 @@ func searchTvAddWatched(
 	return withWatchedResp
 }
 
+func movieDetailsAddWatched(
+	db *gorm.DB,
+	userId uint,
+	content TMDBMovieDetails,
+) TMDBMovieDetailsWithWatched {
+	withWatchedResp := TMDBMovieDetailsWithWatched{}
+	withWatchedResp.TMDBMovieDetailsBase = content.TMDBMovieDetailsBase
+	// Append watched list entry if exists
+	if watchedEntry, err := getWatchedItemByTmdbId(db, userId, uint(content.ID), MOVIE); err != nil {
+		if err != gorm.ErrRecordNotFound {
+			withWatchedResp.FailedToGetWatched = true
+		}
+	} else {
+		withWatchedResp.Watched = &watchedEntry
+	}
+	// Add similar content with any watched entries
+	similarContentIdAndTypePairs := [][]any{}
+	for _, v := range content.Similar.Results {
+		withWatchedResp.Similar.Results = append(withWatchedResp.Similar.Results, TMDBMovieSimilarResultWithWatched{
+			TMDBMovieSimilarResult: v,
+		})
+		similarContentIdAndTypePairs = append(similarContentIdAndTypePairs, []any{
+			v.ID,
+			MOVIE,
+		})
+	}
+	if ws, err := getWatchedItemsByTmdbIds(db, userId, similarContentIdAndTypePairs); err == nil {
+		for _, v := range ws {
+			for i, vv := range withWatchedResp.Similar.Results {
+				if vv.ID == v.Content.TmdbID && string(MOVIE) == string(v.Content.Type) {
+					withWatchedResp.Similar.Results[i].WatchedAddedToContent.Watched = &v
+				}
+			}
+		}
+	} else {
+		// TODO Set 'FailedToGetWatched' to `true` for the whole response obj when supported in structs
+		slog.Error("Getting watched items by tmdbIds failed!")
+	}
+	return withWatchedResp
+}
+
 func tvDetailsAddWatched(
 	db *gorm.DB,
 	userId uint,

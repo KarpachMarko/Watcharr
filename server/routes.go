@@ -165,16 +165,25 @@ func (b *BaseRouter) addContentRoutes() {
 
 	// Get movie details (for movie page)
 	content.GET("/movie/:id", WhereaboutsRequired(), cache.CachePage(b.ms, exp, func(c *gin.Context) {
+		userId := c.MustGet("userId").(uint)
 		if c.Param("id") == "" {
-			c.Status(400)
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "an id was not provided"})
 			return
 		}
-		content, err := movieDetails(b.db, c.Param("id"), c.MustGet("userCountry").(string), map[string]string{"append_to_response": "videos,watch/providers,similar"})
+		content, err := movieDetails(
+			b.db,
+			c.Param("id"),
+			c.MustGet("userCountry").(string),
+			map[string]string{
+				"append_to_response": "videos,watch/providers,similar",
+			},
+		)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, content)
+		withWatchedResp := movieDetailsAddWatched(b.db, userId, content)
+		c.JSON(http.StatusOK, withWatchedResp)
 	}))
 
 	// Get movie cast
@@ -194,6 +203,10 @@ func (b *BaseRouter) addContentRoutes() {
 	// Get tv details (for tv page)
 	content.GET("/tv/:id", WhereaboutsRequired(), func(c *gin.Context) {
 		userId := c.MustGet("userId").(uint)
+		if c.Param("id") == "" {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "an id was not provided"})
+			return
+		}
 		// 1. Get details
 		content, err := tvDetails(
 			b.db,

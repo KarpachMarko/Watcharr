@@ -215,7 +215,7 @@ type TMDBContentDetails struct {
 	} `json:"spoken_languages"`
 }
 
-type TMDBMovieDetails struct {
+type TMDBMovieDetailsBase struct {
 	TMDBContentDetails
 	Adult               bool   `json:"adult"`
 	BelongsToCollection any    `json:"belongs_to_collection"`
@@ -229,15 +229,21 @@ type TMDBMovieDetails struct {
 	Video               bool   `json:"video"`
 
 	// Extra items because we use `append_to_response` on the request
-	Videos         TMDBContentVideos    `json:"videos"`
-	WatchProviders interface{}          `json:"watch/providers"`
-	Similar        TMDBMovieSimilar     `json:"similar"`
-	ExternalIds    TMDBExternalIdsMovie `json:"external_ids"`
+	Videos         TMDBContentVideos `json:"videos"`
+	WatchProviders interface{}       `json:"watch/providers"`
+	// Similar        TMDBMovieSimilar     `json:"similar"`
+	ExternalIds TMDBExternalIdsMovie `json:"external_ids"`
+}
+
+type TMDBMovieDetails struct {
+	TMDBMovieDetailsBase
+	Similar TMDBMovieSimilar `json:"similar"`
 }
 
 type TMDBMovieDetailsWithWatched struct {
 	WatchedAddedToContent
-	*TMDBShowDetails
+	TMDBMovieDetailsBase
+	Similar TMDBMovieSimilarWithWatched `json:"similar"`
 }
 
 type TMDBShowDetailsBase struct {
@@ -411,25 +417,33 @@ type TMDBShowSimilarResultWithWatched struct {
 }
 
 type TMDBMovieSimilar struct {
-	Page    int `json:"page"`
-	Results []struct {
-		Adult            bool    `json:"adult"`
-		BackdropPath     string  `json:"backdrop_path"`
-		GenreIds         []int   `json:"genre_ids"`
-		ID               int     `json:"id"`
-		OriginalLanguage string  `json:"original_language"`
-		OriginalTitle    string  `json:"original_title"`
-		Overview         string  `json:"overview"`
-		Popularity       float64 `json:"popularity"`
-		PosterPath       string  `json:"poster_path"`
-		ReleaseDate      string  `json:"release_date"`
-		Title            string  `json:"title"`
-		Video            bool    `json:"video"`
-		VoteAverage      float64 `json:"vote_average"`
-		VoteCount        uint32  `json:"vote_count"`
-	} `json:"results"`
-	TotalPages   int `json:"total_pages"`
-	TotalResults int `json:"total_results"`
+	TMDBSearchResponse[TMDBMovieSimilarResult]
+}
+
+type TMDBMovieSimilarResult struct {
+	Adult            bool    `json:"adult"`
+	BackdropPath     string  `json:"backdrop_path"`
+	GenreIds         []int   `json:"genre_ids"`
+	ID               int     `json:"id"`
+	OriginalLanguage string  `json:"original_language"`
+	OriginalTitle    string  `json:"original_title"`
+	Overview         string  `json:"overview"`
+	Popularity       float64 `json:"popularity"`
+	PosterPath       string  `json:"poster_path"`
+	ReleaseDate      string  `json:"release_date"`
+	Title            string  `json:"title"`
+	Video            bool    `json:"video"`
+	VoteAverage      float64 `json:"vote_average"`
+	VoteCount        uint32  `json:"vote_count"`
+}
+
+type TMDBMovieSimilarWithWatched struct {
+	TMDBSearchResponse[TMDBMovieSimilarResultWithWatched]
+}
+
+type TMDBMovieSimilarResultWithWatched struct {
+	TMDBMovieSimilarResult
+	WatchedAddedToContent
 }
 
 type TMDBPersonDetails struct {
