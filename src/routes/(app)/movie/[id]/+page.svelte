@@ -14,7 +14,6 @@
 	import type {
 		TMDBContentCredits,
 		TMDBContentCreditsCrew,
-		TMDBMovieDetails,
 		TMDBMovieDetailsWithWatched,
 		WatchedStatus,
 	} from "@/types";

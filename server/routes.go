@@ -415,7 +415,7 @@ func (b *BaseRouter) addGameRoutes() {
 	// Search for game by id (for search page, same minimal details as /search returned)
 	gamer.GET("/search/:id", cache.CachePage(b.ms, exp, func(c *gin.Context) {
 		if c.Param("id") == "" {
-			c.Status(400)
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "an id was not provided"})
 			return
 		}
 		games, err := igdb.SearchById(c.Param("id"))
@@ -428,8 +428,9 @@ func (b *BaseRouter) addGameRoutes() {
 
 	// Game details for game page
 	gamer.GET("/:id", cache.CachePage(b.ms, exp, func(c *gin.Context) {
+		userId := c.MustGet("userId").(uint)
 		if c.Param("id") == "" {
-			c.Status(400)
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "an id was not provided"})
 			return
 		}
 		content, err := igdb.GameDetails(c.Param("id"))
@@ -437,7 +438,8 @@ func (b *BaseRouter) addGameRoutes() {
 			c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, content)
+		withWatchedResp := gameDetailsAddWatched(b.db, userId, content)
+		c.JSON(http.StatusOK, withWatchedResp)
 	}))
 
 	// Add game to played(watched) list

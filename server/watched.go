@@ -183,7 +183,11 @@ func getWatchedItemByTmdbId(db *gorm.DB, userId uint, tmdbId uint, contentType C
 	slog.Debug("getWatchedItemByTmdbId: Running.", "userId", userId, "tmdbId", tmdbId)
 	watched := new(Watched)
 	res := db.Model(&Watched{}).
-		Joins("Content").
+		Preload("Content").
+		Preload("Activity").
+		Preload("WatchedSeasons").
+		Preload("WatchedEpisodes").
+		Preload("Tags").
 		Where("user_id = ? AND Content.tmdb_id = ? AND Content.type = ?", userId, tmdbId, contentType).
 		Take(&watched)
 	if res.Error != nil {
@@ -201,7 +205,11 @@ func getWatchedItemsByTmdbIds(db *gorm.DB, userId uint, c [][]any) ([]Watched, e
 	slog.Debug("getWatchedItemsByTmdbIds: Running.", "userId", userId, "c", c)
 	watched := new([]Watched)
 	res := db.Model(&Watched{}).
-		Joins("Content").
+		Preload("Content").
+		Preload("Activity").
+		Preload("WatchedSeasons").
+		Preload("WatchedEpisodes").
+		Preload("Tags").
 		Where("user_id = ?", userId).
 		Where(
 			"(Content.tmdb_id, Content.type) IN ?", c).
@@ -212,6 +220,52 @@ func getWatchedItemsByTmdbIds(db *gorm.DB, userId uint, c [][]any) ([]Watched, e
 	}
 	slog.Debug(
 		"getWatchedItemsByTmdbIds: Done.",
+		"userId", userId,
+		"watcheds_found", len(*watched),
+		// "wdev", *watched,
+	)
+	return *watched, nil
+}
+
+// Get a watched list item by game (igdb) id (must be for `userId`).
+// TODO update var names soon
+func getWatchedItemByIgdbId(db *gorm.DB, userId uint, tmdbId uint) (Watched, error) {
+	slog.Debug("getWatchedItemByIgdbId: Running.", "userId", userId, "tmdbId", tmdbId)
+	watched := new(Watched)
+	res := db.Model(&Watched{}).
+		Joins("Game").
+		Preload("Game.Poster").
+		Preload("Activity").
+		Preload("Tags").
+		Where("user_id = ? AND Game.igdb_id = ?", userId, tmdbId).
+		Take(&watched)
+	if res.Error != nil {
+		slog.Error("getWatchedItemByIgdbId: Failed!", "error", res.Error)
+		return Watched{}, res.Error
+	}
+	slog.Debug("getWatchedItemByIgdbId: Done.", "userId", userId, "tmdbId", tmdbId, "watched_item", watched)
+	return *watched, nil
+}
+
+// Same as `getWatchedItemByIgdbId` except for getting in bulk (multiple content ids).
+// `c` should be a slice of igdb ids.
+func getWatchedItemsByIgdbIds(db *gorm.DB, userId uint, c []int) ([]Watched, error) {
+	slog.Debug("getWatchedItemsByIgdbIds: Running.", "userId", userId, "c", c)
+	watched := new([]Watched)
+	res := db.Model(&Watched{}).
+		Joins("Game").
+		Preload("Game.Poster").
+		Preload("Activity").
+		Preload("Tags").
+		Where("user_id = ?", userId).
+		Where("(Game.igdb_id) IN ?", c).
+		Find(&watched)
+	if res.Error != nil {
+		slog.Error("getWatchedItemsByIgdbIds: Failed!", "error", res.Error)
+		return []Watched{}, res.Error
+	}
+	slog.Debug(
+		"getWatchedItemsByIgdbIds: Done.",
 		"userId", userId,
 		"watcheds_found", len(*watched),
 		// "wdev", *watched,

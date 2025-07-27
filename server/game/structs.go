@@ -40,7 +40,18 @@ type GameSearchResponse []struct {
 	VersionTitle     string   `json:"version_title,omitempty"`
 }
 
-type GameDetailsResponse struct {
+type GameSimilar struct {
+	ID               int      `json:"id"`
+	Name             string   `json:"name"`
+	Summary          string   `json:"summary"`
+	FirstReleaseDate UnixTime `json:"first_release_date"`
+	Cover            struct {
+		ID      int    `json:"id"`
+		ImageID string `json:"image_id"`
+	} `json:"cover"`
+}
+
+type GameDetailsResponseBase struct {
 	ID       int `json:"id"`
 	Artworks []struct {
 		Width   int    `json:"width"`
@@ -102,16 +113,11 @@ type GameDetailsResponse struct {
 		Trusted  bool   `json:"trusted"`
 		URL      string `json:"url"`
 	} `json:"websites"`
-	SimilarGame []struct {
-		ID               int      `json:"id"`
-		Name             string   `json:"name"`
-		Summary          string   `json:"summary"`
-		FirstReleaseDate UnixTime `json:"first_release_date"`
-		Cover            struct {
-			ID      int    `json:"id"`
-			ImageID string `json:"image_id"`
-		} `json:"cover"`
-	} `json:"similar_games"`
+}
+
+type GameDetailsResponse struct {
+	GameDetailsResponseBase
+	SimilarGame []GameSimilar `json:"similar_games"`
 }
 
 type GameDetailsBasicResponse struct {

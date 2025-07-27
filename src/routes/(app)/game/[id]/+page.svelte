@@ -1,14 +1,12 @@
 <script lang="ts">
 	import PageError from "@/lib/PageError.svelte";
-	import PersonPoster from "@/lib/poster/PersonPoster.svelte";
 	import Rating from "@/lib/rating/Rating.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
 	import Status from "@/lib/Status.svelte";
 	import HorizontalList from "@/lib/HorizontalList.svelte";
-	import { store } from "@/store.svelte";
 	import {
 		GameWebsiteCategory,
-		type GameDetailsResponse,
+		type GameDetailsResponseWithWatched,
 		type WatchedStatus,
 	} from "@/types";
 	import axios from "axios";
@@ -19,7 +17,6 @@
 	import FollowedThoughts from "@/lib/content/FollowedThoughts.svelte";
 	import { removeWatched, updatePlayed } from "@/lib/util/api.js";
 	import GamePoster from "@/lib/poster/GamePoster.svelte";
-	import { getPlayedDependedProps } from "@/lib/util/helpers";
 	import tooltip from "@/lib/actions/tooltip.js";
 	import Icon from "@/lib/Icon.svelte";
 	import MyThoughts from "@/lib/content/MyThoughts.svelte";
@@ -27,12 +24,9 @@
 
 	let { data } = $props();
 
-	let wListItem = $derived(
-		store.watchedList.find((w) => w.game?.igdbId === data.gameId),
-	);
 	let trailer: string | undefined = $state();
 	let trailerShown = $state(false);
-	let game: GameDetailsResponse | undefined = $state();
+	let game: GameDetailsResponseWithWatched | undefined = $state();
 	let pageError: Error | undefined = $state();
 
 	$effect(() => {
@@ -44,7 +38,7 @@
 					return;
 				}
 				const resp = (await axios.get(`/game/${data.gameId}`))
-					.data as GameDetailsResponse;
+					.data as GameDetailsResponseWithWatched;
 				if (resp.videos?.length > 0) {
 					const t = resp.videos.find(
 						(v) => v.name?.toLowerCase() === "trailer",
@@ -67,18 +61,32 @@
 		newRating?: number,
 		newThoughts?: string,
 		pinned?: boolean,
-	): Promise<boolean> {
+	) {
 		if (!data.gameId) {
-			console.error("contentChanged: no gameId");
-			return false;
+			console.error("contentChanged: no tvId");
+			return;
 		}
-		return await updatePlayed(
-			data.gameId,
-			newStatus,
-			newRating,
-			newThoughts,
-			pinned,
-		);
+		if (!game) {
+			console.error("contentChanged: no show");
+			return;
+		}
+		game.watched = await updatePlayed(game.watched, {
+			igdbId: data.gameId,
+			status: newStatus,
+			rating: newRating,
+			thoughts: newThoughts,
+			pinned: pinned,
+		});
+	}
+
+	async function deleteWatched() {
+		if (game?.watched) {
+			if (await removeWatched(game.watched.id)) {
+				game.watched = undefined;
+			}
+			return;
+		}
+		console.error("deleteWatched: no wlistItem.. can't delete");
 	}
 </script>
 
@@ -176,30 +184,27 @@
 								/>
 							{/if}
 						{/if}
-						{#if wListItem}
+						{#if game.watched}
 							<div class="other-side">
-								<AddToTagButton watchedItem={wListItem} />
+								<AddToTagButton watchedItem={game.watched} />
 								<button
 									onclick={() => {
-										if (wListItem?.pinned) {
+										if (game?.watched?.pinned) {
 											contentChanged(undefined, undefined, undefined, false);
 										} else {
 											contentChanged(undefined, undefined, undefined, true);
 										}
 									}}
 									use:tooltip={{
-										text: `${wListItem?.pinned ? "Unpin from" : "Pin to"} top of list`,
+										text: `${game.watched?.pinned ? "Unpin from" : "Pin to"} top of list`,
 										pos: "bot",
 									}}
 								>
-									<Icon i={wListItem?.pinned ? "unpin" : "pin"} wh={19} />
+									<Icon i={game.watched?.pinned ? "unpin" : "pin"} wh={19} />
 								</button>
 								<button
 									class="delete-btn"
-									onclick={() =>
-										wListItem
-											? removeWatched(wListItem.id)
-											: console.error("no wlistItem.. can't delete")}
+									onclick={() => deleteWatched()}
 									use:tooltip={{ text: "Delete", pos: "bot" }}
 								>
 									<Icon i="trash" wh={19} />
@@ -216,18 +221,18 @@
 		<div class="page">
 			<div class="review">
 				<Rating
-					rating={wListItem?.rating}
+					rating={game.watched?.rating}
 					onChange={(n) => contentChanged(undefined, n)}
 				/>
 				<Status
-					status={wListItem?.status}
+					status={game.watched?.status}
 					isForGame={true}
 					onChange={(n) => contentChanged(n)}
 				/>
-				{#if wListItem}
+				{#if game.watched}
 					<MyThoughts
 						contentTitle={game.name}
-						thoughts={wListItem?.thoughts}
+						thoughts={game.watched?.thoughts}
 						onChange={(newThoughts) => {
 							return contentChanged(undefined, undefined, newThoughts);
 						}}
@@ -241,7 +246,7 @@
 
 			{#if game.similar_games?.length > 0}
 				<HorizontalList title="Similar">
-					{#each game.similar_games as g}
+					{#each game.similar_games as g, i}
 						<GamePoster
 							media={{
 								id: g.id,
@@ -250,15 +255,15 @@
 								summary: g.summary,
 								firstReleaseDate: g.first_release_date,
 							}}
-							{...getPlayedDependedProps(g.id, store.watchedList)}
+							bind:watched={game.similar_games[i].watched}
 							small={true}
 						/>
 					{/each}
 				</HorizontalList>
 			{/if}
 
-			{#if wListItem}
-				<Activity wListId={wListItem.id} activity={wListItem.activity} />
+			{#if game.watched}
+				<Activity wListId={game.watched.id} activity={game.watched.activity} />
 			{/if}
 		</div>
 	</div>

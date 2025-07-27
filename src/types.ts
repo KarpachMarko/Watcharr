@@ -4,6 +4,10 @@ export type WatchedStatus =
 	| "FINISHED"
 	| "HOLD"
 	| "DROPPED";
+/**
+ * Types of media supported by Watcharr in an overarching way.
+ */
+export type SupportedMedia = "tv" | "movie" | "game";
 export type ContentType = "tv" | "movie" | "tv_episode";
 export type MediaType = ContentType | "person";
 
@@ -1256,17 +1260,23 @@ export interface GameDetailsResponse {
 		trusted: boolean;
 		url: string;
 	}[];
-	similar_games: {
-		id: number;
-		name: string;
-		summary: string;
-		first_release_date: number;
-		cover: {
-			id: number;
-			image_id: string;
-		};
-	}[];
+	similar_games: GameSimilar[];
 }
+
+// HACK wasn't bothered making more types so that this is correct (should be new type for adding watched data for this to match server because this type wont always have watched added)... do it later
+interface GameSimilar extends WatchedAddedToContent {
+	id: number;
+	name: string;
+	summary: string;
+	first_release_date: number;
+	cover: {
+		id: number;
+		image_id: string;
+	};
+}
+
+export type GameDetailsResponseWithWatched = WatchedAddedToContent &
+	GameDetailsResponse;
 
 export enum GameWebsiteCategory {
 	Official = 1,

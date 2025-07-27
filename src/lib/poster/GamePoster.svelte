@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { run } from "svelte/legacy";
 
-	import type { PosterExtraDetails, Image, WatchedStatus } from "@/types";
+	import type { Image, WatchedStatus, Watched } from "@/types";
 	import {
 		addClassToParent,
 		calculateTransformOrigin,
@@ -18,9 +18,14 @@
 	import PosterRating from "./PosterRating.svelte";
 	import { decode } from "blurhash";
 	import ExtraDetails from "./ExtraDetails.svelte";
+	import { buildExtraDetails } from "./lib";
 
 	interface Props {
-		id?: number | undefined; // Watched list id
+		/**
+		 * If this content is on our watched list,
+		 * the entry should be provided in full.
+		 */
+		watched?: Watched;
 		media: {
 			id: number;
 			coverId: string;
@@ -29,12 +34,9 @@
 			summary?: string;
 			poster?: Image;
 		};
-		rating?: number | undefined;
-		status?: WatchedStatus | undefined;
 		small?: boolean;
 		disableInteraction?: boolean;
 		hideButtons?: boolean;
-		extraDetails?: PosterExtraDetails | undefined;
 		fluidSize?: boolean;
 		pinned?: boolean;
 		// When provided, default click handlers will instead run this callback.
@@ -46,14 +48,11 @@
 	}
 
 	let {
-		id = undefined,
 		media,
-		rating = undefined,
-		status = undefined,
+		watched = $bindable(undefined),
 		small = false,
 		disableInteraction = false,
 		hideButtons = false,
-		extraDetails = undefined,
 		fluidSize = false,
 		pinned = false,
 		onClick = undefined,
@@ -77,8 +76,8 @@
 	const year = dateStr ? new Date(dateStr).getFullYear() : undefined;
 
 	function handleStarClick(r: number) {
-		if (r == rating) return;
-		updatePlayed(media.id, undefined, r).then(() => {
+		if (r == watched?.rating) return;
+		updatePlayed(watched, { igdbId: media.id, rating: r }).then(() => {
 			if (typeof onUpdated === "function") {
 				onUpdated();
 				runPosterMouseLeaveIfNeeded();
@@ -88,18 +87,18 @@
 
 	function handleStatusClick(type: WatchedStatus | "DELETE") {
 		if (type === "DELETE") {
-			if (!id) {
+			if (!watched) {
 				notify({
-					text: "Content has no watched list id, can't delete.",
+					text: "Content has no watched list entry, can't delete.",
 					type: "error",
 				});
 				return;
 			}
-			removeWatched(id);
+			removeWatched(watched.id);
 			return;
 		}
-		if (type == status) return;
-		updatePlayed(media.id, type).then(() => {
+		if (type == watched?.status) return;
+		updatePlayed(watched, { igdbId: media.id, status: type }).then(() => {
 			if (typeof onUpdated === "function") {
 				onUpdated();
 				runPosterMouseLeaveIfNeeded();
@@ -246,9 +245,9 @@
 				}}
 			/>
 		{/if}
-		{#if id && !posterActive}
+		{#if watched && !posterActive}
 			<!-- Must be on watched list, and poster not hovered -->
-			<ExtraDetails details={extraDetails} {status} {rating} />
+			<ExtraDetails {...buildExtraDetails("game", watched)} />
 		{/if}
 		<div
 			onclick={(e) => {
@@ -278,9 +277,13 @@
 
 			{#if !hideButtons}
 				<div class="buttons">
-					<PosterRating {rating} {handleStarClick} {disableInteraction} />
+					<PosterRating
+						rating={watched?.rating}
+						{handleStarClick}
+						{disableInteraction}
+					/>
 					<PosterStatus
-						{status}
+						status={watched?.status}
 						{handleStatusClick}
 						{disableInteraction}
 						isForGame={true}

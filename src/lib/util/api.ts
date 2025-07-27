@@ -27,16 +27,23 @@ export const baseURL =
 		: "/api";
 console.log("api: baseURL constructed:", baseURL);
 
-interface UpdateWatchedOptions {
+interface UpdateWatchedSharedOptions {
+	status?: WatchedStatus;
+	rating?: number;
+	thoughts?: string;
+	pinned?: boolean;
+}
+
+interface UpdateWatchedOptions extends UpdateWatchedSharedOptions {
 	/**
 	 * TMDB ID.
 	 */
 	contentId: number;
 	contentType: MediaType;
-	status?: WatchedStatus;
-	rating?: number;
-	thoughts?: string;
-	pinned?: boolean;
+}
+
+interface UpdatePlayedOptions extends UpdateWatchedSharedOptions {
+	igdbId: number;
 }
 
 /**
@@ -168,36 +175,54 @@ export async function removeWatched(id: number): Promise<boolean> {
 }
 
 export async function updatePlayed(
-	igdbId: number,
-	status?: WatchedStatus,
-	rating?: number,
-	thoughts?: string,
-	pinned?: boolean,
-): Promise<boolean> {
-	// If item is already in watched store, run update request instead
-	const wEntry = store.watchedList.find((w) => w.game?.igdbId === igdbId);
-	if (wEntry?.id) {
-		return await _updateWatched(wEntry, status, rating, thoughts, pinned);
-	}
-	// Add new played item
-	const nid = notify({ text: `Adding`, type: "loading" });
-	return await axios
-		.post("/game/played", {
-			igdbId,
-			rating,
-			status,
-		} as PlayedAddRequest)
-		.then((resp) => {
-			console.log("Added watched(played) game:", resp.data);
-			store.watchedList.push(resp.data as Watched);
+	wEntry: Watched | undefined,
+	opts: UpdatePlayedOptions,
+): Promise<Watched | undefined> {
+	const nid = notify({ text: `Saving`, type: "loading" });
+	try {
+		// If item is already in watched store, run update request instead
+		if (wEntry?.id) {
+			try {
+				await _updateWatched(
+					wEntry,
+					opts.status,
+					opts.rating,
+					opts.thoughts,
+					opts.pinned,
+				);
+				notify({ id: nid, text: `Saved!`, type: "success" });
+			} catch (err) {
+				console.error("updatePlayed: Failed to update!", err);
+				notify({ id: nid, text: `Saving Failed!`, type: "error" });
+			}
+			// We are updating, so a wEntry exists here.
+			// So we will always return the existing entry,
+			// regardless of if we fail above.
+			return wEntry;
+		}
+		try {
+			// Add new played item
+			notify({ id: nid, text: `Adding`, type: "loading" });
+			const resp = await axios.post("/game/played", {
+				igdbId: opts.igdbId,
+				rating: opts.rating,
+				status: opts.status,
+			} as PlayedAddRequest);
+			console.log("Added played:", resp.data);
 			notify({ id: nid, text: `Added!`, type: "success" });
-			return true;
-		})
-		.catch((err) => {
-			console.error(err);
-			notify({ id: nid, text: "Failed To Add!", type: "error" });
-			return false;
-		});
+			return resp.data;
+		} catch (err) {
+			console.error("updatePlayed: Failed to add!", err);
+			notify({ id: nid, text: `Adding Failed!`, type: "error" });
+			// Watched entry not added so returning undefined is fine,
+			// that will be the current value everywhere anyways.
+			return undefined;
+		}
+	} catch (err) {
+		console.error("updatePlayed: Failed!", err);
+		notify({ id: nid, text: `Failed!`, type: "error" });
+		return wEntry;
+	}
 }
 
 export function updateActivity(

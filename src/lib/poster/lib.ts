@@ -1,4 +1,4 @@
-import type { ContentType, Watched, WatchedStatus } from "@/types";
+import type { SupportedMedia, Watched, WatchedStatus } from "@/types";
 import { getLatestWatchedInTv } from "../util/helpers";
 
 export type PosterExtraDetails = {
@@ -13,7 +13,7 @@ export type PosterExtraDetails = {
 };
 
 export function buildExtraDetails(
-	t: ContentType,
+	t: SupportedMedia,
 	w: Watched,
 ): PosterExtraDetails {
 	const obj = {
