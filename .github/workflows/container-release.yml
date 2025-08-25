@@ -7,7 +7,6 @@ on:
 
 env:
   IMAGE_NAME: watcharr
-  LOWERCASE_REPO_OWNER: ${{ lowercase(github.repository_owner) }}
 
 jobs:
   release-images:
@@ -46,7 +45,7 @@ jobs:
         with:
           images: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
-            ghcr.io/${{ env.LOWERCASE_REPO_OWNER }}/${{ env.IMAGE_NAME }}
+            ghcr.io/karpachmarko/${{ env.IMAGE_NAME }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
