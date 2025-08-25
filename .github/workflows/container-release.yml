@@ -6,7 +6,7 @@ on:
       - v*
 
 env:
-  image: mkarpa/watcharr
+  IMAGE_NAME: watcharr
 
 jobs:
   release-images:
@@ -44,8 +44,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ env.image }}
-            ghcr.io/${{ env.image }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6

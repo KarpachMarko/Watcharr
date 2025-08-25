@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  image: mkarpa/watcharr
+  IMAGE_NAME: watcharr
 
 jobs:
   release-dev-image:
@@ -48,8 +48,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.image }}:dev
-            ghcr.io/${{ env.image }}:dev
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:dev
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:dev
           labels: |
-            ${{ env.image }}:${{ github.sha }}
-            ghcr.io/${{ env.image }}:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
