@@ -8,6 +8,7 @@ on:
 
 env:
   IMAGE_NAME: watcharr
+  LOWERCASE_REPO_OWNER: ${{ lowercase(github.repository_owner) }}
 
 jobs:
   release-dev-image:
@@ -49,7 +50,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:dev
-            ghcr.io/${{ lowercase(github.repository_owner) }}/${{ env.IMAGE_NAME }}:dev
+            ghcr.io/${{ env.LOWERCASE_REPO_OWNER }}/${{ env.IMAGE_NAME }}:dev
           labels: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ghcr.io/${{ lowercase(github.repository_owner) }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ghcr.io/${{ env.LOWERCASE_REPO_OWNER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
