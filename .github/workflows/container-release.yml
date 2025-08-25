@@ -6,7 +6,7 @@ on:
       - v*
 
 env:
-  image: sbondco/watcharr
+  image: mkarpa/watcharr
 
 jobs:
   release-images:
