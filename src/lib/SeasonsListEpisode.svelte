@@ -24,9 +24,9 @@
 
 	let isHidden: boolean = $state(!!store?.userSettings?.hideSpoilers);
 
-    const isUnaired = $derived(
-      ep.air_date && new Date(ep.air_date).getTime() > new Date().getTime()
-    );
+	const isUnaired = $derived(
+		ep.air_date && new Date(ep.air_date).getTime() > new Date().getTime(),
+	);
 
 	function updateWatchedEpisode(status?: WatchedStatus, rating?: number) {
 		if (!watchedItem) {
