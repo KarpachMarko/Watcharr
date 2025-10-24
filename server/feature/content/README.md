@@ -1,0 +1,1 @@
+This is a bit confusing, but `content` only refers to tmdb data at this time. This is mostly because of how this was named when the code was first written, the name is fine once understood: content is for tv/movie/actor and any other modules will be named what they are for specifically (ie: game)

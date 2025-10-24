@@ -3,44 +3,33 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"gopkg.in/natefinch/lumberjack.v2"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-)
-
-type GormModel struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"deletedAt"`
-}
-
-// Types of media supported by Watcharr
-// in an overarching way.
-type SupportedMedia string
-
-const (
-	SupportedMediaMovie SupportedMedia = "movie"
-	SupportedMediaShow  SupportedMedia = "tv"
-	SupportedMediaGame  SupportedMedia = "game"
-)
-
-var (
-	ServerInSetup = false
-	logLevel      = new(slog.LevelVar)
+	"github.com/sbondCo/Watcharr/config"
+	"github.com/sbondCo/Watcharr/database"
+	"github.com/sbondCo/Watcharr/feature/auth"
+	"github.com/sbondCo/Watcharr/feature/content"
+	"github.com/sbondCo/Watcharr/feature/feature"
+	"github.com/sbondCo/Watcharr/feature/jellyfin"
+	"github.com/sbondCo/Watcharr/feature/setup"
+	"github.com/sbondCo/Watcharr/feature/task"
+	"github.com/sbondCo/Watcharr/feature/watched"
+	"github.com/sbondCo/Watcharr/feature/watched/episode"
+	"github.com/sbondCo/Watcharr/feature/watched/season"
+	"github.com/sbondCo/Watcharr/logging"
+	"github.com/sbondCo/Watcharr/media/tmdb"
+	"github.com/sbondCo/Watcharr/router"
 )
 
 func main() {
@@ -52,20 +41,21 @@ func main() {
 		}
 	}
 
-	multiw := setupLogging()
+	multiw := logging.Setup(path.Join(config.DataPath, "watcharr.log"))
 	slog.Info("Watcharr Starting")
 
-	if err = readConfig(); err != nil {
-		log.Fatal("Failed to read server config!", err)
-	}
-
-	setLoggingLevel()
-
 	// Ensure data dir exists
-	err = ensureDirExists(DataPath)
+	err = ensureDirExists(config.DataPath)
 	if err != nil {
 		log.Fatal("Failed to create data dir:", err)
 	}
+
+	cfg, err := config.Get()
+	if err != nil {
+		log.Fatal("Failed to get server config!", err)
+	}
+
+	logging.SetLevel(cfg.DEBUG)
 
 	// Check if we want to be in DEV or PROD
 	isProd := true
@@ -74,28 +64,9 @@ func main() {
 		isProd = false
 	}
 
-	db, err := gorm.Open(sqlite.Open(path.Join(DataPath, "watcharr.db")), &gorm.Config{TranslateError: true})
+	db, err := database.New()
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
-	}
-
-	err = db.AutoMigrate(
-		&User{},
-		&UserServices{},
-		&Content{},
-		&Watched{},
-		&WatchedSeason{},
-		&WatchedEpisode{},
-		&Activity{},
-		&Token{},
-		&Follow{},
-		&Image{},
-		&Game{},
-		&ArrRequest{},
-		&Tag{},
-	)
-	if err != nil {
-		log.Fatal("Failed to auto migrate database:", err)
 	}
 
 	if isProd {
@@ -136,70 +107,63 @@ func main() {
 			proxy.ServeHTTP(c.Writer, c.Request)
 		})
 	}
-	br := newBaseRouter(db, gine.Group("/api"))
+	api := gine.Group("/api")
+	br := router.NewBaseRouter(db, api, cfg)
 	// Only add setup routes if there are no users found in db.
 	var userCount int64
-	if uresp := db.Model(&User{}).Count(&userCount); uresp.Error == nil {
+	if uresp := db.Model(&user.User{}).Count(&userCount); uresp.Error == nil {
 		if userCount != 0 {
 			slog.Debug("registered users found.. skipped creating setup routes.")
 		} else {
 			slog.Info("No users found.. creating setup routes.")
-			ServerInSetup = true
-			br.addSetupRoutes()
+			setup.NewRouter(br).AddRoutes()
 		}
 	} else {
 		slog.Error("Failed to check if any users exist.. not registering setup routes", "error", uresp.Error)
 	}
-	br.addAuthRoutes()
-	br.addContentRoutes()
-	br.addGameRoutes()
-	br.addWatchedRoutes()
-	br.addActivityRoutes()
-	br.addProfileRoutes()
-	br.addJellyfinRoutes()
-	br.addPlexRoutes()
-	br.addUserRoutes()
-	br.addFollowRoutes()
-	br.addImportRoutes()
-	br.addServerRoutes()
-	br.addFeatureRoutes()
-	br.addSonarrRoutes()
-	br.addRadarrRoutes()
-	br.addArrRequestRoutes()
-	br.addJobRoutes()
-	br.addTaskRoutes()
-	br.addTagRoutes()
-	br.rg.Static("/img", path.Join(DataPath, "img"))
+	// br.AddAuthRoutes()
+	// br.AddContentRoutes()
+	// br.AddGameRoutes()
+	// br.AddWatchedRoutes()
+	// br.AddActivityRoutes()
+	// br.AddProfileRoutes()
+	// br.AddJellyfinRoutes()
+	// br.AddPlexRoutes()
+	// br.AddUserRoutes()
+	// br.AddFollowRoutes()
+	// br.AddImportRoutes()
+	// br.AddServerRoutes()
+	// br.AddFeatureRoutes()
+	// br.AddSonarrRoutes()
+	// br.AddRadarrRoutes()
+	// br.AddArrRequestRoutes()
+	// br.AddJobRoutes()
+	// br.AddTaskRoutes()
+	// br.AddTagRoutes()
+	api.Static("/img", path.Join(config.DataPath, "img"))
 
-	go setupTasks(db)
+	t := tmdb.NewTMDB(cfg.TMDB_KEY)
+
+	contentService := content.NewService(t)
+	watchedService := watched.NewService(contentService)
+	watchedSeasonService := season.NewService()
+	watchedEpisodeService := episode.NewService(watchedService, watchedSeasonService, contentService)
+	jellyfinService := jellyfin.NewService(cfg)
+	jellyfinSyncService := jellyfin.NewSyncService(cfg, jellyfinService, watchedService, watchedSeasonService, watchedEpisodeService)
+	featureService := feature.NewService(cfg)
+
+	auth.NewRouter(br).AddRoutes()
+	content.NewRouter(br, contentService, watchedService).AddRoutes()
+	watched.NewRouter(br, t, watchedService).AddRoutes()
+	season.NewRouter(br, watchedSeasonService).AddRoutes()
+	episode.NewRouter(br, watchedEpisodeService).AddRoutes()
+	task.NewRouter(br).AddRoutes()
+	feature.NewRouter(br, featureService).AddRoutes()
+	jellyfin.NewRouter(br, jellyfinService, jellyfinSyncService).AddRoutes()
+
+	go task.SetupTasks(cfg, db)
 
 	gine.Run("0.0.0.0:3080")
-}
-
-// Setup slog defaults
-func setupLogging() io.Writer {
-	// logLevel = new(slog.LevelVar)
-	multiw := io.MultiWriter(&lumberjack.Logger{
-		Filename:   path.Join(DataPath, "watcharr.log"),
-		MaxSize:    1, // megabytes
-		MaxBackups: 3,
-		MaxAge:     28, // days
-		Compress:   false,
-	}, os.Stdout)
-	slog.SetDefault(slog.New(
-		slog.NewTextHandler(multiw, &slog.HandlerOptions{Level: logLevel}),
-	))
-	return multiw
-}
-
-// Set loggin level from config
-func setLoggingLevel() {
-	if Config.DEBUG {
-		logLevel.Set(slog.LevelDebug)
-	} else {
-		logLevel.Set(slog.LevelInfo)
-	}
-	slog.Info("Logging level set", "logging_level", logLevel)
 }
 
 // Run UI server
