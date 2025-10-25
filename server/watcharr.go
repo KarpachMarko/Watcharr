@@ -150,7 +150,6 @@ func main() {
 	// br.AddJobRoutes()
 	// br.AddTaskRoutes()
 	// br.AddTagRoutes()
-	api.Static("/img", path.Join(config.DataPath, "img"))
 
 	t := tmdb.NewTMDB(cfg.TMDB_KEY)
 
@@ -185,6 +184,8 @@ func main() {
 	job.NewRouter(br).AddRoutes()
 	task.NewRouter(br).AddRoutes()
 	tag.NewRouter(br).AddRoutes()
+
+	api.Static("/img", path.Join(config.DataPath, "img"))
 
 	go task.SetupTasks(cfg, db)
 
