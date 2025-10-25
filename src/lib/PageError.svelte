@@ -12,7 +12,7 @@
 		<strong>{pretty}</strong>
 		{#if error?.message}
 			<p>{error.message}</p>
-			{#if error.response}
+			{#if error?.response?.data?.error}
 				<p>{error.response.data.error}</p>
 			{/if}
 		{:else}
