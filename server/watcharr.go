@@ -9,7 +9,6 @@ import (
 	"net/http/httputil"
 	"os"
 	"os/exec"
-	"os/user"
 	"path"
 	"time"
 
@@ -18,12 +17,23 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/sbondCo/Watcharr/config"
 	"github.com/sbondCo/Watcharr/database"
+	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/feature/activity"
+	"github.com/sbondCo/Watcharr/feature/arr"
 	"github.com/sbondCo/Watcharr/feature/auth"
 	"github.com/sbondCo/Watcharr/feature/content"
 	"github.com/sbondCo/Watcharr/feature/feature"
+	"github.com/sbondCo/Watcharr/feature/follow"
+	"github.com/sbondCo/Watcharr/feature/imprt"
 	"github.com/sbondCo/Watcharr/feature/jellyfin"
+	"github.com/sbondCo/Watcharr/feature/job"
+	"github.com/sbondCo/Watcharr/feature/plex"
+	"github.com/sbondCo/Watcharr/feature/profile"
+	"github.com/sbondCo/Watcharr/feature/server"
 	"github.com/sbondCo/Watcharr/feature/setup"
+	"github.com/sbondCo/Watcharr/feature/tag"
 	"github.com/sbondCo/Watcharr/feature/task"
+	"github.com/sbondCo/Watcharr/feature/user"
 	"github.com/sbondCo/Watcharr/feature/watched"
 	"github.com/sbondCo/Watcharr/feature/watched/episode"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
@@ -111,7 +121,7 @@ func main() {
 	br := router.NewBaseRouter(db, api, cfg)
 	// Only add setup routes if there are no users found in db.
 	var userCount int64
-	if uresp := db.Model(&user.User{}).Count(&userCount); uresp.Error == nil {
+	if uresp := db.Model(&entity.User{}).Count(&userCount); uresp.Error == nil {
 		if userCount != 0 {
 			slog.Debug("registered users found.. skipped creating setup routes.")
 		} else {
@@ -144,22 +154,37 @@ func main() {
 
 	t := tmdb.NewTMDB(cfg.TMDB_KEY)
 
+	authService := auth.NewService()
+	authTrustedHeaderService := auth.NewTrustedHeaderService(cfg, authService)
 	contentService := content.NewService(t)
 	watchedService := watched.NewService(contentService)
 	watchedSeasonService := season.NewService()
 	watchedEpisodeService := episode.NewService(watchedService, watchedSeasonService, contentService)
 	jellyfinService := jellyfin.NewService(cfg)
 	jellyfinSyncService := jellyfin.NewSyncService(cfg, jellyfinService, watchedService, watchedSeasonService, watchedEpisodeService)
+	plexService := plex.NewService(cfg)
+	plexSyncService := plex.NewSyncService(plexService, watchedService, watchedSeasonService, watchedEpisodeService)
 	featureService := feature.NewService(cfg)
 
 	auth.NewRouter(br).AddRoutes()
 	content.NewRouter(br, contentService, watchedService).AddRoutes()
+	// br.AddGameRoutes()
 	watched.NewRouter(br, t, watchedService).AddRoutes()
 	season.NewRouter(br, watchedSeasonService).AddRoutes()
 	episode.NewRouter(br, watchedEpisodeService).AddRoutes()
-	task.NewRouter(br).AddRoutes()
-	feature.NewRouter(br, featureService).AddRoutes()
+	activity.NewRouter(br).AddRoutes()
+	profile.NewRouter(br).AddRoutes()
 	jellyfin.NewRouter(br, jellyfinService, jellyfinSyncService).AddRoutes()
+	plex.NewRouter(br, plexSyncService).AddRoutes()
+	user.NewRouter(br).AddRoutes()
+	follow.NewRouter(br).AddRoutes()
+	imprt.NewRouter(br).AddRoutes()
+	server.NewRouter(br, plexService, authTrustedHeaderService).AddRoutes()
+	feature.NewRouter(br, featureService).AddRoutes()
+	arr.NewRouter(br).AddRoutes()
+	job.NewRouter(br).AddRoutes()
+	task.NewRouter(br).AddRoutes()
+	tag.NewRouter(br).AddRoutes()
 
 	go task.SetupTasks(cfg, db)
 

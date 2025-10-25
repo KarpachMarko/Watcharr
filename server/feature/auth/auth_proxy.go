@@ -21,10 +21,10 @@ type TrustedHeaderAuthLogoutDetailsResponse struct {
 
 type TrustedHeaderService struct {
 	cfg         *config.ServerConfig
-	authService Service
+	authService *Service
 }
 
-func NewTrustedHeaderService(cfg *config.ServerConfig, authService Service) *TrustedHeaderService {
+func NewTrustedHeaderService(cfg *config.ServerConfig, authService *Service) *TrustedHeaderService {
 	return &TrustedHeaderService{
 		cfg,
 		authService,
