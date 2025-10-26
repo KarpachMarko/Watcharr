@@ -40,6 +40,7 @@ import (
 	"github.com/sbondCo/Watcharr/logging"
 	"github.com/sbondCo/Watcharr/media/tmdb"
 	"github.com/sbondCo/Watcharr/router"
+	taskl "github.com/sbondCo/Watcharr/task"
 )
 
 func main() {
@@ -194,7 +195,7 @@ func main() {
 
 	api.Static("/img", path.Join(config.DataPath, "img"))
 
-	go task.SetupTasks(cfg, db)
+	go taskl.SetupTasks(cfg, db)
 
 	gine.Run("0.0.0.0:3080")
 }

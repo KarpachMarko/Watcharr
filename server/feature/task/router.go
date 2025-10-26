@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/router"
+	"github.com/sbondCo/Watcharr/task"
 )
 
 type Router struct {
@@ -24,7 +25,7 @@ func (r *Router) AddRoutes() {
 }
 
 func (r *Router) GetAllTasks(c *gin.Context) {
-	response := getAllTasks(r.br.Cfg)
+	response := task.GetAllTasks(r.br.Cfg)
 	c.JSON(http.StatusOK, response)
 }
 
@@ -33,10 +34,10 @@ func (r *Router) UpdateTaskSchedule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "no task name provided"})
 		return
 	}
-	var rr TaskRescheduleRequest
+	var rr task.TaskRescheduleRequest
 	err := c.ShouldBindJSON(&rr)
 	if err == nil {
-		err := rescheduleTask(r.br.Cfg, c.Param("name"), rr)
+		err := task.RescheduleTask(r.br.Cfg, c.Param("name"), rr)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 			return

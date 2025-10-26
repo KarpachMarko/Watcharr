@@ -8,7 +8,7 @@ import (
 	"github.com/go-co-op/gocron/v2"
 	"github.com/sbondCo/Watcharr/config"
 	"github.com/sbondCo/Watcharr/feature/arr"
-	"github.com/sbondCo/Watcharr/feature/image"
+	"github.com/sbondCo/Watcharr/image"
 	"github.com/sbondCo/Watcharr/token"
 	"gorm.io/gorm"
 )
@@ -78,7 +78,7 @@ func SetupTasks(cfg *config.ServerConfig, db *gorm.DB) {
 
 	// Add all jobs to scheduler.
 	for k, v := range taskFuncs {
-		err = addTaskToScheduler(cfg, k, v.dd)
+		err = AddTaskToScheduler(cfg, k, v.dd)
 		if err != nil {
 			slog.Error("SetupTasks: Failed to add new job", "job", k, "err", err)
 		}
@@ -89,7 +89,7 @@ func SetupTasks(cfg *config.ServerConfig, db *gorm.DB) {
 }
 
 // Gets schedule from config, or `defaultDur` if not manually configured.
-func getTaskSeconds(cfg *config.ServerConfig, name string, defaultDur time.Duration) time.Duration {
+func GetTaskSeconds(cfg *config.ServerConfig, name string, defaultDur time.Duration) time.Duration {
 	s := defaultDur
 	if cfg.TASK_SCHEDULE[name] != 0 {
 		s = time.Duration(cfg.TASK_SCHEDULE[name]) * time.Second
@@ -98,8 +98,8 @@ func getTaskSeconds(cfg *config.ServerConfig, name string, defaultDur time.Durat
 }
 
 // Add new job to scheduler.
-func addTaskToScheduler(cfg *config.ServerConfig, name string, defaultDur time.Duration) error {
-	s := getTaskSeconds(cfg, name, defaultDur)
+func AddTaskToScheduler(cfg *config.ServerConfig, name string, defaultDur time.Duration) error {
+	s := GetTaskSeconds(cfg, name, defaultDur)
 	_, err := taskScheduler.NewJob(
 		gocron.DurationJob(s),
 		gocron.NewTask(taskFuncs[name].f),
@@ -110,7 +110,7 @@ func addTaskToScheduler(cfg *config.ServerConfig, name string, defaultDur time.D
 }
 
 // Get all tasks in a consumable format.
-func getAllTasks(cfg *config.ServerConfig) []AllTasksResponse {
+func GetAllTasks(cfg *config.ServerConfig) []AllTasksResponse {
 	jobs := []AllTasksResponse{}
 	for _, j := range taskScheduler.Jobs() {
 		j2a := AllTasksResponse{
@@ -122,14 +122,14 @@ func getAllTasks(cfg *config.ServerConfig) []AllTasksResponse {
 		} else {
 			j2a.NextRun = nextRun
 		}
-		j2a.Seconds = int(getTaskSeconds(cfg, j2a.Name, taskFuncs[j2a.Name].dd).Seconds())
+		j2a.Seconds = int(GetTaskSeconds(cfg, j2a.Name, taskFuncs[j2a.Name].dd).Seconds())
 		jobs = append(jobs, j2a)
 	}
 	return jobs
 }
 
 // Get task (job) from scheduler by name.
-func getTask(name string) *gocron.Job {
+func GetTask(name string) *gocron.Job {
 	var job *gocron.Job
 	for _, j := range taskScheduler.Jobs() {
 		if j.Name() == name {
@@ -141,11 +141,11 @@ func getTask(name string) *gocron.Job {
 }
 
 // Reschedule a task by name.
-func rescheduleTask(cfg *config.ServerConfig, name string, req TaskRescheduleRequest) error {
+func RescheduleTask(cfg *config.ServerConfig, name string, req TaskRescheduleRequest) error {
 	if req.Seconds == 0 {
 		return errors.New("request has no seconds")
 	}
-	j := getTask(name)
+	j := GetTask(name)
 	if j == nil {
 		return errors.New("no task found")
 	}

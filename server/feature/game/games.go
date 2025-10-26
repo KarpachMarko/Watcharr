@@ -8,7 +8,7 @@ import (
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
-	"github.com/sbondCo/Watcharr/feature/image"
+	"github.com/sbondCo/Watcharr/image"
 	"github.com/sbondCo/Watcharr/media/igdb"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

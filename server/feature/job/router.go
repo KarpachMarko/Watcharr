@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
+	"github.com/sbondCo/Watcharr/job"
 	"github.com/sbondCo/Watcharr/router"
 )
 
@@ -13,7 +14,9 @@ type Router struct {
 }
 
 func NewRouter(br *router.BaseRouter) *Router {
-	return &Router{br: br}
+	return &Router{
+		br,
+	}
 }
 
 func (r *Router) AddRoutes() {
@@ -27,7 +30,7 @@ func (r *Router) AddRoutes() {
 func (r *Router) GetJobById(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	// When we get id param, don't include first letter, which will be the beginning '/'.
-	response, err := GetJob(c.Param("id")[1:], userId)
+	response, err := job.GetJob(c.Param("id")[1:], userId)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return

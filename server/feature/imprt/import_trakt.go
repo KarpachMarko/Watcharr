@@ -15,7 +15,7 @@ import (
 
 	"github.com/sbondCo/Watcharr/database/dbmodel"
 	"github.com/sbondCo/Watcharr/database/entity"
-	"github.com/sbondCo/Watcharr/feature/job"
+	"github.com/sbondCo/Watcharr/job"
 	"gorm.io/gorm"
 )
 
