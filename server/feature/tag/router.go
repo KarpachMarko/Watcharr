@@ -11,11 +11,15 @@ import (
 )
 
 type Router struct {
-	br *router.BaseRouter
+	br      *router.BaseRouter
+	service *Service
 }
 
-func NewRouter(br *router.BaseRouter) *Router {
-	return &Router{br: br}
+func NewRouter(br *router.BaseRouter, service *Service) *Router {
+	return &Router{
+		br,
+		service,
+	}
 }
 
 func (r *Router) AddRoutes() {
@@ -32,7 +36,7 @@ func (r *Router) AddRoutes() {
 // Get all of our tags.
 func (r *Router) GetTags(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	tags, err := GetTags(r.br.DB, userId)
+	tags, err := r.service.GetTags(r.br.DB, userId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 		return
@@ -63,7 +67,7 @@ func (r *Router) CreateTag(c *gin.Context) {
 	var tr TagAddRequest
 	err := c.ShouldBindJSON(&tr)
 	if err == nil {
-		response, err := AddTag(r.br.DB, userId, tr)
+		response, err := r.service.AddTag(r.br.DB, userId, tr)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 			return
@@ -85,7 +89,7 @@ func (r *Router) UpdateTag(c *gin.Context) {
 	var tr TagAddRequest
 	err = c.ShouldBindJSON(&tr)
 	if err == nil {
-		err := UpdateTag(r.br.DB, userId, uint(id), tr)
+		err := r.service.UpdateTag(r.br.DB, userId, uint(id), tr)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 			return
@@ -104,7 +108,7 @@ func (r *Router) DeleteTag(c *gin.Context) {
 		slog.Error("tag delete rote: failed to process tag id.", "error", err.Error(), "id", c.Param("id"))
 		return
 	}
-	err = DeleteTag(r.br.DB, userId, uint(id))
+	err = r.service.DeleteTag(r.br.DB, userId, uint(id))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 		return

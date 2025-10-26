@@ -172,6 +172,7 @@ func main() {
 	followService := follow.NewService()
 	importService := imprt.NewService(watchedService, watchedSeasonService, watchedEpisodeService, contentService, activityService)
 	importTraktService := imprt.NewTraktService(importService)
+	tagService := tag.NewService()
 
 	auth.NewRouter(br, authService, authTrustedHeaderService).AddRoutes()
 	content.NewRouter(br, contentService, watchedService).AddRoutes()
@@ -191,7 +192,7 @@ func main() {
 	arr.NewRouter(br, contentService).AddRoutes()
 	job.NewRouter(br).AddRoutes()
 	task.NewRouter(br).AddRoutes()
-	tag.NewRouter(br).AddRoutes()
+	tag.NewRouter(br, tagService).AddRoutes()
 
 	api.Static("/img", path.Join(config.DataPath, "img"))
 

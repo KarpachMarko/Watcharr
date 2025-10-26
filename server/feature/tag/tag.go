@@ -18,7 +18,13 @@ type TagAddRequest struct {
 	BgColor string `json:"bgColor"`
 }
 
-func GetTags(db *gorm.DB, userId uint) ([]entity.Tag, error) {
+type Service struct{}
+
+func NewService() *Service {
+	return &Service{}
+}
+
+func (s *Service) GetTags(db *gorm.DB, userId uint) ([]entity.Tag, error) {
 	tags := new([]entity.Tag)
 	res := db.Model(&entity.Tag{}).Where("user_id = ?", userId).Find(&tags)
 	if res.Error != nil {
@@ -46,7 +52,7 @@ func GetTags(db *gorm.DB, userId uint) ([]entity.Tag, error) {
 // (eg: when we are importing data) because this is not technically
 // reliable, since users can have multiple tags with the same name/colors
 // (realistically they probably won't, but...).
-func GetTagByNameAndColor(db *gorm.DB, userId uint, tagName string, tagColor string, tagBgColor string) (entity.Tag, error) {
+func (s *Service) GetTagByNameAndColor(db *gorm.DB, userId uint, tagName string, tagColor string, tagBgColor string) (entity.Tag, error) {
 	tag := new(entity.Tag)
 	res := db.Model(&entity.Tag{}).Where("name = ? AND user_id = ? AND color = ? AND bg_color = ?", tagName, userId, tagColor, tagBgColor).Preload("Watched").Find(&tag)
 	if res.Error != nil {
@@ -61,7 +67,7 @@ func GetTagByNameAndColor(db *gorm.DB, userId uint, tagName string, tagColor str
 }
 
 // Let user create a tag.
-func AddTag(db *gorm.DB, userId uint, tr TagAddRequest) (entity.Tag, error) {
+func (s *Service) AddTag(db *gorm.DB, userId uint, tr TagAddRequest) (entity.Tag, error) {
 	if tr.Name == "" {
 		return entity.Tag{}, errors.New("tag must have a name")
 	}
@@ -76,7 +82,7 @@ func AddTag(db *gorm.DB, userId uint, tr TagAddRequest) (entity.Tag, error) {
 }
 
 // Let user update one of their tags (replaces).
-func UpdateTag(db *gorm.DB, userId uint, tagId uint, tr TagAddRequest) error {
+func (s *Service) UpdateTag(db *gorm.DB, userId uint, tagId uint, tr TagAddRequest) error {
 	if tr.Name == "" {
 		return errors.New("tag must have a name")
 	}
@@ -95,7 +101,7 @@ func UpdateTag(db *gorm.DB, userId uint, tagId uint, tr TagAddRequest) error {
 }
 
 // Let user delete their own tag.
-func DeleteTag(db *gorm.DB, userId uint, tagId uint) error {
+func (s *Service) DeleteTag(db *gorm.DB, userId uint, tagId uint) error {
 	if tagId == 0 {
 		return errors.New("no tag id provided")
 	}
