@@ -9,13 +9,17 @@ import (
 )
 
 type Router struct {
-	br *router.BaseRouter
-	s  *Service
-	ts *TraktService
+	br           *router.BaseRouter
+	service      *Service
+	traktService *TraktService
 }
 
-func NewRouter(br *router.BaseRouter) *Router {
-	return &Router{br: br}
+func NewRouter(br *router.BaseRouter, service *Service, traktService *TraktService) *Router {
+	return &Router{
+		br,
+		service,
+		traktService,
+	}
 }
 
 func (r *Router) AddRoutes() {
@@ -31,7 +35,7 @@ func (r *Router) ImportContent(c *gin.Context) {
 	var ar ImportRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
-		response, err := r.s.ImportContent(r.br.DB, userId, ar)
+		response, err := r.service.ImportContent(r.br.DB, userId, ar)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -48,7 +52,7 @@ func (r *Router) ImportTrakt(c *gin.Context) {
 	var ar TraktImportRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
-		response, err := r.ts.TraktImportWatched(r.br.DB, userId, ar.Username)
+		response, err := r.traktService.TraktImportWatched(r.br.DB, userId, ar.Username)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return

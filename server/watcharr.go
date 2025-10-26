@@ -169,6 +169,8 @@ func main() {
 	featureService := feature.NewService(cfg)
 	profileService := profile.NewService()
 	followService := follow.NewService()
+	importService := imprt.NewService(watchedService, watchedSeasonService, watchedEpisodeService, contentService, activityService)
+	importTraktService := imprt.NewTraktService(importService)
 
 	auth.NewRouter(br, authService, authTrustedHeaderService).AddRoutes()
 	content.NewRouter(br, contentService, watchedService).AddRoutes()
@@ -182,7 +184,7 @@ func main() {
 	plex.NewRouter(br, plexSyncService).AddRoutes()
 	user.NewRouter(br, userService, userManageService).AddRoutes()
 	follow.NewRouter(br, followService).AddRoutes()
-	imprt.NewRouter(br).AddRoutes()
+	imprt.NewRouter(br, importService, importTraktService).AddRoutes()
 	server.NewRouter(br, plexService, authTrustedHeaderService, userManageService).AddRoutes()
 	feature.NewRouter(br, featureService).AddRoutes()
 	arr.NewRouter(br).AddRoutes()

@@ -174,7 +174,7 @@ func (s *Service) ImportContent(db *gorm.DB, userId uint, ar ImportRequest) (Imp
 	sr, err := s.cp.SearchContent(ar.Name, 1)
 	if err != nil {
 		slog.Error("import: content search failed", "error", err)
-		return ImportResponse{}, errors.New("Content search failed")
+		return ImportResponse{}, errors.New("content search failed")
 	}
 	pMatches := []tmdb.TMDBSearchMultiResults{}
 	for _, r := range sr.Results {
