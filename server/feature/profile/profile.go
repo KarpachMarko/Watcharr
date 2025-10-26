@@ -18,8 +18,14 @@ type Profile struct {
 	ShowsWatchedRuntime  uint32    `json:"showsWatchedRuntime"`
 }
 
+type Service struct{}
+
+func NewService() *Service {
+	return &Service{}
+}
+
 // Check if content has been previsouly watched by looking for related activity.
-func hasBeenPreviouslyWatched(a *[]entity.Activity) bool {
+func (s *Service) hasBeenPreviouslyWatched(a *[]entity.Activity) bool {
 	wp := false
 	var relatedActivity []entity.Activity
 	for _, v := range *a {
@@ -64,7 +70,7 @@ func hasBeenPreviouslyWatched(a *[]entity.Activity) bool {
 }
 
 // Gets any data required for profile page
-func getProfile(db *gorm.DB, userId uint) (Profile, error) {
+func (s *Service) getProfile(db *gorm.DB, userId uint) (Profile, error) {
 	user := new(entity.User)
 	res := db.Model(&entity.User{}).Where("id = ?", userId).Take(&user)
 	if res.Error != nil {
@@ -87,7 +93,7 @@ func getProfile(db *gorm.DB, userId uint) (Profile, error) {
 		isFinished := false
 		if w.Status == entity.FINISHED {
 			isFinished = true
-		} else if *user.IncludePreviouslyWatched && hasBeenPreviouslyWatched(&w.Activity) {
+		} else if *user.IncludePreviouslyWatched && s.hasBeenPreviouslyWatched(&w.Activity) {
 			// If status is not finished and user has IncludePreviouslyWatched enabled,
 			// then we can also check if content hasBeenPreviouslyWatched.
 			isFinished = true

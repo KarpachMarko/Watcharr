@@ -9,11 +9,15 @@ import (
 )
 
 type Router struct {
-	br *router.BaseRouter
+	br      *router.BaseRouter
+	service *Service
 }
 
-func NewRouter(br *router.BaseRouter) *Router {
-	return &Router{br: br}
+func NewRouter(br *router.BaseRouter, service *Service) *Router {
+	return &Router{
+		br,
+		service,
+	}
 }
 
 func (r *Router) AddRoutes() {
@@ -26,7 +30,7 @@ func (r *Router) AddRoutes() {
 // Get user profile details
 func (r *Router) GetProfile(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	response, err := getProfile(r.br.DB, userId)
+	response, err := r.service.getProfile(r.br.DB, userId)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
