@@ -22,7 +22,13 @@ type FollowThoughts struct {
 	Rating       float64              `json:"rating"`
 }
 
-func followUser(db *gorm.DB, currentUserId uint, toFollowUserId uint) (FollowPublic, error) {
+type Service struct{}
+
+func NewService() *Service {
+	return &Service{}
+}
+
+func (s *Service) FollowUser(db *gorm.DB, currentUserId uint, toFollowUserId uint) (FollowPublic, error) {
 	f := entity.Follow{UserID: currentUserId, FollowedUserID: toFollowUserId}
 	res := db.Model(&entity.Follow{}).Create(&f)
 	if res.Error != nil {
@@ -43,7 +49,7 @@ func followUser(db *gorm.DB, currentUserId uint, toFollowUserId uint) (FollowPub
 	return FollowPublic{CreatedAt: nf.CreatedAt, FollowedUser: nf.FollowedUser.GetSafe()}, nil
 }
 
-func unfollowUser(db *gorm.DB, currentUserId uint, toFollowUserId uint) (bool, error) {
+func (s *Service) UnfollowUser(db *gorm.DB, currentUserId uint, toFollowUserId uint) (bool, error) {
 	f := entity.Follow{UserID: currentUserId, FollowedUserID: toFollowUserId}
 	res := db.Delete(&f)
 	if res.Error != nil {
@@ -58,7 +64,7 @@ func unfollowUser(db *gorm.DB, currentUserId uint, toFollowUserId uint) (bool, e
 }
 
 // Get current users follows
-func getFollows(db *gorm.DB, userId uint) ([]FollowPublic, error) {
+func (s *Service) GetFollows(db *gorm.DB, userId uint) ([]FollowPublic, error) {
 	var follows []entity.Follow
 	res := db.Where("user_id = ?", userId).Preload("FollowedUser", "private = ?", 0).Find(&follows)
 	if res.Error != nil {
@@ -79,7 +85,7 @@ func getFollows(db *gorm.DB, userId uint) ([]FollowPublic, error) {
 }
 
 // Get followed profile thoughts, rating, etc on specific content.
-func getFollowsThoughts(db *gorm.DB, userId uint, mediaType string, mediaId string) ([]FollowThoughts, error) {
+func (s *Service) GetFollowsThoughts(db *gorm.DB, userId uint, mediaType string, mediaId string) ([]FollowThoughts, error) {
 	var follows []entity.Follow
 	res := db.Where("user_id = ?", userId).Preload("FollowedUser", "private = ? AND private_thoughts = ?", 0, 0).Find(&follows)
 	if res.Error != nil {

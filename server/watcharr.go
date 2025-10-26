@@ -168,6 +168,7 @@ func main() {
 	plexSyncService := plex.NewSyncService(plexService, watchedService, watchedSeasonService, watchedEpisodeService, activityService)
 	featureService := feature.NewService(cfg)
 	profileService := profile.NewService()
+	followService := follow.NewService()
 
 	auth.NewRouter(br, authService, authTrustedHeaderService).AddRoutes()
 	content.NewRouter(br, contentService, watchedService).AddRoutes()
@@ -180,7 +181,7 @@ func main() {
 	jellyfin.NewRouter(br, jellyfinService, jellyfinSyncService).AddRoutes()
 	plex.NewRouter(br, plexSyncService).AddRoutes()
 	user.NewRouter(br, userService, userManageService).AddRoutes()
-	follow.NewRouter(br).AddRoutes()
+	follow.NewRouter(br, followService).AddRoutes()
 	imprt.NewRouter(br).AddRoutes()
 	server.NewRouter(br, plexService, authTrustedHeaderService, userManageService).AddRoutes()
 	feature.NewRouter(br, featureService).AddRoutes()

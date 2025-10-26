@@ -11,11 +11,15 @@ import (
 )
 
 type Router struct {
-	br *router.BaseRouter
+	br      *router.BaseRouter
+	service *Service
 }
 
-func NewRouter(br *router.BaseRouter) *Router {
-	return &Router{br: br}
+func NewRouter(br *router.BaseRouter, service *Service) *Router {
+	return &Router{
+		br,
+		service,
+	}
 }
 
 func (r *Router) AddRoutes() {
@@ -35,7 +39,7 @@ func (r *Router) AddRoutes() {
 // Get users follows // TODO extend to support optionally passing user id as route param, default to current user
 func (r *Router) GetFollows(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	response, err := getFollows(r.br.DB, userId)
+	response, err := r.service.GetFollows(r.br.DB, userId)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
@@ -52,7 +56,7 @@ func (r *Router) AddFollowUser(c *gin.Context) {
 		c.Status(400)
 		return
 	}
-	response, err := followUser(r.br.DB, userId, uint(toFollowId))
+	response, err := r.service.FollowUser(r.br.DB, userId, uint(toFollowId))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
@@ -69,7 +73,7 @@ func (r *Router) DeleteFollow(c *gin.Context) {
 		c.Status(400)
 		return
 	}
-	response, err := unfollowUser(r.br.DB, userId, uint(toUnfollowId))
+	response, err := r.service.UnfollowUser(r.br.DB, userId, uint(toUnfollowId))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
@@ -85,7 +89,7 @@ func (r *Router) GetFollowsThoughts(c *gin.Context) {
 		return
 	}
 	userId := c.MustGet("userId").(uint)
-	response, err := getFollowsThoughts(r.br.DB, userId, t, c.Param("tmdbId"))
+	response, err := r.service.GetFollowsThoughts(r.br.DB, userId, t, c.Param("tmdbId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
