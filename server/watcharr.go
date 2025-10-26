@@ -187,7 +187,7 @@ func main() {
 	imprt.NewRouter(br, importService, importTraktService).AddRoutes()
 	server.NewRouter(br, plexService, authTrustedHeaderService, userManageService).AddRoutes()
 	feature.NewRouter(br, featureService).AddRoutes()
-	arr.NewRouter(br).AddRoutes()
+	arr.NewRouter(br, contentService).AddRoutes()
 	job.NewRouter(br).AddRoutes()
 	task.NewRouter(br).AddRoutes()
 	tag.NewRouter(br).AddRoutes()

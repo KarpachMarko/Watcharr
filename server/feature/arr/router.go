@@ -26,8 +26,11 @@ type Router struct {
 	contentProvider ContentProvider
 }
 
-func NewRouter(br *router.BaseRouter) *Router {
-	return &Router{br: br}
+func NewRouter(br *router.BaseRouter, contentProvider ContentProvider) *Router {
+	return &Router{
+		br,
+		contentProvider,
+	}
 }
 
 func (r *Router) AddRoutes() {
