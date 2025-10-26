@@ -15,8 +15,8 @@ type Router struct {
 
 func NewRouter(br *router.BaseRouter, service *Service) *Router {
 	return &Router{
-		BaseRouter: br,
-		service:    service,
+		br,
+		service,
 	}
 }
 

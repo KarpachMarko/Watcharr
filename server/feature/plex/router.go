@@ -15,7 +15,10 @@ type Router struct {
 }
 
 func NewRouter(br *router.BaseRouter, ss *SyncService) *Router {
-	return &Router{br, ss}
+	return &Router{
+		br,
+		ss,
+	}
 }
 
 func (r *Router) AddRoutes() {
