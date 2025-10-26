@@ -15,11 +15,15 @@ import (
 )
 
 type Router struct {
-	br *router.BaseRouter
+	br      *router.BaseRouter
+	service *Service
 }
 
-func NewRouter(br *router.BaseRouter) *Router {
-	return &Router{br: br}
+func NewRouter(br *router.BaseRouter, service *Service) *Router {
+	return &Router{
+		br,
+		service,
+	}
 }
 
 func (r *Router) AddRoutes() {
@@ -108,7 +112,7 @@ func (r *Router) AddPlayed(c *gin.Context) {
 	var ar PlayedAddRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
-		response, err := addPlayed(r.br.DB, &r.br.Cfg.TWITCH, userId, ar, entity.ADDED_WATCHED)
+		response, err := r.service.addPlayed(r.br.DB, &r.br.Cfg.TWITCH, userId, ar, entity.ADDED_WATCHED)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
-	"github.com/sbondCo/Watcharr/feature/activity"
+	"github.com/sbondCo/Watcharr/domain"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -29,10 +29,14 @@ type WatchedSeasonAddResponse struct {
 	AddedActivity  entity.Activity        `json:"addedActivity"`
 }
 
-type Service struct{}
+type Service struct {
+	activityProvider domain.ActivityAddProvider
+}
 
-func NewService() *Service {
-	return &Service{}
+func NewService(activityProvider domain.ActivityAddProvider) *Service {
+	return &Service{
+		activityProvider,
+	}
 }
 
 // Add/edit a watched season.
@@ -90,11 +94,11 @@ func (s *Service) AddWatchedSeason(db *gorm.DB, userId uint, ar WatchedSeasonAdd
 		if updated {
 			if ar.Status != "" {
 				json, _ := json.Marshal(map[string]interface{}{"season": ar.SeasonNumber, "status": ar.Status})
-				addedActivity, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: w.ID, Type: entity.SEASON_STATUS_CHANGED, Data: string(json)})
+				addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.SEASON_STATUS_CHANGED, Data: string(json)})
 			}
 			if ar.Rating != 0 {
 				json, _ := json.Marshal(map[string]interface{}{"season": ar.SeasonNumber, "rating": ar.Rating})
-				addedActivity, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: w.ID, Type: entity.SEASON_RATING_CHANGED, Data: string(json)})
+				addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.SEASON_RATING_CHANGED, Data: string(json)})
 			}
 		}
 	} else {
@@ -107,14 +111,14 @@ func (s *Service) AddWatchedSeason(db *gorm.DB, userId uint, ar WatchedSeasonAdd
 			}
 		}
 		json, _ := json.Marshal(actData)
-		act := activity.ActivityAddRequest{WatchedID: w.ID, Type: entity.SEASON_ADDED, Data: string(json)}
+		act := domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.SEASON_ADDED, Data: string(json)}
 		if ar.AddActivity != "" {
 			act.Type = ar.AddActivity
 		}
 		if !ar.AddActivityDate.IsZero() {
 			act.CustomDate = &ar.AddActivityDate
 		}
-		addedActivity, _ = activity.AddActivity(db, userId, act)
+		addedActivity, _ = s.activityProvider.AddActivity(db, userId, act)
 	}
 	return WatchedSeasonAddResponse{
 		WatchedSeasons: w.WatchedSeasons,
@@ -142,7 +146,7 @@ func (s *Service) RmWatchedSeason(db *gorm.DB, userId uint, seasonId uint) (enti
 			"status": watchedSeason.Status,
 			"rating": watchedSeason.Rating,
 		})
-		addedActivity, _ := activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: watchedSeason.WatchedID, Type: entity.SEASON_REMOVED, Data: string(json)})
+		addedActivity, _ := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watchedSeason.WatchedID, Type: entity.SEASON_REMOVED, Data: string(json)})
 		return addedActivity, nil
 	}
 	return entity.Activity{}, errors.New("removed, but failed to add activity entry")

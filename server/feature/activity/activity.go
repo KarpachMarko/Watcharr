@@ -3,24 +3,19 @@ package activity
 import (
 	"errors"
 	"log/slog"
-	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"gorm.io/gorm"
 )
 
-type ActivityAddRequest struct {
-	WatchedID  uint                `json:"watchedId" binding:"required"`
-	Type       entity.ActivityType `json:"type" binding:"required"`
-	Data       string              `json:"data" binding:"required"`
-	CustomDate *time.Time          `json:"customDate,omitempty"`
+type Service struct{}
+
+func NewService() *Service {
+	return &Service{}
 }
 
-type ActivityUpdateRequest struct {
-	CustomDate time.Time `json:"customDate" binding:"required"`
-}
-
-func getActivity(db *gorm.DB, userId uint, watchedId uint) ([]entity.Activity, error) {
+func (s *Service) GetActivity(db *gorm.DB, userId uint, watchedId uint) ([]entity.Activity, error) {
 	activity := new([]entity.Activity)
 	res := db.Model(&entity.Activity{}).Where("user_id = ? AND watched_id = ?", userId, watchedId).Find(&activity)
 	if res.Error != nil {
@@ -30,7 +25,7 @@ func getActivity(db *gorm.DB, userId uint, watchedId uint) ([]entity.Activity, e
 	return *activity, nil
 }
 
-func AddActivity(db *gorm.DB, userId uint, ar ActivityAddRequest) (entity.Activity, error) {
+func (s *Service) AddActivity(db *gorm.DB, userId uint, ar domain.ActivityAddRequest) (entity.Activity, error) {
 	if ar.WatchedID == 0 {
 		return entity.Activity{}, errors.New("watchedId must be set to add an activity")
 	}
@@ -44,7 +39,7 @@ func AddActivity(db *gorm.DB, userId uint, ar ActivityAddRequest) (entity.Activi
 	return activity, nil
 }
 
-func updateActivity(db *gorm.DB, userId uint, id uint, activityUpdateRequest ActivityUpdateRequest) error {
+func (s *Service) UpdateActivity(db *gorm.DB, userId uint, id uint, activityUpdateRequest domain.ActivityUpdateRequest) error {
 	if id == 0 {
 		return errors.New("id must be set to update an activity")
 	}
@@ -64,7 +59,7 @@ func updateActivity(db *gorm.DB, userId uint, id uint, activityUpdateRequest Act
 	return nil
 }
 
-func deleteActivity(db *gorm.DB, userId uint, id uint) error {
+func (s *Service) DeleteActivity(db *gorm.DB, userId uint, id uint) error {
 	if id == 0 {
 		return errors.New("an id must be provided to delete an activity")
 	}

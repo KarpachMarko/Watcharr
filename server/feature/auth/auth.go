@@ -78,8 +78,11 @@ type Service struct {
 	plexProvider PlexProvider
 }
 
-func NewService() *Service {
-	return &Service{}
+func NewService(cfg *config.ServerConfig, plexProvider PlexProvider) *Service {
+	return &Service{
+		cfg,
+		plexProvider,
+	}
 }
 
 func (s *Service) Register(ur *UserRegisterRequest, initialPerm int, db *gorm.DB) (AuthResponse, error) {

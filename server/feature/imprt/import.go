@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
-	"github.com/sbondCo/Watcharr/feature/activity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/tag"
 	"github.com/sbondCo/Watcharr/feature/watched"
 	"github.com/sbondCo/Watcharr/feature/watched/episode"
@@ -79,18 +79,26 @@ type ContentProvider interface {
 }
 
 type Service struct {
-	wp  WatchedProvider
-	wsp WatchedSeasonProvider
-	wep WatchedEpisodeProvider
-	cp  ContentProvider
+	wp               WatchedProvider
+	wsp              WatchedSeasonProvider
+	wep              WatchedEpisodeProvider
+	cp               ContentProvider
+	activityProvider domain.ActivityAddProvider
 }
 
-func NewService(wp WatchedProvider, wsp WatchedSeasonProvider, wep WatchedEpisodeProvider, cp ContentProvider) *Service {
+func NewService(
+	wp WatchedProvider,
+	wsp WatchedSeasonProvider,
+	wep WatchedEpisodeProvider,
+	cp ContentProvider,
+	activityProvider domain.ActivityAddProvider,
+) *Service {
 	return &Service{
 		wp,
 		wsp,
 		wep,
 		cp,
+		activityProvider,
 	}
 }
 
@@ -273,9 +281,9 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 		var addedActivity entity.Activity
 		if len(w.Activity) > 0 {
 			activityJson, _ := json.Marshal(map[string]interface{}{"rating": ar.Rating, "linkedActivity": w.Activity[0].ID})
-			addedActivity, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_RATING, Data: string(activityJson), CustomDate: ar.RatingCustomDate})
+			addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_RATING, Data: string(activityJson), CustomDate: ar.RatingCustomDate})
 		} else {
-			addedActivity, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_RATING, Data: strconv.Itoa(int(ar.Rating)), CustomDate: ar.RatingCustomDate})
+			addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_RATING, Data: strconv.Itoa(int(ar.Rating)), CustomDate: ar.RatingCustomDate})
 		}
 		w.Activity = append(w.Activity, addedActivity)
 	}
@@ -283,7 +291,7 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 	if len(ar.DatesWatched) > 0 {
 		for _, v := range ar.DatesWatched {
 			customDate := v
-			addedActivity, err := activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_ADDED_WATCHED, CustomDate: &customDate})
+			addedActivity, err := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_ADDED_WATCHED, CustomDate: &customDate})
 			if err == nil {
 				w.Activity = append(w.Activity, addedActivity)
 			} else {
@@ -300,7 +308,7 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 			if activityDate == nil || activityDate.IsZero() {
 				activityDate = &ar.Activity[i].CreatedAt
 			}
-			addedActivity, err := activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: w.ID, Type: v.Type, Data: v.Data, CustomDate: activityDate})
+			addedActivity, err := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: v.Type, Data: v.Data, CustomDate: activityDate})
 			if err == nil {
 				w.Activity = append(w.Activity, addedActivity)
 			} else {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
-	"github.com/sbondCo/Watcharr/feature/activity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/util"
 	"gorm.io/gorm"
 )
@@ -75,12 +75,14 @@ type ContentProvider interface {
 }
 
 type Service struct {
-	cp ContentProvider
+	cp               ContentProvider
+	activityProvider domain.ActivityAddProvider
 }
 
-func NewService(cp ContentProvider) *Service {
+func NewService(cp ContentProvider, activityProvider domain.ActivityAddProvider) *Service {
 	return &Service{
-		cp: cp,
+		cp,
+		activityProvider,
 	}
 }
 
@@ -332,9 +334,9 @@ func (s *Service) AddWatched(db *gorm.DB, userId uint, ar WatchedAddRequest, at 
 	activityJson, err := json.Marshal(map[string]interface{}{"status": ar.Status, "rating": ar.Rating})
 	if err != nil {
 		slog.Error("Failed to marshal json for data in ADD_WATCHED activity request, adding without data", "error", err.Error())
-		act, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: watched.ID, Type: at})
+		act, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at})
 	} else {
-		act, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: watched.ID, Type: at, Data: string(activityJson)})
+		act, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at, Data: string(activityJson)})
 	}
 	watched.Activity = append(watched.Activity, act)
 	watched.Content = &content
@@ -372,16 +374,16 @@ func (s *Service) updateWatched(db *gorm.DB, userId uint, id uint, ar WatchedUpd
 	}
 	addedActivity := entity.Activity{}
 	if ar.Rating != 0 {
-		addedActivity, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: id, Type: entity.RATING_CHANGED, Data: strconv.Itoa(int(ar.Rating))})
+		addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.RATING_CHANGED, Data: strconv.Itoa(int(ar.Rating))})
 	}
 	if ar.Status != "" {
-		addedActivity, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: id, Type: entity.STATUS_CHANGED, Data: string(ar.Status)})
+		addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.STATUS_CHANGED, Data: string(ar.Status)})
 	}
 	if ar.Thoughts != "" {
-		addedActivity, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: id, Type: entity.THOUGHTS_CHANGED})
+		addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.THOUGHTS_CHANGED})
 	}
 	if ar.RemoveThoughts {
-		addedActivity, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: id, Type: entity.THOUGHTS_REMOVED, Data: originalThoughts})
+		addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.THOUGHTS_REMOVED, Data: originalThoughts})
 	}
 	return WatchedUpdateResponse{NewActivity: addedActivity}, nil
 }
@@ -418,6 +420,6 @@ func (s *Service) removeWatched(db *gorm.DB, userId uint, id uint) (WatchedRemov
 	if res.RowsAffected <= 0 {
 		return WatchedRemoveResponse{}, errors.New("no watched entry found")
 	}
-	addedActivity, _ := activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: id, Type: entity.REMOVED_WATCHED})
+	addedActivity, _ := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.REMOVED_WATCHED})
 	return WatchedRemoveResponse{NewActivity: addedActivity}, nil
 }

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
-	"github.com/sbondCo/Watcharr/feature/activity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/user"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
 	"github.com/sbondCo/Watcharr/media/tmdb"
@@ -59,16 +59,23 @@ type ContentProvider interface {
 }
 
 type Service struct {
-	wp  WatchedProvider
-	wsp WatchedSeasonProvider
-	cp  ContentProvider
+	wp               WatchedProvider
+	wsp              WatchedSeasonProvider
+	cp               ContentProvider
+	activityProvider domain.ActivityAddProvider
 }
 
-func NewService(wp WatchedProvider, wsp WatchedSeasonProvider, cp ContentProvider) *Service {
+func NewService(
+	wp WatchedProvider,
+	wsp WatchedSeasonProvider,
+	cp ContentProvider,
+	activityProvider domain.ActivityAddProvider,
+) *Service {
 	return &Service{
 		wp,
 		wsp,
 		cp,
+		activityProvider,
 	}
 }
 
@@ -128,23 +135,23 @@ func (s *Service) AddWatchedEpisodes(db *gorm.DB, userId uint, ar WatchedEpisode
 		if updated {
 			if ar.Status != "" {
 				json, _ := json.Marshal(map[string]interface{}{"season": ar.SeasonNumber, "episode": ar.EpisodeNumber, "status": ar.Status})
-				addedActivity, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: w.ID, Type: entity.EPISODE_STATUS_CHANGED, Data: string(json)})
+				addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.EPISODE_STATUS_CHANGED, Data: string(json)})
 			}
 			if ar.Rating != 0 {
 				json, _ := json.Marshal(map[string]interface{}{"season": ar.SeasonNumber, "episode": ar.EpisodeNumber, "rating": ar.Rating})
-				addedActivity, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: w.ID, Type: entity.EPISODE_RATING_CHANGED, Data: string(json)})
+				addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.EPISODE_RATING_CHANGED, Data: string(json)})
 			}
 		}
 	} else {
 		json, _ := json.Marshal(map[string]interface{}{"season": ar.SeasonNumber, "episode": ar.EpisodeNumber, "status": ar.Status, "rating": ar.Rating})
-		act := activity.ActivityAddRequest{WatchedID: w.ID, Type: entity.EPISODE_ADDED, Data: string(json)}
+		act := domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.EPISODE_ADDED, Data: string(json)}
 		if ar.AddActivity != "" {
 			act.Type = ar.AddActivity
 		}
 		if !ar.AddActivityDate.IsZero() {
 			act.CustomDate = &ar.AddActivityDate
 		}
-		addedActivity, _ = activity.AddActivity(db, userId, act)
+		addedActivity, _ = s.activityProvider.AddActivity(db, userId, act)
 	}
 	episodeAddResp := WatchedEpisodeAddResponse{
 		WatchedEpisodes: w.WatchedEpisodes,
@@ -178,7 +185,7 @@ func (s *Service) rmWatchedEpisode(db *gorm.DB, userId uint, id uint) (entity.Ac
 			"status":  watchedEpisode.Status,
 			"rating":  watchedEpisode.Rating,
 		})
-		addedActivity, _ := activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: watchedEpisode.WatchedID, Type: entity.EPISODE_REMOVED, Data: string(json)})
+		addedActivity, _ := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watchedEpisode.WatchedID, Type: entity.EPISODE_REMOVED, Data: string(json)})
 		return addedActivity, nil
 	}
 	return entity.Activity{}, errors.New("removed, but failed to add activity entry")
@@ -207,7 +214,7 @@ func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId u
 	hookResponse := EpisodeStatusChangedHookResponse{}
 
 	addHookActivity := func(aType entity.ActivityType, data string) {
-		addedActivity, _ := activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: watchedId, Type: aType, Data: (data)})
+		addedActivity, _ := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watchedId, Type: aType, Data: (data)})
 		hookResponse.AddedActivities = append(hookResponse.AddedActivities, addedActivity)
 	}
 

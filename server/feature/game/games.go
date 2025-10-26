@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/sbondCo/Watcharr/database/entity"
-	"github.com/sbondCo/Watcharr/feature/activity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/image"
 	"github.com/sbondCo/Watcharr/media/igdb"
 	"gorm.io/gorm"
@@ -20,8 +20,18 @@ type PlayedAddRequest struct {
 	IgdbID int                  `json:"igdbId" binding:"required"`
 }
 
+type Service struct {
+	activityProvider domain.ActivityAddProvider
+}
+
+func NewService(activityProvider domain.ActivityAddProvider) *Service {
+	return &Service{
+		activityProvider,
+	}
+}
+
 // Cache(save) game to our table
-func saveGame(db *gorm.DB, c *entity.Game, onlyUpdate bool) error {
+func (s *Service) saveGame(db *gorm.DB, c *entity.Game, onlyUpdate bool) error {
 	slog.Info("Saving game to db", "id", c.IgdbID, "name", c.Name)
 	if c.IgdbID == 0 || c.Name == "" {
 		slog.Error("saveGame: content missing id or name!", "id", c.IgdbID, "name", c.Name)
@@ -72,7 +82,7 @@ func saveGame(db *gorm.DB, c *entity.Game, onlyUpdate bool) error {
 	return nil
 }
 
-func cacheGame(db *gorm.DB, g igdb.GameDetailsBasicResponse, onlyUpdate bool) (entity.Game, error) {
+func (s *Service) cacheGame(db *gorm.DB, g igdb.GameDetailsBasicResponse, onlyUpdate bool) (entity.Game, error) {
 	slog.Debug("cacheGame", "game_details", g)
 	var (
 		gameModes string
@@ -109,7 +119,7 @@ func cacheGame(db *gorm.DB, g igdb.GameDetailsBasicResponse, onlyUpdate bool) (e
 		Genres:      genres,
 		Platforms:   platforms,
 	}
-	err := saveGame(db, &c, onlyUpdate)
+	err := s.saveGame(db, &c, onlyUpdate)
 	if err != nil {
 		slog.Error("cacheGame: Failed to save game!", "error", err)
 		return entity.Game{}, errors.New("failed to save game")
@@ -119,7 +129,7 @@ func cacheGame(db *gorm.DB, g igdb.GameDetailsBasicResponse, onlyUpdate bool) (e
 
 // For adding/updating played games, we will reuse methods defined in watched.go where easily possible.
 
-func addPlayed(db *gorm.DB, igdb *igdb.IGDB, userId uint, ar PlayedAddRequest, at entity.ActivityType) (entity.Watched, error) {
+func (s *Service) addPlayed(db *gorm.DB, igdb *igdb.IGDB, userId uint, ar PlayedAddRequest, at entity.ActivityType) (entity.Watched, error) {
 	slog.Debug("Adding played item", "userId", userId, "igdbId", ar.IgdbID)
 
 	var game entity.Game
@@ -135,7 +145,7 @@ func addPlayed(db *gorm.DB, igdb *igdb.IGDB, userId uint, ar PlayedAddRequest, a
 			return entity.Watched{}, errors.New("failed to find requested games")
 		}
 
-		game, err = cacheGame(db, resp, false)
+		game, err = s.cacheGame(db, resp, false)
 		if err != nil {
 			slog.Error("addPlayed failed to cache game", "igdb_id", ar.IgdbID, "err", err)
 			return entity.Watched{}, errors.New("failed to cache content")
@@ -180,9 +190,9 @@ func addPlayed(db *gorm.DB, igdb *igdb.IGDB, userId uint, ar PlayedAddRequest, a
 	activityJson, err := json.Marshal(map[string]interface{}{"status": ar.Status, "rating": ar.Rating})
 	if err != nil {
 		slog.Error("Failed to marshal json for data in ADD_WATCHED activity request, adding without data", "error", err.Error())
-		act, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: watched.ID, Type: at})
+		act, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at})
 	} else {
-		act, _ = activity.AddActivity(db, userId, activity.ActivityAddRequest{WatchedID: watched.ID, Type: at, Data: string(activityJson)})
+		act, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at, Data: string(activityJson)})
 	}
 	watched.Activity = append(watched.Activity, act)
 	watched.Game = &game

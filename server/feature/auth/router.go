@@ -15,12 +15,16 @@ import (
 
 type Router struct {
 	br                   *router.BaseRouter
-	service              Service
-	trustedHeaderService TrustedHeaderService
+	service              *Service
+	trustedHeaderService *TrustedHeaderService
 }
 
-func NewRouter(br *router.BaseRouter) *Router {
-	return &Router{br: br}
+func NewRouter(br *router.BaseRouter, service *Service, trustedHeaderService *TrustedHeaderService) *Router {
+	return &Router{
+		br,
+		service,
+		trustedHeaderService,
+	}
 }
 
 func (r *Router) AddRoutes() {

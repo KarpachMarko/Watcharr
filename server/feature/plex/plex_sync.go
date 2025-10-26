@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
-	"github.com/sbondCo/Watcharr/feature/activity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/job"
 	"github.com/sbondCo/Watcharr/feature/watched"
 	"github.com/sbondCo/Watcharr/feature/watched/episode"
@@ -33,15 +33,26 @@ type WatchedEpisodeProvider interface {
 }
 
 type SyncService struct {
-	s   *Service
-	wp  WatchedProvider
-	wsp WatchedSeasonProvider
-	wep WatchedEpisodeProvider
+	s                *Service
+	wp               WatchedProvider
+	wsp              WatchedSeasonProvider
+	wep              WatchedEpisodeProvider
+	activityProvider domain.ActivityAddProvider
 }
 
-func NewSyncService(s *Service, wp WatchedProvider, wsp WatchedSeasonProvider, wep WatchedEpisodeProvider) *SyncService {
+func NewSyncService(
+	s *Service,
+	wp WatchedProvider,
+	wsp WatchedSeasonProvider,
+	wep WatchedEpisodeProvider,
+	activityProvider domain.ActivityAddProvider,
+) *SyncService {
 	return &SyncService{
-		s: s,
+		s,
+		wp,
+		wsp,
+		wep,
+		activityProvider,
 	}
 }
 
@@ -123,7 +134,7 @@ func (s *SyncService) startPlexSync(
 				} else {
 					// 3. Add IMPORTED_ADDED_WATCHED_PLEX activity
 					if !lastViewedAt.IsZero() {
-						_, err := activity.AddActivity(db, userId, activity.ActivityAddRequest{
+						_, err := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{
 							WatchedID:  w.ID,
 							Type:       entity.IMPORTED_ADDED_WATCHED_PLEX,
 							CustomDate: &lastViewedAt,
@@ -190,7 +201,7 @@ func (s *SyncService) startPlexSync(
 				} else {
 					// 3. Add IMPORTED_ADDED_WATCHED_PLEX activity
 					if !lastViewedAt.IsZero() {
-						_, err := activity.AddActivity(db, userId, activity.ActivityAddRequest{
+						_, err := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{
 							WatchedID:  w.ID,
 							Type:       entity.IMPORTED_ADDED_WATCHED_PLEX,
 							CustomDate: &lastViewedAt,
