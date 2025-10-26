@@ -6,16 +6,23 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/router"
 )
 
 type Router struct {
-	br *router.BaseRouter
+	br            *router.BaseRouter
+	service       *Service
+	manageService *ManageService
 }
 
-func NewRouter(br *router.BaseRouter) *Router {
-	return &Router{br: br}
+func NewRouter(br *router.BaseRouter, service *Service, manageService *ManageService) *Router {
+	return &Router{
+		br,
+		service,
+		manageService,
+	}
 }
 
 func (r *Router) AddRoutes() {
@@ -40,7 +47,7 @@ func (r *Router) AddRoutes() {
 // Get current user info
 func (r *Router) GetUserInfo(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	response, err := getUserInfo(r.br.DB, userId)
+	response, err := r.service.GetUserInfo(r.br.DB, userId)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
@@ -54,7 +61,7 @@ func (r *Router) UpdateSettings(c *gin.Context) {
 	var ur entity.UserSettings
 	err := c.ShouldBindJSON(&ur)
 	if err == nil {
-		response, err := userUpdate(r.br.DB, userId, ur)
+		response, err := r.service.UserUpdate(r.br.DB, userId, ur)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -68,7 +75,7 @@ func (r *Router) UpdateSettings(c *gin.Context) {
 // Get current user setting
 func (r *Router) GetSettings(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	response, err := UserGetSettings(r.br.DB, userId)
+	response, err := r.service.UserGetSettings(r.br.DB, userId)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
@@ -84,7 +91,7 @@ func (r *Router) GetSearchUsers(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "a query was not provided"})
 		return
 	}
-	response, err := userSearch(r.br.DB, userId, query)
+	response, err := r.service.UserSearch(r.br.DB, userId, query)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
@@ -99,7 +106,7 @@ func (r *Router) GetUserPublicInfo(c *gin.Context) {
 		c.Status(400)
 		return
 	}
-	response, err := getUserPublicInfo(r.br.DB, uint(id), c.Param("pubUsername"))
+	response, err := r.service.GetUserPublicInfo(r.br.DB, uint(id), c.Param("pubUsername"))
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
@@ -110,10 +117,10 @@ func (r *Router) GetUserPublicInfo(c *gin.Context) {
 // Update bio
 func (r *Router) UpdateBio(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	var br UserBioUpdateRequest
+	var br domain.UserBioUpdateRequest
 	err := c.ShouldBindJSON(&br)
 	if err == nil {
-		err := userUpdateBio(r.br.DB, userId, br.NewBio)
+		err := r.service.UserUpdateBio(r.br.DB, userId, br.NewBio)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 			return
@@ -127,7 +134,7 @@ func (r *Router) UpdateBio(c *gin.Context) {
 // Upload avatar
 func (r *Router) UpdateAvatar(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	response, err := uploadUserAvatar(c, r.br.DB, userId)
+	response, err := r.service.UploadUserAvatar(c, r.br.DB, userId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 		return

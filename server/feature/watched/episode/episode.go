@@ -10,7 +10,6 @@ import (
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
-	"github.com/sbondCo/Watcharr/feature/user"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
 	"github.com/sbondCo/Watcharr/media/tmdb"
 	"gorm.io/gorm"
@@ -58,11 +57,16 @@ type ContentProvider interface {
 	SeasonDetails(tvId string, seasonNumber string) (tmdb.TMDBSeasonDetails, error)
 }
 
+type UserProvider interface {
+	UserGetSettings(db *gorm.DB, userId uint) (entity.UserSettings, error)
+}
+
 type Service struct {
 	wp               WatchedProvider
 	wsp              WatchedSeasonProvider
 	cp               ContentProvider
 	activityProvider domain.ActivityAddProvider
+	userProvider     UserProvider
 }
 
 func NewService(
@@ -70,12 +74,14 @@ func NewService(
 	wsp WatchedSeasonProvider,
 	cp ContentProvider,
 	activityProvider domain.ActivityAddProvider,
+	userProvider UserProvider,
 ) *Service {
 	return &Service{
 		wp,
 		wsp,
 		cp,
 		activityProvider,
+		userProvider,
 	}
 }
 
@@ -201,7 +207,7 @@ func (s *Service) getNumberOfWatchedEpisodesInSeason(db *gorm.DB, userId uint, w
 
 // Called after an episode watched status has been set.
 func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId uint, seasonNum int, episodeNum int, newEpisodeStatus entity.WatchedStatus) EpisodeStatusChangedHookResponse {
-	userSettings, err := user.UserGetSettings(db, userId)
+	userSettings, err := s.userProvider.UserGetSettings(db, userId)
 	if err != nil {
 		slog.Error("hookEpisodeStatusChanged: Failed to get user settings! Hook will continue.", "error", err)
 	} else {

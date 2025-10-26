@@ -17,12 +17,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type UserBioUpdateRequest struct {
-	NewBio string `json:"newBio" binding:"max=128"`
+type Service struct {
+}
+
+func NewService() *Service {
+	return &Service{}
 }
 
 // Update user settings
-func userUpdate(db *gorm.DB, userId uint, ur entity.UserSettings) (entity.UserSettings, error) {
+func (s *Service) UserUpdate(db *gorm.DB, userId uint, ur entity.UserSettings) (entity.UserSettings, error) {
 	slog.Debug("user update request running", "user_id", userId, "ur", ur)
 	user := new(entity.User)
 	res := db.Where("id = ?", userId).Take(&user)
@@ -65,7 +68,7 @@ func userUpdate(db *gorm.DB, userId uint, ur entity.UserSettings) (entity.UserSe
 	}, nil
 }
 
-func UserGetSettings(db *gorm.DB, userId uint) (entity.UserSettings, error) {
+func (s *Service) UserGetSettings(db *gorm.DB, userId uint) (entity.UserSettings, error) {
 	slog.Debug("user update request running", "user_id", userId)
 	user := new(entity.User)
 	res := db.Where("id = ?", userId).Take(&user)
@@ -85,7 +88,7 @@ func UserGetSettings(db *gorm.DB, userId uint) (entity.UserSettings, error) {
 	}, nil
 }
 
-func userSearch(db *gorm.DB, currentUsersId uint, q string) ([]entity.PublicUser, error) {
+func (s *Service) UserSearch(db *gorm.DB, currentUsersId uint, q string) ([]entity.PublicUser, error) {
 	slog.Debug("user search request running", "query", q)
 	users := new([]entity.PublicUser)
 	res := db.Where("private = 0 AND username LIKE ? AND id != ?", "%"+q+"%", currentUsersId).Table("users").Find(&users)
@@ -96,7 +99,7 @@ func userSearch(db *gorm.DB, currentUsersId uint, q string) ([]entity.PublicUser
 	return *users, nil
 }
 
-func getUserInfo(db *gorm.DB, currentUsersId uint) (entity.PrivateUser, error) {
+func (s *Service) GetUserInfo(db *gorm.DB, currentUsersId uint) (entity.PrivateUser, error) {
 	slog.Debug("user get info request running")
 	user := new(entity.PrivateUser)
 	res := db.Where("id = ?", currentUsersId).Table("users").Preload("Avatar").Take(&user)
@@ -108,7 +111,7 @@ func getUserInfo(db *gorm.DB, currentUsersId uint) (entity.PrivateUser, error) {
 }
 
 // For getting a public user's info, when viewing their list for example
-func getUserPublicInfo(db *gorm.DB, userId uint, username string) (entity.PublicUser, error) {
+func (s *Service) GetUserPublicInfo(db *gorm.DB, userId uint, username string) (entity.PublicUser, error) {
 	slog.Debug("user get info request running")
 	user := new(entity.PublicUser)
 	res := db.Where("private = 0 AND id = ? AND username = ?", userId, username).Table("users").Preload("Avatar").Take(&user)
@@ -119,7 +122,7 @@ func getUserPublicInfo(db *gorm.DB, userId uint, username string) (entity.Public
 	return *user, nil
 }
 
-func userUpdateBio(db *gorm.DB, userId uint, newBio string) error {
+func (s *Service) UserUpdateBio(db *gorm.DB, userId uint, newBio string) error {
 	slog.Debug("userUpdateBio request running", "user_id", userId, "newBio", newBio)
 	if res := db.Model(&entity.User{}).Where("id = ?", userId).Update("bio", newBio); res.Error != nil {
 		slog.Error("userUpdateBio failed", "user_id", userId, "error", res.Error)
@@ -128,7 +131,7 @@ func userUpdateBio(db *gorm.DB, userId uint, newBio string) error {
 	return nil
 }
 
-func uploadUserAvatar(c *gin.Context, db *gorm.DB, userId uint) (entity.Image, error) {
+func (s *Service) UploadUserAvatar(c *gin.Context, db *gorm.DB, userId uint) (entity.Image, error) {
 	file, err := c.FormFile("avatar")
 	if err != nil {
 		slog.Error("failed to get file", "error", err)

@@ -3,38 +3,30 @@ package user
 import (
 	"errors"
 	"log/slog"
-	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"gorm.io/gorm"
 )
 
-// User details wanted for management views.
-type ManagedUser struct {
-	ID          uint            `json:"id"`
-	CreatedAt   time.Time       `json:"createdAt"`
-	Username    string          `json:"username"`
-	Type        entity.UserType `json:"type"`
-	Permissions int             `json:"permissions"`
-	Private     bool            `json:"private"`
+type ManageService struct {
 }
 
-type UpdateUserRequest struct {
-	Permissions *int             `json:"permissions"`
-	Type        *entity.UserType `json:"type"`
+func NewManageService() *ManageService {
+	return &ManageService{}
 }
 
-func GetAll(db *gorm.DB) ([]ManagedUser, error) {
-	users := []ManagedUser{}
+func (s *ManageService) GetAll(db *gorm.DB) ([]domain.ManagedUser, error) {
+	users := []domain.ManagedUser{}
 	if res := db.Model(&entity.User{}).Find(&users); res.Error != nil {
 		slog.Error("GetAllUsers: Failed to fetch users from database", "error", res.Error)
-		return []ManagedUser{}, errors.New("failed to fetch users from database")
+		return []domain.ManagedUser{}, errors.New("failed to fetch users from database")
 	}
 	return users, nil
 }
 
 // Update a user. For management views, for admin to update another user.
-func Manage(db *gorm.DB, userId uint, ur UpdateUserRequest) error {
+func (s *ManageService) Manage(db *gorm.DB, userId uint, ur domain.UpdateUserRequest) error {
 	// Error now if no userId or any UpdateUserRequest property was provided.
 	if userId == 0 || (ur.Permissions == nil && ur.Type == nil) {
 		slog.Error("ManageUser: invalid arguments", "user_id", userId)

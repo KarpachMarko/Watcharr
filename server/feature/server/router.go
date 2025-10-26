@@ -9,9 +9,9 @@ import (
 	"github.com/gin-contrib/cache"
 	"github.com/gin-gonic/gin"
 	"github.com/sbondCo/Watcharr/config"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/feature/plex"
-	"github.com/sbondCo/Watcharr/feature/user"
 	"github.com/sbondCo/Watcharr/router"
 )
 
@@ -27,17 +27,20 @@ type Router struct {
 	br                        *router.BaseRouter
 	plexProvider              PlexProvider
 	trustedHeaderAuthProvider TrustedHeaderAuthProvider
+	userManageProvider        domain.UserManageProvider
 }
 
 func NewRouter(
 	br *router.BaseRouter,
 	plexProvider PlexProvider,
 	trustedHeaderAuthProvider TrustedHeaderAuthProvider,
+	userManageProvider domain.UserManageProvider,
 ) *Router {
 	return &Router{
 		br,
 		plexProvider,
 		trustedHeaderAuthProvider,
+		userManageProvider,
 	}
 }
 
@@ -138,7 +141,7 @@ func (r *Router) GetStats(c *gin.Context) {
 
 // Get all server users (for manage users page)
 func (r *Router) GetAllUsers(c *gin.Context) {
-	resp, err := user.GetAll(r.br.DB)
+	resp, err := r.userManageProvider.GetAll(r.br.DB)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 		return
@@ -154,10 +157,10 @@ func (r *Router) UpdateManageUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: "failed to parse id"})
 		return
 	}
-	var ur user.UpdateUserRequest
+	var ur domain.UpdateUserRequest
 	err = c.ShouldBindJSON(&ur)
 	if err == nil {
-		err := user.Manage(r.br.DB, uint(userId), ur)
+		err := r.userManageProvider.Manage(r.br.DB, uint(userId), ur)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 			return
