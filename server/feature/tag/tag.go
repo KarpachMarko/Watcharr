@@ -6,17 +6,12 @@ import (
 
 	"github.com/sbondCo/Watcharr/database/dbmodel"
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"gorm.io/gorm"
 )
 
 // I think tags will be private for the user.
 // If the user wants to make a public list, they should make a custom view.
-
-type TagAddRequest struct {
-	Name    string `json:"name" binding:"required"`
-	Color   string `json:"color"`
-	BgColor string `json:"bgColor"`
-}
 
 type Service struct{}
 
@@ -67,7 +62,7 @@ func (s *Service) GetTagByNameAndColor(db *gorm.DB, userId uint, tagName string,
 }
 
 // Let user create a tag.
-func (s *Service) AddTag(db *gorm.DB, userId uint, tr TagAddRequest) (entity.Tag, error) {
+func (s *Service) AddTag(db *gorm.DB, userId uint, tr domain.TagAddRequest) (entity.Tag, error) {
 	if tr.Name == "" {
 		return entity.Tag{}, errors.New("tag must have a name")
 	}
@@ -82,7 +77,7 @@ func (s *Service) AddTag(db *gorm.DB, userId uint, tr TagAddRequest) (entity.Tag
 }
 
 // Let user update one of their tags (replaces).
-func (s *Service) UpdateTag(db *gorm.DB, userId uint, tagId uint, tr TagAddRequest) error {
+func (s *Service) UpdateTag(db *gorm.DB, userId uint, tagId uint, tr domain.TagAddRequest) error {
 	if tr.Name == "" {
 		return errors.New("tag must have a name")
 	}

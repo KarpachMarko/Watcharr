@@ -10,7 +10,6 @@ import (
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
-	"github.com/sbondCo/Watcharr/feature/tag"
 	"github.com/sbondCo/Watcharr/feature/watched"
 	"github.com/sbondCo/Watcharr/feature/watched/episode"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
@@ -46,7 +45,7 @@ type ImportRequest struct {
 	Activity         []entity.Activity       `json:"activity"`
 	WatchedEpisodes  []entity.WatchedEpisode `json:"watchedEpisodes"`
 	WatchedSeason    []entity.WatchedSeason  `json:"watchedSeasons"`
-	Tags             []tag.TagAddRequest     `json:"tags"`
+	Tags             []domain.TagAddRequest  `json:"tags"`
 	ImdbID           string                  `json:"imdbId"`
 }
 
@@ -78,12 +77,18 @@ type ContentProvider interface {
 	TvDetails(db *gorm.DB, id string, country string, rParams map[string]string) (tmdb.TMDBShowDetails, error)
 }
 
+type TagProvider interface {
+	AddTag(db *gorm.DB, userId uint, tr domain.TagAddRequest) (entity.Tag, error)
+	GetTagByNameAndColor(db *gorm.DB, userId uint, tagName string, tagColor string, tagBgColor string) (entity.Tag, error)
+}
+
 type Service struct {
 	wp               WatchedProvider
 	wsp              WatchedSeasonProvider
 	wep              WatchedEpisodeProvider
 	cp               ContentProvider
 	activityProvider domain.ActivityAddProvider
+	tagProvider      TagProvider
 }
 
 func NewService(
@@ -92,6 +97,7 @@ func NewService(
 	wep WatchedEpisodeProvider,
 	cp ContentProvider,
 	activityProvider domain.ActivityAddProvider,
+	tagProvider TagProvider,
 ) *Service {
 	return &Service{
 		wp,
@@ -99,6 +105,7 @@ func NewService(
 		wep,
 		cp,
 		activityProvider,
+		tagProvider,
 	}
 }
 
@@ -360,13 +367,13 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 		for _, v := range ar.Tags {
 			// Check if tag exists
 			var t entity.Tag
-			t, err := tag.GetTagByNameAndColor(db, userId, v.Name, v.Color, v.BgColor)
+			t, err := s.tagProvider.GetTagByNameAndColor(db, userId, v.Name, v.Color, v.BgColor)
 			if err != nil && err.Error() != "tag does not exist" {
 				slog.Error("successfulImport: Failed to check for an existing tag", "name", v.Name, "error", err)
 				continue
 			}
 			if t.ID == 0 {
-				tag, err := tag.AddTag(db, userId, tag.TagAddRequest{
+				tag, err := s.tagProvider.AddTag(db, userId, domain.TagAddRequest{
 					Name:    v.Name,
 					Color:   v.Color,
 					BgColor: v.BgColor,

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/router"
 )
@@ -64,7 +65,7 @@ func (r *Router) GetTag(c *gin.Context) {
 // Create a tag.
 func (r *Router) CreateTag(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	var tr TagAddRequest
+	var tr domain.TagAddRequest
 	err := c.ShouldBindJSON(&tr)
 	if err == nil {
 		response, err := r.service.AddTag(r.br.DB, userId, tr)
@@ -86,7 +87,7 @@ func (r *Router) UpdateTag(c *gin.Context) {
 		slog.Error("tag update rote: failed to process tag id.", "error", err.Error(), "id", c.Param("id"))
 		return
 	}
-	var tr TagAddRequest
+	var tr domain.TagAddRequest
 	err = c.ShouldBindJSON(&tr)
 	if err == nil {
 		err := r.service.UpdateTag(r.br.DB, userId, uint(id), tr)

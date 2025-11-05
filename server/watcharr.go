@@ -165,16 +165,38 @@ func main() {
 	userManageService := user.NewManageService()
 	watchedService := watched.NewService(contentService, activityService)
 	watchedSeasonService := season.NewService(activityService)
-	watchedEpisodeService := episode.NewService(watchedService, watchedSeasonService, contentService, activityService, userService)
+	watchedEpisodeService := episode.NewService(
+		watchedService,
+		watchedSeasonService,
+		contentService,
+		activityService,
+		userService)
 	jellyfinService := jellyfin.NewService(cfg)
-	jellyfinSyncService := jellyfin.NewSyncService(cfg, jellyfinService, watchedService, watchedSeasonService, watchedEpisodeService, activityService)
-	plexSyncService := plex.NewSyncService(plexService, watchedService, watchedSeasonService, watchedEpisodeService, activityService)
+	jellyfinSyncService := jellyfin.NewSyncService(
+		cfg,
+		jellyfinService,
+		watchedService,
+		watchedSeasonService,
+		watchedEpisodeService,
+		activityService)
+	plexSyncService := plex.NewSyncService(
+		plexService,
+		watchedService,
+		watchedSeasonService,
+		watchedEpisodeService,
+		activityService)
 	featureService := feature.NewService(cfg)
 	profileService := profile.NewService()
 	followService := follow.NewService()
-	importService := imprt.NewService(watchedService, watchedSeasonService, watchedEpisodeService, contentService, activityService)
-	importTraktService := imprt.NewTraktService(importService)
 	tagService := tag.NewService()
+	importService := imprt.NewService(
+		watchedService,
+		watchedSeasonService,
+		watchedEpisodeService,
+		contentService,
+		activityService,
+		tagService)
+	importTraktService := imprt.NewTraktService(importService)
 
 	auth.NewRouter(br, authService, authTrustedHeaderService).AddRoutes()
 	content.NewRouter(br, contentService, watchedService).AddRoutes()
