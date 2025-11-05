@@ -1,3 +1,5 @@
+// Watcharr is licensed under the GPLv3 license.
+
 package main
 
 import (
