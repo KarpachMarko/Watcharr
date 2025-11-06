@@ -14,6 +14,8 @@ import (
 	"path"
 	"time"
 
+	_ "embed"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -45,6 +47,9 @@ import (
 	taskl "github.com/sbondCo/Watcharr/task"
 )
 
+//go:embed VERSION
+var version string
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -56,7 +61,7 @@ func main() {
 
 	multiw := logging.Setup(path.Join(config.DataPath, "watcharr.log"))
 	slog.Info("Watcharr Starting")
-	fmt.Print(`
+	fmt.Printf(`
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣀⣀⣀⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣴⣶⣿⠿⠛⠛⠛⠻⠿⣿⣿⣿⣿⣿⣶⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⢀⣿⣿⣿⣿⣿⣷⣻⠶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -98,7 +103,9 @@ func main() {
  ╚███╔███╔╝██║  ██║   ██║   ╚██████╗██║  ██║██║  ██║██║  ██║██║  ██║
   ╚══╝╚══╝ ╚═╝  ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
 
-  Layer:01 Starting now. Get ready!` + "\n\n")
+  Layer:%s Starting now. Get ready!
+  
+  Thank you for running my (spaghetti) code on your system.`+"\n\n", version)
 
 	// Ensure data dir exists
 	err = ensureDirExists(config.DataPath)
@@ -177,25 +184,7 @@ func main() {
 	} else {
 		slog.Error("Failed to check if any users exist.. not registering setup routes", "error", uresp.Error)
 	}
-	// br.AddAuthRoutes()
-	// br.AddContentRoutes()
 	// br.AddGameRoutes()
-	// br.AddWatchedRoutes()
-	// br.AddActivityRoutes()
-	// br.AddProfileRoutes()
-	// br.AddJellyfinRoutes()
-	// br.AddPlexRoutes()
-	// br.AddUserRoutes()
-	// br.AddFollowRoutes()
-	// br.AddImportRoutes()
-	// br.AddServerRoutes()
-	// br.AddFeatureRoutes()
-	// br.AddSonarrRoutes()
-	// br.AddRadarrRoutes()
-	// br.AddArrRequestRoutes()
-	// br.AddJobRoutes()
-	// br.AddTaskRoutes()
-	// br.AddTagRoutes()
 
 	t := tmdb.NewTMDB(cfg.TMDB_KEY)
 
