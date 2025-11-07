@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
-	"gorm.io/gorm"
 )
 
 type (
@@ -20,6 +19,6 @@ type (
 	}
 
 	ActivityAddProvider interface {
-		AddActivity(db *gorm.DB, userId uint, ar ActivityAddRequest) (entity.Activity, error)
+		AddActivity(userId uint, ar ActivityAddRequest) (entity.Activity, error)
 	}
 )

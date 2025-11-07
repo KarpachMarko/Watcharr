@@ -39,7 +39,7 @@ func (r *Router) GetActivity(c *gin.Context) {
 		return
 	}
 	userId := c.MustGet("userId").(uint)
-	activity, err := r.service.GetActivity(r.br.DB, userId, uint(watchedId))
+	activity, err := r.service.GetActivity(userId, uint(watchedId))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 		return
@@ -52,7 +52,7 @@ func (r *Router) AddActivity(c *gin.Context) {
 	var ar domain.ActivityAddRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
-		response, err := r.service.AddActivity(r.br.DB, userId, ar)
+		response, err := r.service.AddActivity(userId, ar)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -73,7 +73,7 @@ func (r *Router) UpdateActivity(c *gin.Context) {
 	var activityUpdateRequest domain.ActivityUpdateRequest
 	err = c.ShouldBindJSON(&activityUpdateRequest)
 	if err == nil {
-		err = r.service.UpdateActivity(r.br.DB, userId, uint(id), activityUpdateRequest)
+		err = r.service.UpdateActivity(userId, uint(id), activityUpdateRequest)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -92,7 +92,7 @@ func (r *Router) DeleteActivity(c *gin.Context) {
 		slog.Error("Could not process activity id when attempting a deletion", "error", err.Error(), "id", c.Param("id"))
 		return
 	}
-	err = r.service.DeleteActivity(r.br.DB, userId, uint(id))
+	err = r.service.DeleteActivity(userId, uint(id))
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return

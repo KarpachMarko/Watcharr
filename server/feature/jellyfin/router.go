@@ -63,7 +63,7 @@ func (r *Router) GetSync(c *gin.Context) {
 	username := c.MustGet("username").(string)
 	userThirdPartyId := c.MustGet("userThirdPartyId").(string)
 	userThirdPartyAuth := c.MustGet("userThirdPartyAuth").(string)
-	response, err := r.syncService.jellyfinSyncWatched(r.br.DB, userId, userType, username, userThirdPartyId, userThirdPartyAuth)
+	response, err := r.syncService.jellyfinSyncWatched(userId, userType, username, userThirdPartyId, userThirdPartyAuth)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return

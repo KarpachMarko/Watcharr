@@ -18,17 +18,20 @@ import (
 )
 
 type Service struct {
+	db *gorm.DB
 }
 
-func NewService() *Service {
-	return &Service{}
+func NewService(db *gorm.DB) *Service {
+	return &Service{
+		db,
+	}
 }
 
 // Update user settings
-func (s *Service) UserUpdate(db *gorm.DB, userId uint, ur entity.UserSettings) (entity.UserSettings, error) {
+func (s *Service) UserUpdate(userId uint, ur entity.UserSettings) (entity.UserSettings, error) {
 	slog.Debug("user update request running", "user_id", userId, "ur", ur)
 	user := new(entity.User)
-	res := db.Where("id = ?", userId).Take(&user)
+	res := s.db.Where("id = ?", userId).Take(&user)
 	if res.Error != nil {
 		slog.Error("user update failed", "user_id", userId, "error", res.Error)
 		return entity.UserSettings{}, errors.New("failed to retrieve user")
@@ -57,7 +60,7 @@ func (s *Service) UserUpdate(db *gorm.DB, userId uint, ur entity.UserSettings) (
 	if ur.RatingStep != nil {
 		user.RatingStep = ur.RatingStep
 	}
-	db.Save(&user)
+	s.db.Save(&user)
 	return entity.UserSettings{
 		Private:                  user.Private,
 		PrivateThoughts:          user.PrivateThoughts,
@@ -68,10 +71,10 @@ func (s *Service) UserUpdate(db *gorm.DB, userId uint, ur entity.UserSettings) (
 	}, nil
 }
 
-func (s *Service) UserGetSettings(db *gorm.DB, userId uint) (entity.UserSettings, error) {
+func (s *Service) UserGetSettings(userId uint) (entity.UserSettings, error) {
 	slog.Debug("user update request running", "user_id", userId)
 	user := new(entity.User)
-	res := db.Where("id = ?", userId).Take(&user)
+	res := s.db.Where("id = ?", userId).Take(&user)
 	if res.Error != nil {
 		slog.Error("user get failed", "user_id", userId, "error", res.Error)
 		return entity.UserSettings{}, errors.New("failed to retrieve user")
@@ -88,10 +91,10 @@ func (s *Service) UserGetSettings(db *gorm.DB, userId uint) (entity.UserSettings
 	}, nil
 }
 
-func (s *Service) UserSearch(db *gorm.DB, currentUsersId uint, q string) ([]entity.PublicUser, error) {
+func (s *Service) UserSearch(currentUsersId uint, q string) ([]entity.PublicUser, error) {
 	slog.Debug("user search request running", "query", q)
 	users := new([]entity.PublicUser)
-	res := db.Where("private = 0 AND username LIKE ? AND id != ?", "%"+q+"%", currentUsersId).Table("users").Find(&users)
+	res := s.db.Where("private = 0 AND username LIKE ? AND id != ?", "%"+q+"%", currentUsersId).Table("users").Find(&users)
 	if res.Error != nil {
 		slog.Error("user search failed", "error", res.Error)
 		return []entity.PublicUser{}, errors.New("failed to find users")
@@ -99,10 +102,10 @@ func (s *Service) UserSearch(db *gorm.DB, currentUsersId uint, q string) ([]enti
 	return *users, nil
 }
 
-func (s *Service) GetUserInfo(db *gorm.DB, currentUsersId uint) (entity.PrivateUser, error) {
+func (s *Service) GetUserInfo(currentUsersId uint) (entity.PrivateUser, error) {
 	slog.Debug("user get info request running")
 	user := new(entity.PrivateUser)
-	res := db.Where("id = ?", currentUsersId).Table("users").Preload("Avatar").Take(&user)
+	res := s.db.Where("id = ?", currentUsersId).Table("users").Preload("Avatar").Take(&user)
 	if res.Error != nil {
 		slog.Error("user get info failed", "error", res.Error)
 		return entity.PrivateUser{}, errors.New("failed to find current user")
@@ -111,10 +114,10 @@ func (s *Service) GetUserInfo(db *gorm.DB, currentUsersId uint) (entity.PrivateU
 }
 
 // For getting a public user's info, when viewing their list for example
-func (s *Service) GetUserPublicInfo(db *gorm.DB, userId uint, username string) (entity.PublicUser, error) {
+func (s *Service) GetUserPublicInfo(userId uint, username string) (entity.PublicUser, error) {
 	slog.Debug("user get info request running")
 	user := new(entity.PublicUser)
-	res := db.Where("private = 0 AND id = ? AND username = ?", userId, username).Table("users").Preload("Avatar").Take(&user)
+	res := s.db.Where("private = 0 AND id = ? AND username = ?", userId, username).Table("users").Preload("Avatar").Take(&user)
 	if res.Error != nil {
 		slog.Error("public user get info failed", "error", res.Error)
 		return entity.PublicUser{}, errors.New("failed to find user")
@@ -122,16 +125,16 @@ func (s *Service) GetUserPublicInfo(db *gorm.DB, userId uint, username string) (
 	return *user, nil
 }
 
-func (s *Service) UserUpdateBio(db *gorm.DB, userId uint, newBio string) error {
+func (s *Service) UserUpdateBio(userId uint, newBio string) error {
 	slog.Debug("userUpdateBio request running", "user_id", userId, "newBio", newBio)
-	if res := db.Model(&entity.User{}).Where("id = ?", userId).Update("bio", newBio); res.Error != nil {
+	if res := s.db.Model(&entity.User{}).Where("id = ?", userId).Update("bio", newBio); res.Error != nil {
 		slog.Error("userUpdateBio failed", "user_id", userId, "error", res.Error)
 		return errors.New("failed to update bio")
 	}
 	return nil
 }
 
-func (s *Service) UploadUserAvatar(c *gin.Context, db *gorm.DB, userId uint) (entity.Image, error) {
+func (s *Service) UploadUserAvatar(c *gin.Context, userId uint) (entity.Image, error) {
 	file, err := c.FormFile("avatar")
 	if err != nil {
 		slog.Error("failed to get file", "error", err)
@@ -163,9 +166,9 @@ func (s *Service) UploadUserAvatar(c *gin.Context, db *gorm.DB, userId uint) (en
 
 	// No need to remove old image, the daily cleanup task will handle removing unused ones.
 	var img entity.Image
-	err = db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		// Insert avatar into db
-		img, err = image.InsertImage(db, hs, outp, f)
+		img, err = image.InsertImage(s.db, hs, outp, f)
 		if err != nil {
 			return err
 		}

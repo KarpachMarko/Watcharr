@@ -22,15 +22,19 @@ type FollowThoughts struct {
 	Rating       float64              `json:"rating"`
 }
 
-type Service struct{}
-
-func NewService() *Service {
-	return &Service{}
+type Service struct {
+	db *gorm.DB
 }
 
-func (s *Service) FollowUser(db *gorm.DB, currentUserId uint, toFollowUserId uint) (FollowPublic, error) {
+func NewService(db *gorm.DB) *Service {
+	return &Service{
+		db,
+	}
+}
+
+func (s *Service) FollowUser(currentUserId uint, toFollowUserId uint) (FollowPublic, error) {
 	f := entity.Follow{UserID: currentUserId, FollowedUserID: toFollowUserId}
-	res := db.Model(&entity.Follow{}).Create(&f)
+	res := s.db.Model(&entity.Follow{}).Create(&f)
 	if res.Error != nil {
 		slog.Error("followUser: Error on inserting follow.", "error", res.Error)
 		err := "failed to insert follow"
@@ -41,7 +45,7 @@ func (s *Service) FollowUser(db *gorm.DB, currentUserId uint, toFollowUserId uin
 	}
 	// Now get the row with preloaded followed user
 	var nf entity.Follow
-	res = db.Where("user_id = ? AND followed_user_id = ?", currentUserId, toFollowUserId).Preload("FollowedUser", "private = ?", 0).Take(&nf)
+	res = s.db.Where("user_id = ? AND followed_user_id = ?", currentUserId, toFollowUserId).Preload("FollowedUser", "private = ?", 0).Take(&nf)
 	if res.Error != nil {
 		slog.Error("followUser: Couldn't fetch newly followed user.", "error", res.Error)
 		return FollowPublic{}, errors.New("followed, but failed to fetch followed user")
@@ -49,9 +53,9 @@ func (s *Service) FollowUser(db *gorm.DB, currentUserId uint, toFollowUserId uin
 	return FollowPublic{CreatedAt: nf.CreatedAt, FollowedUser: nf.FollowedUser.GetSafe()}, nil
 }
 
-func (s *Service) UnfollowUser(db *gorm.DB, currentUserId uint, toFollowUserId uint) (bool, error) {
+func (s *Service) UnfollowUser(currentUserId uint, toFollowUserId uint) (bool, error) {
 	f := entity.Follow{UserID: currentUserId, FollowedUserID: toFollowUserId}
-	res := db.Delete(&f)
+	res := s.db.Delete(&f)
 	if res.Error != nil {
 		slog.Error("unfollowUser: Error deleting follow.", "error", res.Error)
 		err := "failed to remove follow"
@@ -64,9 +68,9 @@ func (s *Service) UnfollowUser(db *gorm.DB, currentUserId uint, toFollowUserId u
 }
 
 // Get current users follows
-func (s *Service) GetFollows(db *gorm.DB, userId uint) ([]FollowPublic, error) {
+func (s *Service) GetFollows(userId uint) ([]FollowPublic, error) {
 	var follows []entity.Follow
-	res := db.Where("user_id = ?", userId).Preload("FollowedUser", "private = ?", 0).Find(&follows)
+	res := s.db.Where("user_id = ?", userId).Preload("FollowedUser", "private = ?", 0).Find(&follows)
 	if res.Error != nil {
 		slog.Error("getFollows: Error finding follows.", "error", res.Error)
 		return []FollowPublic{}, errors.New("failed to find follows")
@@ -85,9 +89,9 @@ func (s *Service) GetFollows(db *gorm.DB, userId uint) ([]FollowPublic, error) {
 }
 
 // Get followed profile thoughts, rating, etc on specific content.
-func (s *Service) GetFollowsThoughts(db *gorm.DB, userId uint, mediaType string, mediaId string) ([]FollowThoughts, error) {
+func (s *Service) GetFollowsThoughts(userId uint, mediaType string, mediaId string) ([]FollowThoughts, error) {
 	var follows []entity.Follow
-	res := db.Where("user_id = ?", userId).Preload("FollowedUser", "private = ? AND private_thoughts = ?", 0, 0).Find(&follows)
+	res := s.db.Where("user_id = ?", userId).Preload("FollowedUser", "private = ? AND private_thoughts = ?", 0, 0).Find(&follows)
 	if res.Error != nil {
 		slog.Error("getFollows: Error finding follows.", "error", res.Error)
 		return []FollowThoughts{}, errors.New("failed to find follows")
@@ -105,7 +109,7 @@ func (s *Service) GetFollowsThoughts(db *gorm.DB, userId uint, mediaType string,
 	if mediaType == "game" {
 		// Get our content id from type and tmdbId
 		var content entity.Game
-		res = db.Where("igdb_id = ?", mediaId).Select("id").Find(&content)
+		res = s.db.Where("igdb_id = ?", mediaId).Select("id").Find(&content)
 		if res.Error != nil {
 			slog.Error("getFollows: Error finding content from db.", "error", res.Error)
 			return []FollowThoughts{}, errors.New("failed to find content")
@@ -114,7 +118,7 @@ func (s *Service) GetFollowsThoughts(db *gorm.DB, userId uint, mediaType string,
 	} else if mediaType == "movie" || mediaType == "tv" {
 		// Get our content id from type and tmdbId
 		var content entity.Content
-		res = db.Where("type = ? AND tmdb_id = ?", mediaType, mediaId).Select("id").Find(&content)
+		res = s.db.Where("type = ? AND tmdb_id = ?", mediaType, mediaId).Select("id").Find(&content)
 		if res.Error != nil {
 			slog.Error("getFollows: Error finding content from db.", "error", res.Error)
 			return []FollowThoughts{}, errors.New("failed to find content")
@@ -127,9 +131,9 @@ func (s *Service) GetFollowsThoughts(db *gorm.DB, userId uint, mediaType string,
 	// Get list of followeds watcheds for this content
 	var fw []entity.Watched
 	if mediaType == "game" {
-		res = db.Where("game_id = ? AND user_id IN ?", contentOrGameId, followIds).Find(&fw)
+		res = s.db.Where("game_id = ? AND user_id IN ?", contentOrGameId, followIds).Find(&fw)
 	} else {
-		res = db.Where("content_id = ? AND user_id IN ?", contentOrGameId, followIds).Find(&fw)
+		res = s.db.Where("content_id = ? AND user_id IN ?", contentOrGameId, followIds).Find(&fw)
 	}
 	if res.Error != nil {
 		slog.Error("getFollows: Error finding followed watcheds from db.", "error", res.Error)

@@ -56,7 +56,7 @@ func getArrRequestByTmdbId(db *gorm.DB, contentType entity.ContentType, tmdbId i
 }
 
 func createArrRequest(db *gorm.DB, cp ContentProvider, userId uint, serverName string, contentType entity.ContentType, tmdbId int, reqJson string) (*entity.ArrRequest, error) {
-	content, err := cp.GetOrCacheContent(db, contentType, tmdbId)
+	content, err := cp.GetOrCacheContent(contentType, tmdbId)
 	if err != nil {
 		slog.Error("createArrRequest: GetOrCacheContent errored.")
 		return &entity.ArrRequest{}, err

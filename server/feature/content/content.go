@@ -90,17 +90,19 @@ func download(url string, outf string, force bool) (err error) {
 }
 
 type Service struct {
-	t *tmdb.TMDB
+	db   *gorm.DB
+	tmdb *tmdb.TMDB
 }
 
-func NewService(t *tmdb.TMDB) *Service {
+func NewService(db *gorm.DB, tmdb *tmdb.TMDB) *Service {
 	return &Service{
-		t,
+		db,
+		tmdb,
 	}
 }
 
 // onlyUpdate - If we should only update existing row if exists, or false to create/update if not exist.
-func (s *Service) saveContent(db *gorm.DB, c *entity.Content, onlyUpdate bool) error {
+func (s *Service) saveContent(c *entity.Content, onlyUpdate bool) error {
 	slog.Info("Saving content to db", "id", c.TmdbID, "title", c.Title)
 	if c.TmdbID == 0 || c.Title == "" || c.Type == "" {
 		slog.Error("saveContent: content missing id, title or type!", "id", c.TmdbID, "title", c.Title, "type", c.Type)
@@ -109,14 +111,14 @@ func (s *Service) saveContent(db *gorm.DB, c *entity.Content, onlyUpdate bool) e
 	var res *gorm.DB
 	if onlyUpdate {
 		// We only want to update an existing row, if it exists.
-		res = db.Model(&entity.Content{}).Where("type = ? AND tmdb_id = ?", c.Type, c.TmdbID).Updates(c)
+		res = s.db.Model(&entity.Content{}).Where("type = ? AND tmdb_id = ?", c.Type, c.TmdbID).Updates(c)
 		if res.Error != nil {
 			slog.Error("saveContent: Error updating content in database", "error", res.Error.Error())
 			return errors.New("failed to update cached content in database")
 		}
 	} else {
 		// On conflict, update existing row with details incase any were updated/missing.
-		res = db.Clauses(clause.OnConflict{
+		res = s.db.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "tmdb_id"}, {Name: "type"}},
 			DoUpdates: clause.AssignmentColumns([]string{
 				"title",
@@ -158,7 +160,7 @@ func (s *Service) saveContent(db *gorm.DB, c *entity.Content, onlyUpdate bool) e
 	return nil
 }
 
-func (s *Service) cacheContentTv(db *gorm.DB, content tmdb.TMDBShowDetails, onlyUpdate bool) (entity.Content, error) {
+func (s *Service) cacheContentTv(content tmdb.TMDBShowDetails, onlyUpdate bool) (entity.Content, error) {
 	slog.Debug("cacheContentTv", "content", content)
 	var (
 		releaseDate time.Time
@@ -189,7 +191,7 @@ func (s *Service) cacheContentTv(db *gorm.DB, content tmdb.TMDBShowDetails, only
 		NumberOfSeasons:  content.NumberOfSeasons,
 	}
 
-	err = s.saveContent(db, &c, onlyUpdate)
+	err = s.saveContent(&c, onlyUpdate)
 	if err != nil {
 		slog.Error("cacheContentTv: Failed to save content!", "error", err)
 		return entity.Content{}, errors.New("failed to save content")
@@ -198,7 +200,7 @@ func (s *Service) cacheContentTv(db *gorm.DB, content tmdb.TMDBShowDetails, only
 	return c, nil
 }
 
-func (s *Service) cacheContentMovie(db *gorm.DB, content tmdb.TMDBMovieDetails, onlyUpdate bool) (entity.Content, error) {
+func (s *Service) cacheContentMovie(content tmdb.TMDBMovieDetails, onlyUpdate bool) (entity.Content, error) {
 	var (
 		releaseDate time.Time
 	)
@@ -226,7 +228,7 @@ func (s *Service) cacheContentMovie(db *gorm.DB, content tmdb.TMDBMovieDetails, 
 		Runtime:     content.Runtime,
 	}
 
-	err = s.saveContent(db, &c, onlyUpdate)
+	err = s.saveContent(&c, onlyUpdate)
 	if err != nil {
 		slog.Error("cacheContentMovie: Failed to save content!", "error", err)
 		return entity.Content{}, errors.New("failed to save content")
@@ -236,15 +238,15 @@ func (s *Service) cacheContentMovie(db *gorm.DB, content tmdb.TMDBMovieDetails, 
 }
 
 // Get content from our db cache, or cache it if it doesn't exist.
-func (s *Service) GetOrCacheContent(db *gorm.DB, contentType entity.ContentType, tmdbId int) (entity.Content, error) {
+func (s *Service) GetOrCacheContent(contentType entity.ContentType, tmdbId int) (entity.Content, error) {
 	var content entity.Content
 	// Look in db for content.
-	db.Where("type = ? AND tmdb_id = ?", contentType, tmdbId).Find(&content)
+	s.db.Where("type = ? AND tmdb_id = ?", contentType, tmdbId).Find(&content)
 	// Create content if not found from our db.
 	if content == (entity.Content{}) {
 		slog.Debug("Content not in db, fetching...", "type", contentType, "tmdbId", tmdbId)
 
-		resp, err := s.t.APIRequest("/"+string(contentType)+"/"+strconv.Itoa(tmdbId), map[string]string{})
+		resp, err := s.tmdb.APIRequest("/"+string(contentType)+"/"+strconv.Itoa(tmdbId), map[string]string{})
 		if err != nil {
 			slog.Error("GetOrCacheContent: content tmdb api request failed", "error", err)
 			return entity.Content{}, errors.New("failed to find requested media")
@@ -257,7 +259,7 @@ func (s *Service) GetOrCacheContent(db *gorm.DB, contentType entity.ContentType,
 				slog.Error("Failed to unmarshal movie details", "error", err)
 				return entity.Content{}, errors.New("failed to process movie details response")
 			}
-			content, err = s.cacheContentMovie(db, *c, false)
+			content, err = s.cacheContentMovie(*c, false)
 			if err != nil {
 				slog.Error("GetOrCacheContent: failed to cache movie content", "type", contentType, "content_id", tmdbId, "err", err)
 				return entity.Content{}, errors.New("failed to cache content")
@@ -269,7 +271,7 @@ func (s *Service) GetOrCacheContent(db *gorm.DB, contentType entity.ContentType,
 				slog.Error("Failed to unmarshal tv details", "error", err)
 				return entity.Content{}, errors.New("failed to process tv details response")
 			}
-			content, err = s.cacheContentTv(db, *c, false)
+			content, err = s.cacheContentTv(*c, false)
 			if err != nil {
 				slog.Error("GetOrCacheContent: failed to cache tv content", "type", contentType, "content_id", tmdbId, "err", err)
 				return entity.Content{}, errors.New("failed to cache content")
@@ -313,7 +315,7 @@ func (s *Service) SearchContent(query string, pageNum int) (tmdb.TMDBSearchMulti
 		slog.Debug("SearchContent: Returning cache.")
 		return *resp, nil
 	}
-	err := s.t.Request("/search/multi", map[string]string{"query": query, "page": strconv.Itoa(pageNum)}, &resp)
+	err := s.tmdb.Request("/search/multi", map[string]string{"query": query, "page": strconv.Itoa(pageNum)}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete multi search request!", "error", err.Error())
 		return tmdb.TMDBSearchMultiResponse{}, errors.New("failed to complete multi search request")
@@ -332,7 +334,7 @@ func (s *Service) SearchMovies(query string, pageNum int) (tmdb.TMDBSearchMovies
 		slog.Debug("SearchMovies: Returning cache.")
 		return *resp, nil
 	}
-	err := s.t.Request("/search/movie", map[string]string{"query": query, "page": strconv.Itoa(pageNum)}, &resp)
+	err := s.tmdb.Request("/search/movie", map[string]string{"query": query, "page": strconv.Itoa(pageNum)}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete movie search request!", "error", err.Error())
 		return tmdb.TMDBSearchMoviesResponse{}, errors.New("failed to complete movie search request")
@@ -354,7 +356,7 @@ func (s *Service) SearchTv(query string, pageNum int) (tmdb.TMDBSearchShowsRespo
 		slog.Debug("SearchTv: Returning cache.")
 		return *resp, nil
 	}
-	err := s.t.Request("/search/tv", map[string]string{"query": query, "page": strconv.Itoa(pageNum)}, &resp)
+	err := s.tmdb.Request("/search/tv", map[string]string{"query": query, "page": strconv.Itoa(pageNum)}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete tv search request!", "error", err.Error())
 		return tmdb.TMDBSearchShowsResponse{}, errors.New("failed to complete tv search request")
@@ -371,7 +373,7 @@ func (s *Service) SearchPeople(query string, pageNum int) (tmdb.TMDBSearchPeople
 	if pageNum == 0 {
 		pageNum = 1
 	}
-	err := s.t.Request("/search/person", map[string]string{
+	err := s.tmdb.Request("/search/person", map[string]string{
 		"query": query,
 		"page":  strconv.Itoa(pageNum),
 	}, &resp)
@@ -392,7 +394,7 @@ func (s *Service) SearchByExternalId(id string, source string) (tmdb.TMDBSearchM
 	if source == "" {
 		source = "imdb"
 	}
-	err := s.t.Request("/find/"+id, map[string]string{"external_source": source + "_id"}, &resp)
+	err := s.tmdb.Request("/find/"+id, map[string]string{"external_source": source + "_id"}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete find/external_id request!", "error", err.Error())
 		return tmdb.TMDBSearchMultiResponse{}, errors.New("failed to complete find/external_id request")
@@ -414,27 +416,27 @@ func (s *Service) SearchByExternalId(id string, source string) (tmdb.TMDBSearchM
 	}}, nil
 }
 
-func (s *Service) MovieDetails(db *gorm.DB, id string, country string, rParams map[string]string) (tmdb.TMDBMovieDetails, error) {
+func (s *Service) MovieDetails(id string, country string, rParams map[string]string) (tmdb.TMDBMovieDetails, error) {
 	resp := new(tmdb.TMDBMovieDetails)
 	cacheKey := cache.CreateCacheKey("MovieDetails", id, country, rParams)
 	if cache.GetCache(ContentStore, cacheKey, &resp) {
 		slog.Debug("MovieDetails: Returning cache.")
 		return *resp, nil
 	}
-	err := s.t.Request("/movie/"+id, rParams, &resp)
+	err := s.tmdb.Request("/movie/"+id, rParams, &resp)
 	if err != nil {
 		slog.Error("Failed to complete movie details request!", "error", err.Error())
 		return tmdb.TMDBMovieDetails{}, errors.New("failed to complete movie details request")
 	}
 	s.transformProviders(&resp.WatchProviders, country)
-	go s.cacheContentMovie(db, *resp, true)
+	go s.cacheContentMovie(*resp, true)
 	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil
 }
 
 func (s *Service) MovieCredits(id string) (tmdb.TMDBContentCredits, error) {
 	resp := new(tmdb.TMDBContentCredits)
-	err := s.t.Request("/movie/"+id+"/credits", map[string]string{}, &resp)
+	err := s.tmdb.Request("/movie/"+id+"/credits", map[string]string{}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete movie cast request!", "error", err.Error())
 		return tmdb.TMDBContentCredits{}, errors.New("failed to complete movie cast request")
@@ -443,7 +445,6 @@ func (s *Service) MovieCredits(id string) (tmdb.TMDBContentCredits, error) {
 }
 
 func (s *Service) TvDetails(
-	db *gorm.DB,
 	id string,
 	country string,
 	rParams map[string]string,
@@ -454,20 +455,20 @@ func (s *Service) TvDetails(
 		slog.Debug("TvDetails: Returning cache.")
 		return *resp, nil
 	}
-	err := s.t.Request("/tv/"+id, rParams, &resp)
+	err := s.tmdb.Request("/tv/"+id, rParams, &resp)
 	if err != nil {
 		slog.Error("Failed to complete tv details request!", "error", err.Error())
 		return tmdb.TMDBShowDetails{}, errors.New("failed to complete tv details request")
 	}
 	s.transformProviders(&resp.WatchProviders, country)
-	go s.cacheContentTv(db, *resp, true)
+	go s.cacheContentTv(*resp, true)
 	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil
 }
 
 func (s *Service) TvCredits(id string) (tmdb.TMDBContentCredits, error) {
 	resp := new(tmdb.TMDBContentCredits)
-	err := s.t.Request("/tv/"+id+"/credits", map[string]string{}, &resp)
+	err := s.tmdb.Request("/tv/"+id+"/credits", map[string]string{}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete tv cast request!", "error", err.Error())
 		return tmdb.TMDBContentCredits{}, errors.New("failed to complete tv cast request")
@@ -483,7 +484,7 @@ func (s *Service) SeasonDetails(tvId string, seasonNumber string) (tmdb.TMDBSeas
 		slog.Debug("SeasonDetails: Returning cache.")
 		return *resp, nil
 	}
-	err := s.t.Request("/tv/"+tvId+"/season/"+seasonNumber, map[string]string{}, &resp)
+	err := s.tmdb.Request("/tv/"+tvId+"/season/"+seasonNumber, map[string]string{}, &resp)
 	if err != nil {
 		slog.Error("SeasonDetails: Failed to complete season details request!", "error", err.Error())
 		return tmdb.TMDBSeasonDetails{}, errors.New("failed to complete season details request")
@@ -494,7 +495,7 @@ func (s *Service) SeasonDetails(tvId string, seasonNumber string) (tmdb.TMDBSeas
 
 func (s *Service) PersonDetails(id string) (tmdb.TMDBPersonDetails, error) {
 	resp := new(tmdb.TMDBPersonDetails)
-	err := s.t.Request("/person/"+id, map[string]string{}, &resp)
+	err := s.tmdb.Request("/person/"+id, map[string]string{}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete person details request!", "error", err.Error())
 		return tmdb.TMDBPersonDetails{}, errors.New("failed to complete person details request")
@@ -504,7 +505,7 @@ func (s *Service) PersonDetails(id string) (tmdb.TMDBPersonDetails, error) {
 
 func (s *Service) PersonCredits(id string) (tmdb.TMDBPersonCombinedCredits, error) {
 	resp := new(tmdb.TMDBPersonCombinedCredits)
-	err := s.t.Request("/person/"+id+"/combined_credits", map[string]string{}, &resp)
+	err := s.tmdb.Request("/person/"+id+"/combined_credits", map[string]string{}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete person details request!", "error", err.Error())
 		return tmdb.TMDBPersonCombinedCredits{}, errors.New("failed to complete person details request")
@@ -519,7 +520,7 @@ func (s *Service) DiscoverMovies() (tmdb.TMDBDiscoverMovies, error) {
 		slog.Debug("DiscoverMovies: Returning cache.")
 		return *resp, nil
 	}
-	err := s.t.Request("/discover/movie", map[string]string{"page": "1"}, &resp)
+	err := s.tmdb.Request("/discover/movie", map[string]string{"page": "1"}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete discover movies request!", "error", err.Error())
 		return tmdb.TMDBDiscoverMovies{}, errors.New("failed to complete discover movies request")
@@ -535,7 +536,7 @@ func (s *Service) DiscoverTv() (tmdb.TMDBDiscoverShows, error) {
 		slog.Debug("DiscoverTv: Returning cache.")
 		return *resp, nil
 	}
-	err := s.t.Request("/discover/tv", map[string]string{"page": "1"}, &resp)
+	err := s.tmdb.Request("/discover/tv", map[string]string{"page": "1"}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete discover tv request!", "error", err.Error())
 		return tmdb.TMDBDiscoverShows{}, errors.New("failed to complete discover tv request")
@@ -551,7 +552,7 @@ func (s *Service) AllTrending() (tmdb.TMDBTrendingAll, error) {
 		slog.Debug("AllTrending: Returning cache.")
 		return *resp, nil
 	}
-	err := s.t.Request("/trending/all/day", map[string]string{}, &resp)
+	err := s.tmdb.Request("/trending/all/day", map[string]string{}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete all trending request!", "error", err.Error())
 		return tmdb.TMDBTrendingAll{}, errors.New("failed to complete all trending request")
@@ -567,7 +568,7 @@ func (s *Service) UpcomingMovies() (tmdb.TMDBUpcomingMovies, error) {
 		slog.Debug("upcomingMovies: Returning cache.")
 		return *resp, nil
 	}
-	err := s.t.Request("/movie/upcoming", map[string]string{"page": "1"}, &resp)
+	err := s.tmdb.Request("/movie/upcoming", map[string]string{"page": "1"}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete upcoming movies request!", "error", err.Error())
 		return tmdb.TMDBUpcomingMovies{}, errors.New("failed to complete upcoming movies request")
@@ -587,7 +588,7 @@ func (s *Service) UpcomingTv() (tmdb.TMDBUpcomingShows, error) {
 	dFmt := "2006-01-02"
 	mind := time.Now().Format(dFmt)
 	maxd := time.Now().AddDate(0, 0, 15).Format(dFmt)
-	err := s.t.Request("/discover/tv", map[string]string{
+	err := s.tmdb.Request("/discover/tv", map[string]string{
 		"page":               "1",
 		"first_air_date.gte": mind,
 		"first_air_date.lte": maxd,
@@ -604,7 +605,7 @@ func (s *Service) UpcomingTv() (tmdb.TMDBUpcomingShows, error) {
 
 func (s *Service) Regions() (tmdb.TMDBRegions, error) {
 	resp := new(tmdb.TMDBRegions)
-	err := s.t.Request("/watch/providers/regions", map[string]string{}, &resp)
+	err := s.tmdb.Request("/watch/providers/regions", map[string]string{}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete regions request!", "error", err.Error())
 		return tmdb.TMDBRegions{}, errors.New("failed to complete regions request")

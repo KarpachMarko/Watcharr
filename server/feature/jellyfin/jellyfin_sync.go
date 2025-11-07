@@ -12,7 +12,6 @@ import (
 	"github.com/sbondCo/Watcharr/feature/watched/episode"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
 	"github.com/sbondCo/Watcharr/job"
-	"gorm.io/gorm"
 )
 
 type JellyfinSeriesSeasonsResponse struct {
@@ -42,15 +41,15 @@ type JellyfinSyncResponse struct {
 }
 
 type WatchedProvider interface {
-	AddWatched(db *gorm.DB, userId uint, ar watched.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
+	AddWatched(userId uint, ar watched.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
 }
 
 type WatchedSeasonProvider interface {
-	AddWatchedSeason(db *gorm.DB, userId uint, ar season.WatchedSeasonAddRequest) (season.WatchedSeasonAddResponse, error)
+	AddWatchedSeason(userId uint, ar season.WatchedSeasonAddRequest) (season.WatchedSeasonAddResponse, error)
 }
 
 type WatchedEpisodeProvider interface {
-	AddWatchedEpisodes(db *gorm.DB, userId uint, ar episode.WatchedEpisodeAddRequest) (episode.WatchedEpisodeAddResponse, error)
+	AddWatchedEpisodes(userId uint, ar episode.WatchedEpisodeAddRequest) (episode.WatchedEpisodeAddResponse, error)
 }
 
 type SyncService struct {
@@ -84,7 +83,6 @@ func NewSyncService(
 // Gets each type of media separately from jellyfin and attempts to import them.
 // Errors are added silently to the job.
 func (s *SyncService) startJellyfinSync(
-	db *gorm.DB,
 	jobId string,
 	userId uint,
 	username string,
@@ -134,7 +132,7 @@ func (s *SyncService) startJellyfinSync(
 				job.UpdateJobCurrentTask(jobId, userId, "syncing "+v.Name)
 
 				// 2. Imported watched movie
-				w, err := s.wp.AddWatched(db, userId, watched.WatchedAddRequest{
+				w, err := s.wp.AddWatched(userId, watched.WatchedAddRequest{
 					Status:      entity.FINISHED,
 					ContentID:   tmdbId,
 					ContentType: entity.MOVIE,
@@ -150,7 +148,7 @@ func (s *SyncService) startJellyfinSync(
 				} else {
 					// 3. Add IMPORTED_ADDED_WATCHED_JF activity
 					if !v.UserData.LastPlayedDate.IsZero() {
-						_, err := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_ADDED_WATCHED_JF, CustomDate: &v.UserData.LastPlayedDate})
+						_, err := s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_ADDED_WATCHED_JF, CustomDate: &v.UserData.LastPlayedDate})
 						if err != nil {
 							slog.Error("jellyfinSyncWatched: Failed to add dateswatched activity.", "movie_name", v.Name,
 								"movie_ids", v.ProviderIds, "user_id", userId, "date", v.UserData.LastPlayedDate, "error", err)
@@ -212,7 +210,7 @@ func (s *SyncService) startJellyfinSync(
 				job.UpdateJobCurrentTask(jobId, userId, "syncing serie "+v.Name)
 
 				// 2. Imported watched series
-				w, err := s.wp.AddWatched(db, userId, watched.WatchedAddRequest{
+				w, err := s.wp.AddWatched(userId, watched.WatchedAddRequest{
 					Status:      entity.FINISHED,
 					ContentID:   tmdbId,
 					ContentType: entity.SHOW,
@@ -229,7 +227,7 @@ func (s *SyncService) startJellyfinSync(
 				} else {
 					// 3. Add IMPORTED_ADDED_WATCHED activity (only if no err above, show also must not have already been on our list)
 					if !v.UserData.LastPlayedDate.IsZero() {
-						_, err := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_ADDED_WATCHED_JF, CustomDate: &v.UserData.LastPlayedDate})
+						_, err := s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_ADDED_WATCHED_JF, CustomDate: &v.UserData.LastPlayedDate})
 						if err != nil {
 							slog.Error("jellyfinSyncWatched: Failed to add dateswatched activity.", "series_name", v.Name,
 								"series_ids", v.ProviderIds, "user_id", userId, "date", v.UserData.LastPlayedDate, "error", err)
@@ -265,7 +263,7 @@ func (s *SyncService) startJellyfinSync(
 							continue
 						}
 						job.UpdateJobCurrentTask(jobId, userId, "syncing "+v.Name+" season "+strconv.Itoa(vs.IndexNumber))
-						_, err = s.wsp.AddWatchedSeason(db, userId, season.WatchedSeasonAddRequest{
+						_, err = s.wsp.AddWatchedSeason(userId, season.WatchedSeasonAddRequest{
 							WatchedID:       w.ID,
 							SeasonNumber:    vs.IndexNumber,
 							Status:          entity.FINISHED,
@@ -307,7 +305,7 @@ func (s *SyncService) startJellyfinSync(
 							continue
 						}
 						job.UpdateJobCurrentTask(jobId, userId, "syncing "+v.Name+" season "+strconv.Itoa(vs.ParentIndexNumber)+" episode "+strconv.Itoa(vs.IndexNumber))
-						_, err = s.wep.AddWatchedEpisodes(db, userId, episode.WatchedEpisodeAddRequest{
+						_, err = s.wep.AddWatchedEpisodes(userId, episode.WatchedEpisodeAddRequest{
 							WatchedID:       w.ID,
 							SeasonNumber:    vs.ParentIndexNumber,
 							EpisodeNumber:   vs.IndexNumber,
@@ -329,7 +327,6 @@ func (s *SyncService) startJellyfinSync(
 }
 
 func (s *SyncService) jellyfinSyncWatched(
-	db *gorm.DB,
 	userId uint,
 	userType entity.UserType,
 	username string,
@@ -345,7 +342,6 @@ func (s *SyncService) jellyfinSyncWatched(
 	job.UpdateJobStatus(jobId, userId, job.JOB_RUNNING)
 
 	go s.startJellyfinSync(
-		db,
 		jobId,
 		userId,
 		username,

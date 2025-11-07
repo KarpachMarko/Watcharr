@@ -13,12 +13,11 @@ import (
 	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
 	"github.com/sbondCo/Watcharr/router"
 	"github.com/sbondCo/Watcharr/util"
-	"gorm.io/gorm"
 )
 
 type WatchedProvider interface {
-	UpdateWatchedLastViewedSeason(db *gorm.DB, userId uint, id uint, seasonNum int) error
-	GetWatchedItemsByTmdbIds(db *gorm.DB, userId uint, c [][]any) ([]entity.Watched, error)
+	UpdateWatchedLastViewedSeason(userId uint, id uint, seasonNum int) error
+	GetWatchedItemsByTmdbIds(userId uint, c [][]any) ([]entity.Watched, error)
 }
 
 type Router struct {
@@ -97,7 +96,7 @@ func (r *Router) GetSearchMulti(c *gin.Context) {
 	// withWatchedResp := searchContentAddWatched(r.br.DB, userId, content)
 	// c.JSON(http.StatusOK, withWatchedResp)
 
-	addedtocontent.AddWAC(content.Results, r.wp, r.br.DB, userId)
+	addedtocontent.AddWAC(content.Results, r.wp, userId)
 	c.JSON(http.StatusOK, content)
 }
 
@@ -174,7 +173,6 @@ func (r *Router) GetMovieDetails(c *gin.Context) {
 		return
 	}
 	content, err := r.cs.MovieDetails(
-		r.br.DB,
 		c.Param("id"),
 		c.MustGet("userCountry").(string),
 		map[string]string{
@@ -212,7 +210,6 @@ func (r *Router) GetTvDetails(c *gin.Context) {
 	}
 	// 1. Get details
 	content, err := r.cs.TvDetails(
-		r.br.DB,
 		c.Param("id"),
 		c.MustGet("userCountry").(string),
 		map[string]string{
@@ -266,7 +263,7 @@ func (r *Router) GetSeasonDetails(c *gin.Context) {
 			slog.Error("get season details route: Processing watchedId param failed", "error", err.Error(), "id", watchedIdQ)
 		} else {
 			if seasonNum, err := strconv.ParseInt(c.Param("num"), 10, 64); err == nil {
-				if err = r.wp.UpdateWatchedLastViewedSeason(r.br.DB, userId, uint(watchedId), int(seasonNum)); err == nil {
+				if err = r.wp.UpdateWatchedLastViewedSeason(userId, uint(watchedId), int(seasonNum)); err == nil {
 					c.Header("watcharr-lastviewedseason-saved", "1")
 				}
 			} else {

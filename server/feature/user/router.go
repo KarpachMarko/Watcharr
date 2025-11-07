@@ -47,7 +47,7 @@ func (r *Router) AddRoutes() {
 // Get current user info
 func (r *Router) GetUserInfo(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	response, err := r.service.GetUserInfo(r.br.DB, userId)
+	response, err := r.service.GetUserInfo(userId)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
@@ -61,7 +61,7 @@ func (r *Router) UpdateSettings(c *gin.Context) {
 	var ur entity.UserSettings
 	err := c.ShouldBindJSON(&ur)
 	if err == nil {
-		response, err := r.service.UserUpdate(r.br.DB, userId, ur)
+		response, err := r.service.UserUpdate(userId, ur)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -75,7 +75,7 @@ func (r *Router) UpdateSettings(c *gin.Context) {
 // Get current user setting
 func (r *Router) GetSettings(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	response, err := r.service.UserGetSettings(r.br.DB, userId)
+	response, err := r.service.UserGetSettings(userId)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
@@ -91,7 +91,7 @@ func (r *Router) GetSearchUsers(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "a query was not provided"})
 		return
 	}
-	response, err := r.service.UserSearch(r.br.DB, userId, query)
+	response, err := r.service.UserSearch(userId, query)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
@@ -106,7 +106,7 @@ func (r *Router) GetUserPublicInfo(c *gin.Context) {
 		c.Status(400)
 		return
 	}
-	response, err := r.service.GetUserPublicInfo(r.br.DB, uint(id), c.Param("pubUsername"))
+	response, err := r.service.GetUserPublicInfo(uint(id), c.Param("pubUsername"))
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
@@ -120,7 +120,7 @@ func (r *Router) UpdateBio(c *gin.Context) {
 	var br domain.UserBioUpdateRequest
 	err := c.ShouldBindJSON(&br)
 	if err == nil {
-		err := r.service.UserUpdateBio(r.br.DB, userId, br.NewBio)
+		err := r.service.UserUpdateBio(userId, br.NewBio)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 			return
@@ -134,7 +134,7 @@ func (r *Router) UpdateBio(c *gin.Context) {
 // Upload avatar
 func (r *Router) UpdateAvatar(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	response, err := r.service.UploadUserAvatar(c, r.br.DB, userId)
+	response, err := r.service.UploadUserAvatar(c, userId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 		return

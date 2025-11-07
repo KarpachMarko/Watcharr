@@ -11,14 +11,13 @@ import (
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/router"
-	"gorm.io/gorm"
 )
 
 // ContentProvider - Temporary, this ARR code at some point will
 // be turned into services to conform with new code format, for now
 // passing contentprovider through here.
 type ContentProvider interface {
-	GetOrCacheContent(db *gorm.DB, contentType entity.ContentType, tmdbId int) (entity.Content, error)
+	GetOrCacheContent(contentType entity.ContentType, tmdbId int) (entity.Content, error)
 }
 
 type Router struct {

@@ -35,7 +35,7 @@ func (r *Router) ImportContent(c *gin.Context) {
 	var ar ImportRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
-		response, err := r.service.ImportContent(r.br.DB, userId, ar)
+		response, err := r.service.ImportContent(userId, ar)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -52,7 +52,7 @@ func (r *Router) ImportTrakt(c *gin.Context) {
 	var ar TraktImportRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
-		response, err := r.traktService.TraktImportWatched(r.br.DB, userId, ar.Username)
+		response, err := r.traktService.TraktImportWatched(userId, ar.Username)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return

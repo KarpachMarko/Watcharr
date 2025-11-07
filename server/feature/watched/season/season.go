@@ -30,21 +30,23 @@ type WatchedSeasonAddResponse struct {
 }
 
 type Service struct {
+	db               *gorm.DB
 	activityProvider domain.ActivityAddProvider
 }
 
-func NewService(activityProvider domain.ActivityAddProvider) *Service {
+func NewService(db *gorm.DB, activityProvider domain.ActivityAddProvider) *Service {
 	return &Service{
+		db,
 		activityProvider,
 	}
 }
 
 // Add/edit a watched season.
-func (s *Service) AddWatchedSeason(db *gorm.DB, userId uint, ar WatchedSeasonAddRequest) (WatchedSeasonAddResponse, error) {
+func (s *Service) AddWatchedSeason(userId uint, ar WatchedSeasonAddRequest) (WatchedSeasonAddResponse, error) {
 	slog.Debug("Adding watched season item", "userId", userId, "watchedID", ar.WatchedID, "season", ar.SeasonNumber)
 	// 1. Make sure watched item exists and it is the correct type (TV)
 	var w entity.Watched
-	if resp := db.Where("id = ? AND user_id = ?", ar.WatchedID, userId).Preload("Content").Preload("WatchedSeasons").Find(&w); resp.Error != nil {
+	if resp := s.db.Where("id = ? AND user_id = ?", ar.WatchedID, userId).Preload("Content").Preload("WatchedSeasons").Find(&w); resp.Error != nil {
 		slog.Error("Failed when adding a watched season", "error", "failed to get watched item from db")
 		return WatchedSeasonAddResponse{}, errors.New("failed when retrieving watched item")
 	}
@@ -83,7 +85,7 @@ func (s *Service) AddWatchedSeason(db *gorm.DB, userId uint, ar WatchedSeasonAdd
 			Rating:       ar.Rating,
 		})
 	}
-	if resp := db.Save(&w.WatchedSeasons); resp.Error != nil {
+	if resp := s.db.Save(&w.WatchedSeasons); resp.Error != nil {
 		slog.Debug("Failed to save watched season item in db", "error", resp.Error)
 		return WatchedSeasonAddResponse{}, errors.New("failed to save")
 	}
@@ -94,11 +96,11 @@ func (s *Service) AddWatchedSeason(db *gorm.DB, userId uint, ar WatchedSeasonAdd
 		if updated {
 			if ar.Status != "" {
 				json, _ := json.Marshal(map[string]interface{}{"season": ar.SeasonNumber, "status": ar.Status})
-				addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.SEASON_STATUS_CHANGED, Data: string(json)})
+				addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.SEASON_STATUS_CHANGED, Data: string(json)})
 			}
 			if ar.Rating != 0 {
 				json, _ := json.Marshal(map[string]interface{}{"season": ar.SeasonNumber, "rating": ar.Rating})
-				addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.SEASON_RATING_CHANGED, Data: string(json)})
+				addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.SEASON_RATING_CHANGED, Data: string(json)})
 			}
 		}
 	} else {
@@ -118,7 +120,7 @@ func (s *Service) AddWatchedSeason(db *gorm.DB, userId uint, ar WatchedSeasonAdd
 		if !ar.AddActivityDate.IsZero() {
 			act.CustomDate = &ar.AddActivityDate
 		}
-		addedActivity, _ = s.activityProvider.AddActivity(db, userId, act)
+		addedActivity, _ = s.activityProvider.AddActivity(userId, act)
 	}
 	return WatchedSeasonAddResponse{
 		WatchedSeasons: w.WatchedSeasons,
@@ -127,10 +129,10 @@ func (s *Service) AddWatchedSeason(db *gorm.DB, userId uint, ar WatchedSeasonAdd
 }
 
 // Remove a watched season
-func (s *Service) RmWatchedSeason(db *gorm.DB, userId uint, seasonId uint) (entity.Activity, error) {
+func (s *Service) RmWatchedSeason(userId uint, seasonId uint) (entity.Activity, error) {
 	slog.Debug("rmWatchedSeason called", "user_id", userId, "season_id", seasonId)
 	var watchedSeason entity.WatchedSeason
-	resp := db.Clauses(clause.Returning{}).Model(&entity.WatchedSeason{}).Unscoped().Where("id = ? AND user_id = ?", seasonId, userId).Delete(&watchedSeason)
+	resp := s.db.Clauses(clause.Returning{}).Model(&entity.WatchedSeason{}).Unscoped().Where("id = ? AND user_id = ?", seasonId, userId).Delete(&watchedSeason)
 	if resp.Error != nil {
 		slog.Error("Failed when removing a watched season", "error", resp.Error)
 		return entity.Activity{}, errors.New("failed when removing watched season")
@@ -146,15 +148,15 @@ func (s *Service) RmWatchedSeason(db *gorm.DB, userId uint, seasonId uint) (enti
 			"status": watchedSeason.Status,
 			"rating": watchedSeason.Rating,
 		})
-		addedActivity, _ := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watchedSeason.WatchedID, Type: entity.SEASON_REMOVED, Data: string(json)})
+		addedActivity, _ := s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: watchedSeason.WatchedID, Type: entity.SEASON_REMOVED, Data: string(json)})
 		return addedActivity, nil
 	}
 	return entity.Activity{}, errors.New("removed, but failed to add activity entry")
 }
 
-func (s *Service) GetWatchedSeason(db *gorm.DB, userId uint, watchedId uint, seasonNumber int) (*entity.WatchedSeason, error) {
+func (s *Service) GetWatchedSeason(userId uint, watchedId uint, seasonNumber int) (*entity.WatchedSeason, error) {
 	var ws *entity.WatchedSeason
-	if res := db.Model(&entity.WatchedSeason{}).Where("watched_id = ? AND season_number = ? AND user_id = ?", watchedId, seasonNumber, userId).Take(&ws); res.Error != nil {
+	if res := s.db.Model(&entity.WatchedSeason{}).Where("watched_id = ? AND season_number = ? AND user_id = ?", watchedId, seasonNumber, userId).Take(&ws); res.Error != nil {
 		slog.Error("getWatchedSeason: Failed to get:", "error", res.Error.Error())
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return nil, nil

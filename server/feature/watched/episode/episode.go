@@ -45,12 +45,12 @@ type EpisodeStatusChangedHookResponse struct {
 }
 
 type WatchedProvider interface {
-	GetWatchedItemById(db *gorm.DB, userId uint, id uint) (entity.Watched, error)
+	GetWatchedItemById(userId uint, id uint) (entity.Watched, error)
 }
 
 type WatchedSeasonProvider interface {
-	GetWatchedSeason(db *gorm.DB, userId uint, watchedId uint, seasonNumber int) (*entity.WatchedSeason, error)
-	AddWatchedSeason(db *gorm.DB, userId uint, ar season.WatchedSeasonAddRequest) (season.WatchedSeasonAddResponse, error)
+	GetWatchedSeason(userId uint, watchedId uint, seasonNumber int) (*entity.WatchedSeason, error)
+	AddWatchedSeason(userId uint, ar season.WatchedSeasonAddRequest) (season.WatchedSeasonAddResponse, error)
 }
 
 type ContentProvider interface {
@@ -58,10 +58,11 @@ type ContentProvider interface {
 }
 
 type UserProvider interface {
-	UserGetSettings(db *gorm.DB, userId uint) (entity.UserSettings, error)
+	UserGetSettings(userId uint) (entity.UserSettings, error)
 }
 
 type Service struct {
+	db               *gorm.DB
 	wp               WatchedProvider
 	wsp              WatchedSeasonProvider
 	cp               ContentProvider
@@ -70,6 +71,7 @@ type Service struct {
 }
 
 func NewService(
+	db *gorm.DB,
 	wp WatchedProvider,
 	wsp WatchedSeasonProvider,
 	cp ContentProvider,
@@ -77,6 +79,7 @@ func NewService(
 	userProvider UserProvider,
 ) *Service {
 	return &Service{
+		db,
 		wp,
 		wsp,
 		cp,
@@ -86,11 +89,11 @@ func NewService(
 }
 
 // Add/edit a watched episode.
-func (s *Service) AddWatchedEpisodes(db *gorm.DB, userId uint, ar WatchedEpisodeAddRequest) (WatchedEpisodeAddResponse, error) {
+func (s *Service) AddWatchedEpisodes(userId uint, ar WatchedEpisodeAddRequest) (WatchedEpisodeAddResponse, error) {
 	slog.Debug("Adding watched episode item", "userId", userId, "watchedID", ar.WatchedID, "season", ar.SeasonNumber, "episode", ar.EpisodeNumber)
 	// 1. Make sure watched item exists and it is the correct type (TV)
 	var w entity.Watched
-	if resp := db.Where("id = ? AND user_id = ?", ar.WatchedID, userId).Preload("Content").Preload("WatchedEpisodes").Find(&w); resp.Error != nil {
+	if resp := s.db.Where("id = ? AND user_id = ?", ar.WatchedID, userId).Preload("Content").Preload("WatchedEpisodes").Find(&w); resp.Error != nil {
 		slog.Error("Failed when adding a watched episode", "error", "failed to get watched item from db")
 		return WatchedEpisodeAddResponse{}, errors.New("failed when retrieving watched item")
 	}
@@ -130,7 +133,7 @@ func (s *Service) AddWatchedEpisodes(db *gorm.DB, userId uint, ar WatchedEpisode
 			Rating:        ar.Rating,
 		})
 	}
-	if resp := db.Save(&w.WatchedEpisodes); resp.Error != nil {
+	if resp := s.db.Save(&w.WatchedEpisodes); resp.Error != nil {
 		slog.Debug("Failed to save watched episode item in db", "error", resp.Error)
 		return WatchedEpisodeAddResponse{}, errors.New("failed to save")
 	}
@@ -141,11 +144,11 @@ func (s *Service) AddWatchedEpisodes(db *gorm.DB, userId uint, ar WatchedEpisode
 		if updated {
 			if ar.Status != "" {
 				json, _ := json.Marshal(map[string]interface{}{"season": ar.SeasonNumber, "episode": ar.EpisodeNumber, "status": ar.Status})
-				addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.EPISODE_STATUS_CHANGED, Data: string(json)})
+				addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.EPISODE_STATUS_CHANGED, Data: string(json)})
 			}
 			if ar.Rating != 0 {
 				json, _ := json.Marshal(map[string]interface{}{"season": ar.SeasonNumber, "episode": ar.EpisodeNumber, "rating": ar.Rating})
-				addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.EPISODE_RATING_CHANGED, Data: string(json)})
+				addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.EPISODE_RATING_CHANGED, Data: string(json)})
 			}
 		}
 	} else {
@@ -157,7 +160,7 @@ func (s *Service) AddWatchedEpisodes(db *gorm.DB, userId uint, ar WatchedEpisode
 		if !ar.AddActivityDate.IsZero() {
 			act.CustomDate = &ar.AddActivityDate
 		}
-		addedActivity, _ = s.activityProvider.AddActivity(db, userId, act)
+		addedActivity, _ = s.activityProvider.AddActivity(userId, act)
 	}
 	episodeAddResp := WatchedEpisodeAddResponse{
 		WatchedEpisodes: w.WatchedEpisodes,
@@ -165,16 +168,16 @@ func (s *Service) AddWatchedEpisodes(db *gorm.DB, userId uint, ar WatchedEpisode
 	}
 	if ar.Status != "" {
 		slog.Debug("addWatchedEpisodes: Episode status was changed, calling hook.")
-		episodeAddResp.EpisodeStatusChangedHookResponse = s.hookEpisodeStatusChanged(db, userId, ar.WatchedID, ar.SeasonNumber, ar.EpisodeNumber, ar.Status)
+		episodeAddResp.EpisodeStatusChangedHookResponse = s.hookEpisodeStatusChanged(userId, ar.WatchedID, ar.SeasonNumber, ar.EpisodeNumber, ar.Status)
 	}
 	return episodeAddResp, nil
 }
 
 // Remove a watched episode
-func (s *Service) rmWatchedEpisode(db *gorm.DB, userId uint, id uint) (entity.Activity, error) {
+func (s *Service) rmWatchedEpisode(userId uint, id uint) (entity.Activity, error) {
 	slog.Debug("rmWatchedSeason called", "user_id", userId, "id", id)
 	var watchedEpisode entity.WatchedEpisode
-	resp := db.Clauses(clause.Returning{}).Model(&entity.WatchedEpisode{}).Unscoped().Where("id = ? AND user_id = ?", id, userId).Delete(&watchedEpisode)
+	resp := s.db.Clauses(clause.Returning{}).Model(&entity.WatchedEpisode{}).Unscoped().Where("id = ? AND user_id = ?", id, userId).Delete(&watchedEpisode)
 	if resp.Error != nil {
 		slog.Error("Failed when removing a watched episode", "error", resp.Error)
 		return entity.Activity{}, errors.New("failed when removing watched episode")
@@ -191,23 +194,23 @@ func (s *Service) rmWatchedEpisode(db *gorm.DB, userId uint, id uint) (entity.Ac
 			"status":  watchedEpisode.Status,
 			"rating":  watchedEpisode.Rating,
 		})
-		addedActivity, _ := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watchedEpisode.WatchedID, Type: entity.EPISODE_REMOVED, Data: string(json)})
+		addedActivity, _ := s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: watchedEpisode.WatchedID, Type: entity.EPISODE_REMOVED, Data: string(json)})
 		return addedActivity, nil
 	}
 	return entity.Activity{}, errors.New("removed, but failed to add activity entry")
 }
 
-func (s *Service) getNumberOfWatchedEpisodesInSeason(db *gorm.DB, userId uint, watchedId uint, seasonNumber int, acceptableStatus []entity.WatchedStatus) (int64, error) {
+func (s *Service) getNumberOfWatchedEpisodesInSeason(userId uint, watchedId uint, seasonNumber int, acceptableStatus []entity.WatchedStatus) (int64, error) {
 	var count int64
-	if res := db.Model(&entity.WatchedEpisode{}).Where("user_id = ? AND watched_id = ? AND season_number = ? AND status IN ?", userId, watchedId, seasonNumber, acceptableStatus).Count(&count); res.Error != nil {
+	if res := s.db.Model(&entity.WatchedEpisode{}).Where("user_id = ? AND watched_id = ? AND season_number = ? AND status IN ?", userId, watchedId, seasonNumber, acceptableStatus).Count(&count); res.Error != nil {
 		return 0, res.Error
 	}
 	return count, nil
 }
 
 // Called after an episode watched status has been set.
-func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId uint, seasonNum int, episodeNum int, newEpisodeStatus entity.WatchedStatus) EpisodeStatusChangedHookResponse {
-	userSettings, err := s.userProvider.UserGetSettings(db, userId)
+func (s *Service) hookEpisodeStatusChanged(userId uint, watchedId uint, seasonNum int, episodeNum int, newEpisodeStatus entity.WatchedStatus) EpisodeStatusChangedHookResponse {
+	userSettings, err := s.userProvider.UserGetSettings(userId)
 	if err != nil {
 		slog.Error("hookEpisodeStatusChanged: Failed to get user settings! Hook will continue.", "error", err)
 	} else {
@@ -220,12 +223,12 @@ func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId u
 	hookResponse := EpisodeStatusChangedHookResponse{}
 
 	addHookActivity := func(aType entity.ActivityType, data string) {
-		addedActivity, _ := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watchedId, Type: aType, Data: (data)})
+		addedActivity, _ := s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: watchedId, Type: aType, Data: (data)})
 		hookResponse.AddedActivities = append(hookResponse.AddedActivities, addedActivity)
 	}
 
 	// 2. If the season (this episode is in) has no status or is planned, set season to watching.
-	watchedSeason, err := s.wsp.GetWatchedSeason(db, userId, watchedId, seasonNum)
+	watchedSeason, err := s.wsp.GetWatchedSeason(userId, watchedId, seasonNum)
 	if err != nil {
 		slog.Error("hookEpisodeStatusChanged: Cannot continue, failed to get watchedSeason!", "error", err)
 		return EpisodeStatusChangedHookResponse{Errors: []string{("failed to query db for watched season")}}
@@ -237,7 +240,7 @@ func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId u
 		if newEpisodeStatus == entity.FINISHED || newEpisodeStatus == entity.DROPPED {
 			seasonStatus = entity.WATCHING
 		}
-		resp, err := s.wsp.AddWatchedSeason(db, userId, season.WatchedSeasonAddRequest{
+		resp, err := s.wsp.AddWatchedSeason(userId, season.WatchedSeasonAddRequest{
 			AddActivity:     entity.SEASON_ADDED_AUTO,
 			AddActivityData: map[string]interface{}{"reason": fmt.Sprintf("Episode %d was set to %s while the season had no status.", episodeNum, newEpisodeStatus)},
 			WatchedID:       watchedId,
@@ -249,7 +252,7 @@ func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId u
 			hookResponse.Errors = append(hookResponse.Errors, "failed to add watched season")
 		} else {
 			// addWatchedSeason returns all watched seasons, get the one just added. (may be best to retrofit addWatchedSeason later to return id of season/row created)
-			justAddedWatchedSeason, err := s.wsp.GetWatchedSeason(db, userId, watchedId, seasonNum)
+			justAddedWatchedSeason, err := s.wsp.GetWatchedSeason(userId, watchedId, seasonNum)
 			if err != nil {
 				hookResponse.Errors = append(hookResponse.Errors, "failed to get newly added watched season for response")
 			} else {
@@ -267,7 +270,7 @@ func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId u
 			reasonStr += fmt.Sprintf("a status of %s.", watchedSeason.Status)
 		}
 		watchedSeason.Status = entity.WATCHING
-		if res := db.Save(watchedSeason); res.Error != nil {
+		if res := s.db.Save(watchedSeason); res.Error != nil {
 			slog.Error("hookEpisodeStatusChanged: Failed to update season status!", "error", res.Error)
 			hookResponse.Errors = append(hookResponse.Errors, "failed to update season status")
 		} else {
@@ -278,7 +281,7 @@ func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId u
 	}
 
 	// 3. If the show has no status or is planned, set it to watching.
-	watchedShow, err := s.wp.GetWatchedItemById(db, userId, watchedId)
+	watchedShow, err := s.wp.GetWatchedItemById(userId, watchedId)
 	if err != nil {
 		slog.Error("hookEpisodeStatusChanged: Failed to get watched show, cant continue to update show status.", "error", err)
 		hookResponse.Errors = append(hookResponse.Errors, "failed to get watched item for show")
@@ -287,7 +290,7 @@ func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId u
 		// Show status shouldn't be empty, but watevs, handle it just incase
 		if watchedShow.Status == "" || watchedShow.Status == entity.PLANNED {
 			watchedShow.Status = entity.WATCHING
-			if res := db.Save(watchedShow); res.Error != nil {
+			if res := s.db.Save(watchedShow); res.Error != nil {
 				slog.Error("hookEpisodeStatusChanged: Failed to update show status!", "error", res.Error)
 			} else {
 				hookResponse.NewShowStatus = watchedShow.Status
@@ -310,7 +313,7 @@ func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId u
 		return hookResponse
 	}
 	allEpisodesCount := len(seasonDetails.Episodes)
-	finishedEpisodesCount, err := s.getNumberOfWatchedEpisodesInSeason(db, userId, watchedId, seasonNum, []entity.WatchedStatus{entity.FINISHED, entity.DROPPED})
+	finishedEpisodesCount, err := s.getNumberOfWatchedEpisodesInSeason(userId, watchedId, seasonNum, []entity.WatchedStatus{entity.FINISHED, entity.DROPPED})
 	if err != nil {
 		slog.Error("hookEpisodeStatusChanged: Failed to get number of watched episodes in this season!", "error", err)
 		hookResponse.Errors = append(hookResponse.Errors, "failed to get number of watched episodes in this season")
@@ -324,7 +327,7 @@ func (s *Service) hookEpisodeStatusChanged(db *gorm.DB, userId uint, watchedId u
 			slog.Debug("hookEpisodeStatusChanged: WatchedSeason status is same as newStatus so not updating.")
 			return hookResponse
 		}
-		if res := db.Model(&entity.WatchedSeason{}).Where("watched_id = ? AND season_number = ? AND user_id = ?", watchedId, seasonNum, userId).Update("status", newStatus); res.Error != nil {
+		if res := s.db.Model(&entity.WatchedSeason{}).Where("watched_id = ? AND season_number = ? AND user_id = ?", watchedId, seasonNum, userId).Update("status", newStatus); res.Error != nil {
 			slog.Error("hookEpisodeStatusChanged: Failed to update season status to finished:", "error", res.Error.Error())
 			hookResponse.Errors = append(hookResponse.Errors, "failed to update season status to finished")
 			return hookResponse

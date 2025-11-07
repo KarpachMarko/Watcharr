@@ -30,7 +30,7 @@ func (r *Router) AddRoutes() {
 // Get user profile details
 func (r *Router) GetProfile(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	response, err := r.service.getProfile(r.br.DB, userId)
+	response, err := r.service.getProfile(userId)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return

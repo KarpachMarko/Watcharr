@@ -62,7 +62,7 @@ func (r *Router) AddRoutes() {
 func (r *Router) Login(c *gin.Context) {
 	var user entity.User
 	if c.ShouldBindJSON(&user) == nil {
-		response, err := r.service.Login(&user, r.br.DB)
+		response, err := r.service.Login(&user)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -77,7 +77,7 @@ func (r *Router) Login(c *gin.Context) {
 func (r *Router) LoginJellyfin(c *gin.Context) {
 	var user entity.User
 	if c.ShouldBindJSON(&user) == nil {
-		response, err := r.service.LoginJellyfin(&user, r.br.DB)
+		response, err := r.service.LoginJellyfin(&user)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -92,7 +92,7 @@ func (r *Router) LoginJellyfin(c *gin.Context) {
 func (r *Router) LoginPlex(c *gin.Context) {
 	var plexRequest plex.PlexLoginRequest
 	if c.ShouldBindJSON(&plexRequest) == nil {
-		response, err := r.service.LoginPlex(&plexRequest, r.br.DB)
+		response, err := r.service.LoginPlex(&plexRequest)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -117,7 +117,7 @@ func (r *Router) LoginProxy(c *gin.Context) {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: "authentication header missing"})
 		return
 	}
-	response, err := r.trustedHeaderService.LoginTrustedHeaderAuth(&user, r.br.DB)
+	response, err := r.trustedHeaderService.LoginTrustedHeaderAuth(&user)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
@@ -129,7 +129,7 @@ func (r *Router) LoginProxy(c *gin.Context) {
 func (r *Router) Register(c *gin.Context) {
 	var user UserRegisterRequest
 	if c.ShouldBindJSON(&user) == nil {
-		response, err := r.service.Register(&user, entity.PERM_NONE, r.br.DB)
+		response, err := r.service.Register(&user, entity.PERM_NONE)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -195,7 +195,7 @@ func (r *Router) UseAdminToken(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	var atr UseAdminTokenRequest
 	if c.ShouldBindJSON(&atr) == nil {
-		err := r.service.UseAdminToken(&atr, r.br.DB, userId)
+		err := r.service.UseAdminToken(&atr, userId)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -212,7 +212,7 @@ func (r *Router) UpdateUserPassword(c *gin.Context) {
 	var pwds UserPasswordUpdateRequest
 	err := c.ShouldBindJSON(&pwds)
 	if err == nil {
-		err := r.service.UserChangePassword(r.br.DB, pwds, userId)
+		err := r.service.UserChangePassword(pwds, userId)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return

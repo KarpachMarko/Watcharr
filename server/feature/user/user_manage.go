@@ -10,15 +10,18 @@ import (
 )
 
 type ManageService struct {
+	db *gorm.DB
 }
 
-func NewManageService() *ManageService {
-	return &ManageService{}
+func NewManageService(db *gorm.DB) *ManageService {
+	return &ManageService{
+		db,
+	}
 }
 
-func (s *ManageService) GetAll(db *gorm.DB) ([]domain.ManagedUser, error) {
+func (s *ManageService) GetAll() ([]domain.ManagedUser, error) {
 	users := []domain.ManagedUser{}
-	if res := db.Model(&entity.User{}).Find(&users); res.Error != nil {
+	if res := s.db.Model(&entity.User{}).Find(&users); res.Error != nil {
 		slog.Error("GetAllUsers: Failed to fetch users from database", "error", res.Error)
 		return []domain.ManagedUser{}, errors.New("failed to fetch users from database")
 	}
@@ -26,7 +29,7 @@ func (s *ManageService) GetAll(db *gorm.DB) ([]domain.ManagedUser, error) {
 }
 
 // Update a user. For management views, for admin to update another user.
-func (s *ManageService) Manage(db *gorm.DB, userId uint, ur domain.UpdateUserRequest) error {
+func (s *ManageService) Manage(userId uint, ur domain.UpdateUserRequest) error {
 	// Error now if no userId or any UpdateUserRequest property was provided.
 	if userId == 0 || (ur.Permissions == nil && ur.Type == nil) {
 		slog.Error("ManageUser: invalid arguments", "user_id", userId)
@@ -53,7 +56,7 @@ func (s *ManageService) Manage(db *gorm.DB, userId uint, ur domain.UpdateUserReq
 			slog.Warn("ManageUser: User type will not be updated. Only watcharr/proxy types are supported for swapping.", "tried_type", t)
 		}
 	}
-	if res := db.Model(&entity.User{}).Where("id = ?", userId).Updates(toUpdate); res.Error != nil {
+	if res := s.db.Model(&entity.User{}).Where("id = ?", userId).Updates(toUpdate); res.Error != nil {
 		slog.Error("ManageUser: failed to update user in database", "user_id", userId, "error", res.Error)
 		return errors.New("failed to update user in database")
 	}

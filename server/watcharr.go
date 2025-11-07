@@ -189,15 +189,16 @@ func main() {
 	t := tmdb.NewTMDB(cfg.TMDB_KEY)
 
 	plexService := plex.NewService(cfg)
-	authService := auth.NewService(cfg, plexService)
-	authTrustedHeaderService := auth.NewTrustedHeaderService(cfg, authService)
-	contentService := content.NewService(t)
-	activityService := activity.NewService()
-	userService := user.NewService()
-	userManageService := user.NewManageService()
-	watchedService := watched.NewService(contentService, activityService)
-	watchedSeasonService := season.NewService(activityService)
+	authService := auth.NewService(db, cfg, plexService)
+	authTrustedHeaderService := auth.NewTrustedHeaderService(db, cfg, authService)
+	contentService := content.NewService(db, t)
+	activityService := activity.NewService(db)
+	userService := user.NewService(db)
+	userManageService := user.NewManageService(db)
+	watchedService := watched.NewService(db, contentService, activityService)
+	watchedSeasonService := season.NewService(db, activityService)
 	watchedEpisodeService := episode.NewService(
+		db,
 		watchedService,
 		watchedSeasonService,
 		contentService,
@@ -218,10 +219,11 @@ func main() {
 		watchedEpisodeService,
 		activityService)
 	featureService := feature.NewService(cfg)
-	profileService := profile.NewService()
-	followService := follow.NewService()
-	tagService := tag.NewService()
+	profileService := profile.NewService(db)
+	followService := follow.NewService(db)
+	tagService := tag.NewService(db)
 	importService := imprt.NewService(
+		db,
 		watchedService,
 		watchedSeasonService,
 		watchedEpisodeService,

@@ -13,15 +13,19 @@ import (
 // I think tags will be private for the user.
 // If the user wants to make a public list, they should make a custom view.
 
-type Service struct{}
-
-func NewService() *Service {
-	return &Service{}
+type Service struct {
+	db *gorm.DB
 }
 
-func (s *Service) GetTags(db *gorm.DB, userId uint) ([]entity.Tag, error) {
+func NewService(db *gorm.DB) *Service {
+	return &Service{
+		db,
+	}
+}
+
+func (s *Service) GetTags(userId uint) ([]entity.Tag, error) {
 	tags := new([]entity.Tag)
-	res := db.Model(&entity.Tag{}).Where("user_id = ?", userId).Find(&tags)
+	res := s.db.Model(&entity.Tag{}).Where("user_id = ?", userId).Find(&tags)
 	if res.Error != nil {
 		slog.Error("getTags: Failed getting tags from database", "error", res.Error.Error())
 		return []entity.Tag{}, errors.New("failed getting tags")
@@ -29,9 +33,9 @@ func (s *Service) GetTags(db *gorm.DB, userId uint) ([]entity.Tag, error) {
 	return *tags, nil
 }
 
-// func GetTag(db *gorm.DB, userId uint, tagId uint) (Tag, error) {
+// func GetTag(userId uint, tagId uint) (Tag, error) {
 // 	tag := new(Tag)
-// 	res := db.Model(&Tag{}).Where("id = ? AND user_id = ?", tagId, userId).Preload("Watched").Find(&tag)
+// 	res := s.db.Model(&Tag{}).Where("id = ? AND user_id = ?", tagId, userId).Preload("Watched").Find(&tag)
 // 	if res.Error != nil {
 // 		slog.Error("getTag: Failed getting tag from database", "error", res.Error.Error())
 // 		return Tag{}, errors.New("failed getting tag")
@@ -47,9 +51,9 @@ func (s *Service) GetTags(db *gorm.DB, userId uint) ([]entity.Tag, error) {
 // (eg: when we are importing data) because this is not technically
 // reliable, since users can have multiple tags with the same name/colors
 // (realistically they probably won't, but...).
-func (s *Service) GetTagByNameAndColor(db *gorm.DB, userId uint, tagName string, tagColor string, tagBgColor string) (entity.Tag, error) {
+func (s *Service) GetTagByNameAndColor(userId uint, tagName string, tagColor string, tagBgColor string) (entity.Tag, error) {
 	tag := new(entity.Tag)
-	res := db.Model(&entity.Tag{}).Where("name = ? AND user_id = ? AND color = ? AND bg_color = ?", tagName, userId, tagColor, tagBgColor).Preload("Watched").Find(&tag)
+	res := s.db.Model(&entity.Tag{}).Where("name = ? AND user_id = ? AND color = ? AND bg_color = ?", tagName, userId, tagColor, tagBgColor).Preload("Watched").Find(&tag)
 	if res.Error != nil {
 		slog.Error("getTagByNameAndColor: Failed getting tag from database", "error", res.Error.Error())
 		return entity.Tag{}, errors.New("failed getting tag")
@@ -62,12 +66,12 @@ func (s *Service) GetTagByNameAndColor(db *gorm.DB, userId uint, tagName string,
 }
 
 // Let user create a tag.
-func (s *Service) AddTag(db *gorm.DB, userId uint, tr domain.TagAddRequest) (entity.Tag, error) {
+func (s *Service) AddTag(userId uint, tr domain.TagAddRequest) (entity.Tag, error) {
 	if tr.Name == "" {
 		return entity.Tag{}, errors.New("tag must have a name")
 	}
 	tag := entity.Tag{UserID: userId, Name: tr.Name, Color: tr.Color, BgColor: tr.BgColor}
-	res := db.Create(&tag)
+	res := s.db.Create(&tag)
 	if res.Error != nil {
 		slog.Error("Error adding tag to database", "error", res.Error.Error())
 		return entity.Tag{}, errors.New("failed adding new tag to database")
@@ -77,12 +81,12 @@ func (s *Service) AddTag(db *gorm.DB, userId uint, tr domain.TagAddRequest) (ent
 }
 
 // Let user update one of their tags (replaces).
-func (s *Service) UpdateTag(db *gorm.DB, userId uint, tagId uint, tr domain.TagAddRequest) error {
+func (s *Service) UpdateTag(userId uint, tagId uint, tr domain.TagAddRequest) error {
 	if tr.Name == "" {
 		return errors.New("tag must have a name")
 	}
 	tag := entity.Tag{Name: tr.Name, Color: tr.Color, BgColor: tr.BgColor}
-	res := db.Where("id = ? AND user_id = ?", tagId, userId).Updates(&tag)
+	res := s.db.Where("id = ? AND user_id = ?", tagId, userId).Updates(&tag)
 	if res.Error != nil {
 		slog.Error("Error updating tag in database", "error", res.Error.Error())
 		return errors.New("failed updating tag in database")
@@ -96,14 +100,14 @@ func (s *Service) UpdateTag(db *gorm.DB, userId uint, tagId uint, tr domain.TagA
 }
 
 // Let user delete their own tag.
-func (s *Service) DeleteTag(db *gorm.DB, userId uint, tagId uint) error {
+func (s *Service) DeleteTag(userId uint, tagId uint) error {
 	if tagId == 0 {
 		return errors.New("no tag id provided")
 	}
 	slog.Debug("deleteTag:", "tag_id", tagId, "user_id", userId)
 	// Select("Watched") so relations in watched_tags table are removed too.
 	// ID is passed in the .Delete param so the .Select call can do it's job (relies on the primary key).
-	res := db.Unscoped().Where("id = ? AND user_id = ?", tagId, userId).Select("Watched").Delete(&entity.Tag{GormModel: dbmodel.GormModel{ID: tagId}})
+	res := s.db.Unscoped().Where("id = ? AND user_id = ?", tagId, userId).Select("Watched").Delete(&entity.Tag{GormModel: dbmodel.GormModel{ID: tagId}})
 	if res.Error != nil {
 		slog.Error("deleteTag: Error deleting tag from database", "error", res.Error.Error(), "tag_id", tagId, "user_id", userId)
 		return errors.New("failed deleting tag from database")

@@ -62,7 +62,7 @@ func (r *Router) GetWatchedList(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get request parameters"})
 			return
 		}
-		if wp, err := r.s.getWatchedPage(r.br.DB, userId, pp, wp); err == nil {
+		if wp, err := r.s.getWatchedPage(userId, pp, wp); err == nil {
 			c.JSON(http.StatusOK, wp)
 		} else {
 			c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get page"})
@@ -70,7 +70,7 @@ func (r *Router) GetWatchedList(c *gin.Context) {
 		return
 	}
 	// Non paginated response (doesn't support sorting/filtering atm)
-	if w, err := r.s.getWatched(r.br.DB, userId); err == nil {
+	if w, err := r.s.getWatched(userId); err == nil {
 		c.JSON(http.StatusOK, w)
 	} else {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: "failed"})
@@ -85,7 +85,7 @@ func (r *Router) GetPublicWatchedList(c *gin.Context) {
 		c.Status(400)
 		return
 	}
-	response, err := r.s.getPublicWatched(r.br.DB, uint(id), c.Param("username"))
+	response, err := r.s.getPublicWatched(uint(id), c.Param("username"))
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
@@ -98,7 +98,7 @@ func (r *Router) AddWatched(c *gin.Context) {
 	var ar WatchedAddRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
-		response, err := r.s.AddWatched(r.br.DB, userId, ar, entity.ADDED_WATCHED)
+		response, err := r.s.AddWatched(userId, ar, entity.ADDED_WATCHED)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -119,7 +119,7 @@ func (r *Router) UpdateWatched(c *gin.Context) {
 	var ur WatchedUpdateRequest
 	err = c.ShouldBindJSON(&ur)
 	if err == nil {
-		response, err := r.s.updateWatched(r.br.DB, userId, uint(id), ur)
+		response, err := r.s.updateWatched(userId, uint(id), ur)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -134,7 +134,7 @@ func (r *Router) DeleteWatched(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err == nil {
 		userId := c.MustGet("userId").(uint)
-		response, err := r.s.removeWatched(r.br.DB, userId, uint(id))
+		response, err := r.s.removeWatched(userId, uint(id))
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return

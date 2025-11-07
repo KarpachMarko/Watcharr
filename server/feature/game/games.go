@@ -190,9 +190,9 @@ func (s *Service) addPlayed(db *gorm.DB, igdb *igdb.IGDB, userId uint, ar Played
 	activityJson, err := json.Marshal(map[string]interface{}{"status": ar.Status, "rating": ar.Rating})
 	if err != nil {
 		slog.Error("Failed to marshal json for data in ADD_WATCHED activity request, adding without data", "error", err.Error())
-		act, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at})
+		act, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at})
 	} else {
-		act, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at, Data: string(activityJson)})
+		act, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at, Data: string(activityJson)})
 	}
 	watched.Activity = append(watched.Activity, act)
 	watched.Game = &game

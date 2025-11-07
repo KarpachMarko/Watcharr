@@ -1,3 +1,8 @@
+.PHONY: dev version
+
+dev:
+	./node_modules/.bin/vite dev
+
 # Don't judge me.
 version:
 	@$(eval VER := $(filter-out $@,$(MAKECMDGOALS)))

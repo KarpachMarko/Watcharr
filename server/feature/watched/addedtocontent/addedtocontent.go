@@ -4,7 +4,6 @@ import (
 	"log/slog"
 
 	"github.com/sbondCo/Watcharr/database/entity"
-	"gorm.io/gorm"
 )
 
 // This struct is for embedding inside content response structs.
@@ -27,10 +26,10 @@ type Addable interface {
 }
 
 type WatchedProvider interface {
-	GetWatchedItemsByTmdbIds(db *gorm.DB, userId uint, c [][]any) ([]entity.Watched, error)
+	GetWatchedItemsByTmdbIds(userId uint, c [][]any) ([]entity.Watched, error)
 }
 
-func AddWAC[S Addable](s []S, wp WatchedProvider, db *gorm.DB, userId uint) error {
+func AddWAC[S Addable](s []S, wp WatchedProvider, userId uint) error {
 	contentIdAndTypePairs := [][]any{}
 	for _, v := range s {
 		contentIdAndTypePairs = append(contentIdAndTypePairs, []any{
@@ -38,7 +37,7 @@ func AddWAC[S Addable](s []S, wp WatchedProvider, db *gorm.DB, userId uint) erro
 			entity.ContentType(v.GetMediaType()),
 		})
 	}
-	if ws, err := wp.GetWatchedItemsByTmdbIds(db, userId, contentIdAndTypePairs); err == nil {
+	if ws, err := wp.GetWatchedItemsByTmdbIds(userId, contentIdAndTypePairs); err == nil {
 		for _, v := range ws {
 			for _, vv := range s {
 				if vv.GetId() == v.Content.TmdbID && vv.GetMediaType() == string(v.Content.Type) {

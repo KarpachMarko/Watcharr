@@ -13,7 +13,6 @@ import (
 	"github.com/sbondCo/Watcharr/feature/watched/episode"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
 	"github.com/sbondCo/Watcharr/job"
-	"gorm.io/gorm"
 )
 
 type PlexSyncResponse struct {
@@ -21,15 +20,15 @@ type PlexSyncResponse struct {
 }
 
 type WatchedProvider interface {
-	AddWatched(db *gorm.DB, userId uint, ar watched.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
+	AddWatched(userId uint, ar watched.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
 }
 
 type WatchedSeasonProvider interface {
-	AddWatchedSeason(db *gorm.DB, userId uint, ar season.WatchedSeasonAddRequest) (season.WatchedSeasonAddResponse, error)
+	AddWatchedSeason(userId uint, ar season.WatchedSeasonAddRequest) (season.WatchedSeasonAddResponse, error)
 }
 
 type WatchedEpisodeProvider interface {
-	AddWatchedEpisodes(db *gorm.DB, userId uint, ar episode.WatchedEpisodeAddRequest) (episode.WatchedEpisodeAddResponse, error)
+	AddWatchedEpisodes(userId uint, ar episode.WatchedEpisodeAddRequest) (episode.WatchedEpisodeAddResponse, error)
 }
 
 type SyncService struct {
@@ -59,7 +58,6 @@ func NewSyncService(
 // Perform a Plex sync.
 // Errors are added silently to the job.
 func (s *SyncService) startPlexSync(
-	db *gorm.DB,
 	jobId string,
 	userId uint,
 	userPlexLocalAuth string,
@@ -117,7 +115,7 @@ func (s *SyncService) startPlexSync(
 				}
 
 				lastViewedAt := time.Unix(movie.LastViewedAt, 0)
-				w, err := s.wp.AddWatched(db, userId, watched.WatchedAddRequest{
+				w, err := s.wp.AddWatched(userId, watched.WatchedAddRequest{
 					Status:      entity.FINISHED,
 					ContentID:   tmdbId,
 					ContentType: entity.MOVIE,
@@ -134,7 +132,7 @@ func (s *SyncService) startPlexSync(
 				} else {
 					// 3. Add IMPORTED_ADDED_WATCHED_PLEX activity
 					if !lastViewedAt.IsZero() {
-						_, err := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{
+						_, err := s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{
 							WatchedID:  w.ID,
 							Type:       entity.IMPORTED_ADDED_WATCHED_PLEX,
 							CustomDate: &lastViewedAt,
@@ -184,7 +182,7 @@ func (s *SyncService) startPlexSync(
 				}
 
 				lastViewedAt := time.Unix(show.LastViewedAt, 0)
-				w, err := s.wp.AddWatched(db, userId, watched.WatchedAddRequest{
+				w, err := s.wp.AddWatched(userId, watched.WatchedAddRequest{
 					Status:      entity.FINISHED,
 					ContentID:   tmdbId,
 					ContentType: entity.SHOW,
@@ -201,7 +199,7 @@ func (s *SyncService) startPlexSync(
 				} else {
 					// 3. Add IMPORTED_ADDED_WATCHED_PLEX activity
 					if !lastViewedAt.IsZero() {
-						_, err := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{
+						_, err := s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{
 							WatchedID:  w.ID,
 							Type:       entity.IMPORTED_ADDED_WATCHED_PLEX,
 							CustomDate: &lastViewedAt,
@@ -232,7 +230,7 @@ func (s *SyncService) startPlexSync(
 						if vs.LastViewedAt != 0 {
 							seasonLastViewedAt = time.Unix(vs.LastViewedAt, 0)
 						}
-						_, err = s.wsp.AddWatchedSeason(db, userId, season.WatchedSeasonAddRequest{
+						_, err = s.wsp.AddWatchedSeason(userId, season.WatchedSeasonAddRequest{
 							WatchedID:       w.ID,
 							SeasonNumber:    vs.Index,
 							Status:          entity.FINISHED,
@@ -265,7 +263,7 @@ func (s *SyncService) startPlexSync(
 						if vs.LastViewedAt != 0 {
 							episodeLastViewedAt = time.Unix(vs.LastViewedAt, 0)
 						}
-						_, err = s.wep.AddWatchedEpisodes(db, userId, episode.WatchedEpisodeAddRequest{
+						_, err = s.wep.AddWatchedEpisodes(userId, episode.WatchedEpisodeAddRequest{
 							WatchedID:       w.ID,
 							SeasonNumber:    vs.ParentIndex,
 							EpisodeNumber:   vs.Index,
@@ -286,7 +284,6 @@ func (s *SyncService) startPlexSync(
 }
 
 func (s *SyncService) PlexSyncWatched(
-	db *gorm.DB,
 	userId uint,
 	userPlexLocalAuth string,
 ) (PlexSyncResponse, error) {
@@ -299,7 +296,6 @@ func (s *SyncService) PlexSyncWatched(
 	job.UpdateJobStatus(jobId, userId, job.JOB_RUNNING)
 
 	go s.startPlexSync(
-		db,
 		jobId,
 		userId,
 		userPlexLocalAuth,

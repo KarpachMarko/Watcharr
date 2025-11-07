@@ -58,31 +58,32 @@ type ImportResponse struct {
 }
 
 type WatchedProvider interface {
-	AddWatched(db *gorm.DB, userId uint, ar watched.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
-	GetWatchedItemByTmdbId(db *gorm.DB, userId uint, tmdbId uint, contentType entity.ContentType) (entity.Watched, error)
+	AddWatched(userId uint, ar watched.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
+	GetWatchedItemByTmdbId(userId uint, tmdbId uint, contentType entity.ContentType) (entity.Watched, error)
 }
 
 type WatchedSeasonProvider interface {
-	AddWatchedSeason(db *gorm.DB, userId uint, ar season.WatchedSeasonAddRequest) (season.WatchedSeasonAddResponse, error)
+	AddWatchedSeason(userId uint, ar season.WatchedSeasonAddRequest) (season.WatchedSeasonAddResponse, error)
 }
 
 type WatchedEpisodeProvider interface {
-	AddWatchedEpisodes(db *gorm.DB, userId uint, ar episode.WatchedEpisodeAddRequest) (episode.WatchedEpisodeAddResponse, error)
+	AddWatchedEpisodes(userId uint, ar episode.WatchedEpisodeAddRequest) (episode.WatchedEpisodeAddResponse, error)
 }
 
 type ContentProvider interface {
 	SearchContent(query string, pageNum int) (tmdb.TMDBSearchMultiResponse, error)
 	SearchByExternalId(id string, source string) (tmdb.TMDBSearchMultiResponse, error)
-	MovieDetails(db *gorm.DB, id string, country string, rParams map[string]string) (tmdb.TMDBMovieDetails, error)
-	TvDetails(db *gorm.DB, id string, country string, rParams map[string]string) (tmdb.TMDBShowDetails, error)
+	MovieDetails(id string, country string, rParams map[string]string) (tmdb.TMDBMovieDetails, error)
+	TvDetails(id string, country string, rParams map[string]string) (tmdb.TMDBShowDetails, error)
 }
 
 type TagProvider interface {
-	AddTag(db *gorm.DB, userId uint, tr domain.TagAddRequest) (entity.Tag, error)
-	GetTagByNameAndColor(db *gorm.DB, userId uint, tagName string, tagColor string, tagBgColor string) (entity.Tag, error)
+	AddTag(userId uint, tr domain.TagAddRequest) (entity.Tag, error)
+	GetTagByNameAndColor(userId uint, tagName string, tagColor string, tagBgColor string) (entity.Tag, error)
 }
 
 type Service struct {
+	db               *gorm.DB
 	wp               WatchedProvider
 	wsp              WatchedSeasonProvider
 	wep              WatchedEpisodeProvider
@@ -92,6 +93,7 @@ type Service struct {
 }
 
 func NewService(
+	db *gorm.DB,
 	wp WatchedProvider,
 	wsp WatchedSeasonProvider,
 	wep WatchedEpisodeProvider,
@@ -100,6 +102,7 @@ func NewService(
 	tagProvider TagProvider,
 ) *Service {
 	return &Service{
+		db,
 		wp,
 		wsp,
 		wep,
@@ -109,7 +112,7 @@ func NewService(
 	}
 }
 
-func (s *Service) ImportContent(db *gorm.DB, userId uint, ar ImportRequest) (ImportResponse, error) {
+func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, error) {
 	slog.Debug("import: Processing request:", "request", ar)
 	// If tmdbId and type passed in request body
 	// we dont need to use a search tmdb request.
@@ -117,19 +120,19 @@ func (s *Service) ImportContent(db *gorm.DB, userId uint, ar ImportRequest) (Imp
 	if ar.TmdbID != 0 && (ar.Type == entity.MOVIE || ar.Type == entity.SHOW) {
 		tid := strconv.Itoa(ar.TmdbID)
 		if ar.Type == entity.MOVIE {
-			cr, err := s.cp.MovieDetails(db, tid, "", map[string]string{})
+			cr, err := s.cp.MovieDetails(tid, "", map[string]string{})
 			if err != nil {
 				return ImportResponse{}, errors.New("movie details request failed")
 			}
 			slog.Debug("import: by tmdbid of movie", "cr", cr)
-			return s.SuccessfulImport(db, userId, cr.ID, entity.MOVIE, ar)
+			return s.SuccessfulImport(userId, cr.ID, entity.MOVIE, ar)
 		} else if ar.Type == entity.SHOW {
-			cr, err := s.cp.TvDetails(db, tid, "", map[string]string{})
+			cr, err := s.cp.TvDetails(tid, "", map[string]string{})
 			if err != nil {
 				return ImportResponse{}, errors.New("tv details request failed")
 			}
 			slog.Debug("import: by tmdbid of tv", "cr", cr)
-			return s.SuccessfulImport(db, userId, cr.ID, entity.SHOW, ar)
+			return s.SuccessfulImport(userId, cr.ID, entity.SHOW, ar)
 		}
 	}
 	// If imdb id passed, attempt to get content with it
@@ -140,17 +143,17 @@ func (s *Service) ImportContent(db *gorm.DB, userId uint, ar ImportRequest) (Imp
 				if onlyResult.MediaType == string(entity.MOVIE) || onlyResult.MediaType == string(entity.SHOW) {
 					// Will only be one result
 					slog.Debug("import: importing imdb match", "imdb_id", ar.ImdbID, "tmdb_id_thatwasfound", onlyResult.ID)
-					return s.SuccessfulImport(db, userId, onlyResult.ID, entity.ContentType(onlyResult.MediaType), ar)
+					return s.SuccessfulImport(userId, onlyResult.ID, entity.ContentType(onlyResult.MediaType), ar)
 				} else if onlyResult.MediaType == string(entity.SHOW_EPISODE) {
 					// Handle episodes differently.
 					// Clients must import tv episodes last so that the actual show can be imported first
 					// will fail if watched entry isn't imported first or already exists (we won't make it here).
-					w, e := s.wp.GetWatchedItemByTmdbId(db, userId, uint(onlyResult.ShowId), "tv")
+					w, e := s.wp.GetWatchedItemByTmdbId(userId, uint(onlyResult.ShowId), "tv")
 					if e != nil {
 						slog.Error("import: imdb match: Failed to add watched episode (failed to find watched item, it must exist!).", "rq", ar, "error", err)
 						return ImportResponse{Type: IMPORT_FAILED}, nil
 					}
-					ws, err := s.wep.AddWatchedEpisodes(db, userId, episode.WatchedEpisodeAddRequest{
+					ws, err := s.wep.AddWatchedEpisodes(userId, episode.WatchedEpisodeAddRequest{
 						WatchedID:       w.ID,
 						SeasonNumber:    onlyResult.SeasonNumber,
 						EpisodeNumber:   onlyResult.EpisodeNumber,
@@ -243,17 +246,17 @@ func (s *Service) ImportContent(db *gorm.DB, userId uint, ar ImportRequest) (Imp
 		pmLen := len(perfectMatches)
 		if pmLen == 1 && perfectMatches[0].ID != 0 {
 			slog.Debug("import: importing from perfect match")
-			return s.SuccessfulImport(db, userId, perfectMatches[0].ID, entity.ContentType(perfectMatches[0].MediaType), ar)
+			return s.SuccessfulImport(userId, perfectMatches[0].ID, entity.ContentType(perfectMatches[0].MediaType), ar)
 		}
 		slog.Debug("import: returning all potential matches")
 		return ImportResponse{Type: IMPORT_MULTI, Results: pMatches}, nil
 	} else {
 		slog.Debug("import: success.. only found one result")
-		return s.SuccessfulImport(db, userId, pMatches[0].ID, entity.ContentType(pMatches[0].MediaType), ar)
+		return s.SuccessfulImport(userId, pMatches[0].ID, entity.ContentType(pMatches[0].MediaType), ar)
 	}
 }
 
-func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, contentType entity.ContentType, ar ImportRequest) (ImportResponse, error) {
+func (s *Service) SuccessfulImport(userId uint, contentId int, contentType entity.ContentType, ar ImportRequest) (ImportResponse, error) {
 	status := entity.FINISHED
 	if ar.Status != "" {
 		status = ar.Status
@@ -267,7 +270,7 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 			}
 		}
 	}
-	w, err := s.wp.AddWatched(db, userId, watched.WatchedAddRequest{
+	w, err := s.wp.AddWatched(userId, watched.WatchedAddRequest{
 		Status:      status,
 		ContentID:   contentId,
 		ContentType: contentType,
@@ -288,9 +291,9 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 		var addedActivity entity.Activity
 		if len(w.Activity) > 0 {
 			activityJson, _ := json.Marshal(map[string]interface{}{"rating": ar.Rating, "linkedActivity": w.Activity[0].ID})
-			addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_RATING, Data: string(activityJson), CustomDate: ar.RatingCustomDate})
+			addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_RATING, Data: string(activityJson), CustomDate: ar.RatingCustomDate})
 		} else {
-			addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_RATING, Data: strconv.Itoa(int(ar.Rating)), CustomDate: ar.RatingCustomDate})
+			addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_RATING, Data: strconv.Itoa(int(ar.Rating)), CustomDate: ar.RatingCustomDate})
 		}
 		w.Activity = append(w.Activity, addedActivity)
 	}
@@ -298,7 +301,7 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 	if len(ar.DatesWatched) > 0 {
 		for _, v := range ar.DatesWatched {
 			customDate := v
-			addedActivity, err := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_ADDED_WATCHED, CustomDate: &customDate})
+			addedActivity, err := s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_ADDED_WATCHED, CustomDate: &customDate})
 			if err == nil {
 				w.Activity = append(w.Activity, addedActivity)
 			} else {
@@ -315,7 +318,7 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 			if activityDate == nil || activityDate.IsZero() {
 				activityDate = &ar.Activity[i].CreatedAt
 			}
-			addedActivity, err := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: v.Type, Data: v.Data, CustomDate: activityDate})
+			addedActivity, err := s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: v.Type, Data: v.Data, CustomDate: activityDate})
 			if err == nil {
 				w.Activity = append(w.Activity, addedActivity)
 			} else {
@@ -327,7 +330,7 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 	if len(ar.WatchedSeason) > 0 {
 		slog.Debug("successfulImport: Importing watched seasons")
 		for _, v := range ar.WatchedSeason {
-			ws, err := s.wsp.AddWatchedSeason(db, userId, season.WatchedSeasonAddRequest{
+			ws, err := s.wsp.AddWatchedSeason(userId, season.WatchedSeasonAddRequest{
 				WatchedID:       w.ID,
 				SeasonNumber:    v.SeasonNumber,
 				Status:          v.Status,
@@ -345,7 +348,7 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 	if len(ar.WatchedEpisodes) > 0 {
 		slog.Debug("successfulImport: Importing watched episodes")
 		for _, v := range ar.WatchedEpisodes {
-			ws, err := s.wep.AddWatchedEpisodes(db, userId, episode.WatchedEpisodeAddRequest{
+			ws, err := s.wep.AddWatchedEpisodes(userId, episode.WatchedEpisodeAddRequest{
 				WatchedID:       w.ID,
 				SeasonNumber:    v.SeasonNumber,
 				EpisodeNumber:   v.EpisodeNumber,
@@ -367,13 +370,13 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 		for _, v := range ar.Tags {
 			// Check if tag exists
 			var t entity.Tag
-			t, err := s.tagProvider.GetTagByNameAndColor(db, userId, v.Name, v.Color, v.BgColor)
+			t, err := s.tagProvider.GetTagByNameAndColor(userId, v.Name, v.Color, v.BgColor)
 			if err != nil && err.Error() != "tag does not exist" {
 				slog.Error("successfulImport: Failed to check for an existing tag", "name", v.Name, "error", err)
 				continue
 			}
 			if t.ID == 0 {
-				tag, err := s.tagProvider.AddTag(db, userId, domain.TagAddRequest{
+				tag, err := s.tagProvider.AddTag(userId, domain.TagAddRequest{
 					Name:    v.Name,
 					Color:   v.Color,
 					BgColor: v.BgColor,
@@ -386,7 +389,7 @@ func (s *Service) SuccessfulImport(db *gorm.DB, userId uint, contentId int, cont
 			}
 
 			// Associate the watched entry with the tag
-			err = watched.AddWatchedToTag(db, userId, t.ID, w.ID)
+			err = watched.AddWatchedToTag(s.db, userId, t.ID, w.ID)
 			if err != nil {
 				slog.Error("successfulImport: Failed to associate watched entry with tag.", "error", err)
 				continue

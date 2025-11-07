@@ -36,7 +36,7 @@ func (r *Router) AddWatchedEpisode(c *gin.Context) {
 	var ar WatchedEpisodeAddRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
-		response, err := r.s.AddWatchedEpisodes(r.br.DB, userId, ar)
+		response, err := r.s.AddWatchedEpisodes(userId, ar)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -54,7 +54,7 @@ func (r *Router) DeleteWatchedEpisode(c *gin.Context) {
 		return
 	}
 	userId := c.MustGet("userId").(uint)
-	response, err := r.s.rmWatchedEpisode(r.br.DB, userId, uint(id))
+	response, err := r.s.rmWatchedEpisode(userId, uint(id))
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return

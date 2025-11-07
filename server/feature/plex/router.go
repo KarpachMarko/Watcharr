@@ -36,7 +36,7 @@ func (r *Router) AddRoutes() {
 func (r *Router) GetSync(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	userPlexLocalAuth := c.MustGet("plexLocalAuthToken").(string)
-	response, err := r.ss.PlexSyncWatched(r.br.DB, userId, userPlexLocalAuth)
+	response, err := r.ss.PlexSyncWatched(userId, userPlexLocalAuth)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return

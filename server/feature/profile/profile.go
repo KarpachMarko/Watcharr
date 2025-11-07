@@ -18,10 +18,14 @@ type Profile struct {
 	ShowsWatchedRuntime  uint32    `json:"showsWatchedRuntime"`
 }
 
-type Service struct{}
+type Service struct {
+	db *gorm.DB
+}
 
-func NewService() *Service {
-	return &Service{}
+func NewService(db *gorm.DB) *Service {
+	return &Service{
+		db,
+	}
 }
 
 // Check if content has been previsouly watched by looking for related activity.
@@ -70,15 +74,15 @@ func (s *Service) hasBeenPreviouslyWatched(a *[]entity.Activity) bool {
 }
 
 // Gets any data required for profile page
-func (s *Service) getProfile(db *gorm.DB, userId uint) (Profile, error) {
+func (s *Service) getProfile(userId uint) (Profile, error) {
 	user := new(entity.User)
-	res := db.Model(&entity.User{}).Where("id = ?", userId).Take(&user)
+	res := s.db.Model(&entity.User{}).Where("id = ?", userId).Take(&user)
 	if res.Error != nil {
 		slog.Error("Failed to get profile:", "error", res.Error.Error())
 		return Profile{}, errors.New("failed to get profile")
 	}
 	watched := new([]entity.Watched)
-	res = db.Model(&entity.Watched{}).Preload("Content").Preload("Activity").Where("user_id = ?", userId).Find(&watched)
+	res = s.db.Model(&entity.Watched{}).Preload("Content").Preload("Activity").Where("user_id = ?", userId).Find(&watched)
 	if res.Error != nil {
 		slog.Error("Profile: Failed to get watched for processing:", "error", res.Error.Error())
 		return Profile{}, errors.New("failed to get watched for processing")

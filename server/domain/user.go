@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
-	"gorm.io/gorm"
 )
 
 // User
@@ -32,7 +31,7 @@ type (
 	}
 
 	UserManageProvider interface {
-		GetAll(db *gorm.DB) ([]ManagedUser, error)
-		Manage(db *gorm.DB, userId uint, ur UpdateUserRequest) error
+		GetAll() ([]ManagedUser, error)
+		Manage(userId uint, ur UpdateUserRequest) error
 	}
 )

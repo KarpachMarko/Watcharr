@@ -20,12 +20,14 @@ type TrustedHeaderAuthLogoutDetailsResponse struct {
 }
 
 type TrustedHeaderService struct {
+	db          *gorm.DB
 	cfg         *config.ServerConfig
 	authService *Service
 }
 
-func NewTrustedHeaderService(cfg *config.ServerConfig, authService *Service) *TrustedHeaderService {
+func NewTrustedHeaderService(db *gorm.DB, cfg *config.ServerConfig, authService *Service) *TrustedHeaderService {
 	return &TrustedHeaderService{
+		db,
 		cfg,
 		authService,
 	}
@@ -57,10 +59,10 @@ func (s *TrustedHeaderService) GetTrustedHeaderAuthLogoutDetails() *TrustedHeade
 }
 
 // Login via header sso
-func (s *TrustedHeaderService) LoginTrustedHeaderAuth(user *entity.User, db *gorm.DB) (AuthResponse, error) {
+func (s *TrustedHeaderService) LoginTrustedHeaderAuth(user *entity.User) (AuthResponse, error) {
 	slog.Debug("loginTrustedHeaderAuth: A user is logging in", "username_from_header", user.Username)
 	dbUser := new(entity.User)
-	res := db.Where("username = ? AND type = ?", user.Username, entity.PROXY_USER).Take(&dbUser)
+	res := s.db.Where("username = ? AND type = ?", user.Username, entity.PROXY_USER).Take(&dbUser)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			slog.Info("loginTrustedHeaderAuth: Creating new User from authentication header", "username_from_header", user.Username)
@@ -70,7 +72,7 @@ func (s *TrustedHeaderService) LoginTrustedHeaderAuth(user *entity.User, db *gor
 			dbUser.Type = entity.PROXY_USER
 			dbUser.Country = &s.cfg.DEFAULT_COUNTRY
 
-			res = db.Create(&dbUser)
+			res = s.db.Create(&dbUser)
 			if res.Error != nil {
 				slog.Error("loginTrustedHeaderAuth: Failed to create new user in db", "error", res.Error)
 				return AuthResponse{}, errors.New("failed to create new user")

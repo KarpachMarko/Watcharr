@@ -74,18 +74,20 @@ type PlexProvider interface {
 }
 
 type Service struct {
+	db           *gorm.DB
 	cfg          *config.ServerConfig
 	plexProvider PlexProvider
 }
 
-func NewService(cfg *config.ServerConfig, plexProvider PlexProvider) *Service {
+func NewService(db *gorm.DB, cfg *config.ServerConfig, plexProvider PlexProvider) *Service {
 	return &Service{
+		db,
 		cfg,
 		plexProvider,
 	}
 }
 
-func (s *Service) Register(ur *UserRegisterRequest, initialPerm int, db *gorm.DB) (AuthResponse, error) {
+func (s *Service) Register(ur *UserRegisterRequest, initialPerm int) (AuthResponse, error) {
 	if !s.cfg.SIGNUP_ENABLED {
 		slog.Warn("Register: Register called, but signing up is disabled.")
 		return AuthResponse{}, errors.New("registering is disabled")
@@ -108,7 +110,7 @@ func (s *Service) Register(ur *UserRegisterRequest, initialPerm int, db *gorm.DB
 
 	user.Country = &s.cfg.DEFAULT_COUNTRY
 
-	res := db.Create(&user)
+	res := s.db.Create(&user)
 	if res.Error != nil {
 		// If error is because unique contraint failed.. user already exists
 		if res.Error == gorm.ErrDuplicatedKey {
@@ -134,10 +136,10 @@ func (s *Service) Register(ur *UserRegisterRequest, initialPerm int, db *gorm.DB
 	return AuthResponse{Token: token}, nil
 }
 
-func (s *Service) RegisterFirstUser(urr *UserRegisterRequest, db *gorm.DB) (AuthResponse, error) {
+func (s *Service) RegisterFirstUser(urr *UserRegisterRequest) (AuthResponse, error) {
 	// Ensure no users exist
 	var userCount int64
-	uresp := db.Model(&entity.User{}).Count(&userCount)
+	uresp := s.db.Model(&entity.User{}).Count(&userCount)
 	if uresp.Error != nil {
 		slog.Error("registerFirstUser: User count query failed!", "error", uresp.Error)
 		return AuthResponse{}, errors.New("failed to query db for a count of users")
@@ -147,13 +149,13 @@ func (s *Service) RegisterFirstUser(urr *UserRegisterRequest, db *gorm.DB) (Auth
 		return AuthResponse{}, errors.New("first user already registered")
 	}
 	slog.Info("Registering first user.")
-	return s.Register(urr, entity.PERM_ADMIN, db)
+	return s.Register(urr, entity.PERM_ADMIN)
 }
 
-func (s *Service) Login(userL *entity.User, db *gorm.DB) (AuthResponse, error) {
+func (s *Service) Login(userL *entity.User) (AuthResponse, error) {
 	slog.Debug("A User Is Logging In", "username", userL.Username)
 	dbUser := new(entity.User)
-	res := db.Where("username = ? AND (type IS NULL OR type = 0)", userL.Username).Take(&dbUser)
+	res := s.db.Where("username = ? AND (type IS NULL OR type = 0)", userL.Username).Take(&dbUser)
 	if res.Error != nil {
 		slog.Error("Failed to select user from database for login", "error", res.Error)
 		return AuthResponse{}, errors.New("User does not exist")
@@ -177,7 +179,7 @@ func (s *Service) Login(userL *entity.User, db *gorm.DB) (AuthResponse, error) {
 	return AuthResponse{Token: token}, nil
 }
 
-func (s *Service) LoginJellyfin(userL *entity.User, db *gorm.DB) (AuthResponse, error) {
+func (s *Service) LoginJellyfin(userL *entity.User) (AuthResponse, error) {
 	if s.cfg.JELLYFIN_HOST == "" {
 		slog.Error("Request made to login via Jellyfin, but JELLYFIN_HOST has not been configured.")
 		return AuthResponse{}, errors.New("jellyfin login not enabled")
@@ -230,7 +232,7 @@ func (s *Service) LoginJellyfin(userL *entity.User, db *gorm.DB) (AuthResponse, 
 	}
 
 	dbUser := new(entity.User)
-	dbRes := db.Where("third_party_id = ? AND type = ?", resp.User.ID, entity.JELLYFIN_USER).Take(&dbUser)
+	dbRes := s.db.Where("third_party_id = ? AND type = ?", resp.User.ID, entity.JELLYFIN_USER).Take(&dbUser)
 	if dbRes.Error != nil {
 		if errors.Is(dbRes.Error, gorm.ErrRecordNotFound) {
 			// Record not found, so we should create the user
@@ -241,7 +243,7 @@ func (s *Service) LoginJellyfin(userL *entity.User, db *gorm.DB) (AuthResponse, 
 			dbUser.Type = entity.JELLYFIN_USER
 			dbUser.Country = &s.cfg.DEFAULT_COUNTRY
 
-			dbRes = db.Create(&dbUser)
+			dbRes = s.db.Create(&dbUser)
 			if dbRes.Error != nil {
 				slog.Error("Failed to create new user in db from jellyfin response", "error", dbRes.Error)
 				return AuthResponse{}, errors.New("failed to create new user from jellyfin")
@@ -254,7 +256,7 @@ func (s *Service) LoginJellyfin(userL *entity.User, db *gorm.DB) (AuthResponse, 
 	if resp.AccessToken != "" {
 		slog.Debug("Jellyfin user login - updating user with new access token")
 		dbUser.ThirdPartyAuth = resp.AccessToken
-		db.Save(&dbUser)
+		s.db.Save(&dbUser)
 	}
 
 	token, err := s.signJWT(dbUser)
@@ -266,7 +268,7 @@ func (s *Service) LoginJellyfin(userL *entity.User, db *gorm.DB) (AuthResponse, 
 }
 
 // Login via Plex.
-func (s *Service) LoginPlex(lr *plex.PlexLoginRequest, db *gorm.DB) (AuthResponse, error) {
+func (s *Service) LoginPlex(lr *plex.PlexLoginRequest) (AuthResponse, error) {
 	if s.cfg.PLEX_HOST == "" || s.cfg.PLEX_MACHINE_ID == "" {
 		slog.Error("Request made to login via Plex, but Plex authentication is disabled")
 		return AuthResponse{}, errors.New("plex login not enabled")
@@ -289,8 +291,8 @@ func (s *Service) LoginPlex(lr *plex.PlexLoginRequest, db *gorm.DB) (AuthRespons
 		return AuthResponse{}, errors.New("failed to verify plex access")
 	}
 	dbUser := new(entity.User)
-	userIdQ := db.Select("user_id").Where("name = ? AND client_id = ?", "plex", account.Id).Table("user_services")
-	dbRes := db.Where("type = ?", entity.PLEX_USER).Where("id = (?)", userIdQ).Preload("UserServices").Take(&dbUser)
+	userIdQ := s.db.Select("user_id").Where("name = ? AND client_id = ?", "plex", account.Id).Table("user_services")
+	dbRes := s.db.Where("type = ?", entity.PLEX_USER).Where("id = (?)", userIdQ).Preload("UserServices").Take(&dbUser)
 	if dbRes.Error != nil {
 		if errors.Is(dbRes.Error, gorm.ErrRecordNotFound) {
 			slog.Debug("loginPlex: New plex user attempted login.. creating Watcharr account now.")
@@ -303,7 +305,7 @@ func (s *Service) LoginPlex(lr *plex.PlexLoginRequest, db *gorm.DB) (AuthRespons
 				AuthToken2: homeAuthToken,
 			})
 			dbUser.Country = &s.cfg.DEFAULT_COUNTRY
-			dbRes = db.Create(&dbUser)
+			dbRes = s.db.Create(&dbUser)
 			if dbRes.Error != nil {
 				slog.Error("loginPlex: Failed to create new user in db from plex response", "error", dbRes.Error)
 				return AuthResponse{}, errors.New("failed to create new user from plex")
@@ -324,7 +326,7 @@ func (s *Service) LoginPlex(lr *plex.PlexLoginRequest, db *gorm.DB) (AuthRespons
 				break
 			}
 		}
-		db.Save(&dbUser.UserServices)
+		s.db.Save(&dbUser.UserServices)
 	}
 	token, err := s.signJWT(dbUser)
 	if err != nil {
@@ -335,9 +337,9 @@ func (s *Service) LoginPlex(lr *plex.PlexLoginRequest, db *gorm.DB) (AuthRespons
 }
 
 // TODO the logic that gets and validated a token should be moved to Token service.
-func (s *Service) UseAdminToken(req *UseAdminTokenRequest, db *gorm.DB, userId uint) error {
+func (s *Service) UseAdminToken(req *UseAdminTokenRequest, userId uint) error {
 	var dbToken entity.Token
-	resp := db.Where("value = ?", req.Token).Take(&dbToken)
+	resp := s.db.Where("value = ?", req.Token).Take(&dbToken)
 	if resp.Error != nil {
 		slog.Info("useAdminToken failed", "error", "token not found in db")
 		return errors.New("invalid token")
@@ -357,7 +359,7 @@ func (s *Service) UseAdminToken(req *UseAdminTokenRequest, db *gorm.DB, userId u
 	}
 	// Token is valid and for current user.. give user admin.
 	// Incase removing the token after used fails, this is in a transaction so user wont be admin.
-	err := db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// Give user admin
 		if err := tx.Model(&entity.User{}).Where("id = ?", userId).Update("permissions", entity.PERM_ADMIN).Error; err != nil {
 			return err
@@ -499,10 +501,10 @@ func (s *Service) decodeHash(encodedHash string) (p *entity.ArgonParams, salt, h
 	return p, salt, hash, nil
 }
 
-func (s *Service) UserChangePassword(db *gorm.DB, pwds UserPasswordUpdateRequest, userId uint) error {
+func (s *Service) UserChangePassword(pwds UserPasswordUpdateRequest, userId uint) error {
 	slog.Debug("userChangePassword request running", "user_id", userId)
 	user := new(entity.User)
-	res := db.Where("id = ?", userId).Select("password").Take(&user)
+	res := s.db.Where("id = ?", userId).Select("password").Take(&user)
 	if res.Error != nil {
 		slog.Error("userChangePassword failed - failed to retrieve user from database", "user_id", userId, "error", res.Error)
 		return errors.New("failed to retrieve user")
@@ -525,7 +527,7 @@ func (s *Service) UserChangePassword(db *gorm.DB, pwds UserPasswordUpdateRequest
 		return errors.New("failed to hash new password")
 	}
 	slog.Debug("userChangePassword new password hashed", "user_id", userId)
-	if err := db.Model(&entity.User{}).Where("id = ?", userId).Update("password", hash).Error; err != nil {
+	if err := s.db.Model(&entity.User{}).Where("id = ?", userId).Update("password", hash).Error; err != nil {
 		slog.Error("userChangePassword failed - failed to update password in database", "user_id", userId, "error", err)
 		return errors.New("failed to update password")
 	} else {

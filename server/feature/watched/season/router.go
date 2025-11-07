@@ -36,7 +36,7 @@ func (r *Router) AddWatchedSeason(c *gin.Context) {
 	var ar WatchedSeasonAddRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
-		response, err := r.s.AddWatchedSeason(r.br.DB, userId, ar)
+		response, err := r.s.AddWatchedSeason(userId, ar)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
@@ -54,7 +54,7 @@ func (r *Router) DeleteWatchedSeason(c *gin.Context) {
 		return
 	}
 	userId := c.MustGet("userId").(uint)
-	response, err := r.s.RmWatchedSeason(r.br.DB, userId, uint(id))
+	response, err := r.s.RmWatchedSeason(userId, uint(id))
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return

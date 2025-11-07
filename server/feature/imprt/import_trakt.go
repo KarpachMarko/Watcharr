@@ -16,7 +16,6 @@ import (
 	"github.com/sbondCo/Watcharr/database/dbmodel"
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/job"
-	"gorm.io/gorm"
 )
 
 type TraktImportRequest struct {
@@ -107,7 +106,7 @@ func NewTraktService(s *Service) *TraktService {
 }
 
 // TODO we could support trakt list imports when we support a similar feature (tags will function as custom lists when done #199)
-func (t *TraktService) startTraktImport(db *gorm.DB, jobId string, userId uint, traktUsername string) {
+func (t *TraktService) startTraktImport(jobId string, userId uint, traktUsername string) {
 	// Get trakt user. We want to get their profile `slug` for use in
 	// next requests and we can check their profile isn't private while here.
 	var traktUser TraktUser
@@ -334,7 +333,7 @@ func (t *TraktService) startTraktImport(db *gorm.DB, jobId string, userId uint, 
 	}
 	// Loop over `toImport` and finally import everything.
 	for _, v := range toImport {
-		_, err := t.s.ImportContent(db, userId, v)
+		_, err := t.s.ImportContent(userId, v)
 		if err != nil {
 			slog.Error("startTraktImport: Failed to do import on content!", "error", err, "import_obj", v)
 			job.AddJobError(jobId, userId, fmt.Sprintf("Failed to import %s as %s. tmdbId: %d", v.Type, v.Status, v.TmdbID))
@@ -446,7 +445,6 @@ func (t *TraktService) traktAPIRequest(ep string, p map[string]string, resp inte
 }
 
 func (t *TraktService) TraktImportWatched(
-	db *gorm.DB,
 	userId uint,
 	traktUsername string,
 ) (TraktImportResponse, error) {
@@ -459,7 +457,6 @@ func (t *TraktService) TraktImportWatched(
 	job.UpdateJobStatus(jobId, userId, job.JOB_RUNNING)
 
 	go t.startTraktImport(
-		db,
 		jobId,
 		userId,
 		traktUsername,

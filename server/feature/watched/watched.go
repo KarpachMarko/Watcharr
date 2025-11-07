@@ -71,25 +71,27 @@ const (
 )
 
 type ContentProvider interface {
-	GetOrCacheContent(db *gorm.DB, contentType entity.ContentType, tmdbId int) (entity.Content, error)
+	GetOrCacheContent(contentType entity.ContentType, tmdbId int) (entity.Content, error)
 }
 
 type Service struct {
+	db               *gorm.DB
 	cp               ContentProvider
 	activityProvider domain.ActivityAddProvider
 }
 
-func NewService(cp ContentProvider, activityProvider domain.ActivityAddProvider) *Service {
+func NewService(db *gorm.DB, cp ContentProvider, activityProvider domain.ActivityAddProvider) *Service {
 	return &Service{
+		db,
 		cp,
 		activityProvider,
 	}
 }
 
 // Get entire watched list
-func (s *Service) getWatched(db *gorm.DB, userId uint) ([]entity.Watched, error) {
+func (s *Service) getWatched(userId uint) ([]entity.Watched, error) {
 	watched := new([]entity.Watched)
-	res := db.Model(&entity.Watched{}).
+	res := s.db.Model(&entity.Watched{}).
 		Preload("Content").
 		Preload("Game").
 		Preload("Game.Poster").
@@ -108,7 +110,6 @@ func (s *Service) getWatched(db *gorm.DB, userId uint) ([]entity.Watched, error)
 
 // Returns a page of users watched list.
 func (s *Service) getWatchedPage(
-	db *gorm.DB,
 	userId uint,
 	pp util.PaginationParams,
 	wr WatchedGetPageRequest,
@@ -116,7 +117,7 @@ func (s *Service) getWatchedPage(
 	slog.Debug("getWatchedPage: A page was requested.", "user_id", userId, "pagination_params", pp, "wr", wr)
 	watched := new([]entity.Watched)
 	pRes := &util.PaginationResponse[entity.Watched]{}
-	res := db.
+	res := s.db.
 		Model(&entity.Watched{}).
 		Where(&entity.Watched{UserID: userId}).
 		Count(&pRes.TotalResults).
@@ -141,9 +142,9 @@ func (s *Service) getWatchedPage(
 }
 
 // Get a watched list item by id (must be for `userId`).
-func (s *Service) GetWatchedItemById(db *gorm.DB, userId uint, id uint) (entity.Watched, error) {
+func (s *Service) GetWatchedItemById(userId uint, id uint) (entity.Watched, error) {
 	watched := new(entity.Watched)
-	res := db.Model(&entity.Watched{}).Preload("Content").Where("user_id = ? AND id = ?", userId, id).Find(&watched)
+	res := s.db.Model(&entity.Watched{}).Preload("Content").Where("user_id = ? AND id = ?", userId, id).Find(&watched)
 	if res.Error != nil {
 		slog.Error("GetWatchedItemById: Failed!", "error", res.Error)
 		return entity.Watched{}, res.Error
@@ -152,10 +153,10 @@ func (s *Service) GetWatchedItemById(db *gorm.DB, userId uint, id uint) (entity.
 }
 
 // Get a watched list item by content (tmdb) id (must be for `userId`).
-func (s *Service) GetWatchedItemByTmdbId(db *gorm.DB, userId uint, tmdbId uint, contentType entity.ContentType) (entity.Watched, error) {
+func (s *Service) GetWatchedItemByTmdbId(userId uint, tmdbId uint, contentType entity.ContentType) (entity.Watched, error) {
 	slog.Debug("GetWatchedItemByTmdbId: Running.", "userId", userId, "tmdbId", tmdbId)
 	watched := new(entity.Watched)
-	res := db.Model(&entity.Watched{}).
+	res := s.db.Model(&entity.Watched{}).
 		Preload("Content").
 		Preload("Activity").
 		Preload("WatchedSeasons").
@@ -174,10 +175,10 @@ func (s *Service) GetWatchedItemByTmdbId(db *gorm.DB, userId uint, tmdbId uint, 
 // Same as `getWatchedItemByTmdbId` except for getting in bulk (multiple content ids).
 // `c` entries should be in format: [tmdb_id, ContentType] (Note: Couldn't figure out
 // if it's possible to type this to enforce [int, ContentType] type for entries)
-func (s *Service) GetWatchedItemsByTmdbIds(db *gorm.DB, userId uint, c [][]any) ([]entity.Watched, error) {
+func (s *Service) GetWatchedItemsByTmdbIds(userId uint, c [][]any) ([]entity.Watched, error) {
 	slog.Debug("GetWatchedItemsByTmdbIds: Running.", "userId", userId, "c", c)
 	watched := new([]entity.Watched)
-	res := db.Model(&entity.Watched{}).
+	res := s.db.Model(&entity.Watched{}).
 		Preload("Content").
 		Preload("Activity").
 		Preload("WatchedSeasons").
@@ -202,10 +203,10 @@ func (s *Service) GetWatchedItemsByTmdbIds(db *gorm.DB, userId uint, c [][]any) 
 
 // Get a watched list item by game (igdb) id (must be for `userId`).
 // TODO update var names soon
-func (s *Service) getWatchedItemByIgdbId(db *gorm.DB, userId uint, tmdbId uint) (entity.Watched, error) {
+func (s *Service) getWatchedItemByIgdbId(userId uint, tmdbId uint) (entity.Watched, error) {
 	slog.Debug("getWatchedItemByIgdbId: Running.", "userId", userId, "tmdbId", tmdbId)
 	watched := new(entity.Watched)
-	res := db.Model(&entity.Watched{}).
+	res := s.db.Model(&entity.Watched{}).
 		Joins("Game").
 		Preload("Game.Poster").
 		Preload("Activity").
@@ -222,10 +223,10 @@ func (s *Service) getWatchedItemByIgdbId(db *gorm.DB, userId uint, tmdbId uint) 
 
 // Same as `getWatchedItemByIgdbId` except for getting in bulk (multiple content ids).
 // `c` should be a slice of igdb ids.
-func (s *Service) getWatchedItemsByIgdbIds(db *gorm.DB, userId uint, c []int) ([]entity.Watched, error) {
+func (s *Service) getWatchedItemsByIgdbIds(userId uint, c []int) ([]entity.Watched, error) {
 	slog.Debug("getWatchedItemsByIgdbIds: Running.", "userId", userId, "c", c)
 	watched := new([]entity.Watched)
-	res := db.Model(&entity.Watched{}).
+	res := s.db.Model(&entity.Watched{}).
 		Joins("Game").
 		Preload("Game.Poster").
 		Preload("Activity").
@@ -247,14 +248,14 @@ func (s *Service) getWatchedItemsByIgdbIds(db *gorm.DB, userId uint, c []int) ([
 }
 
 // Get another users **public** watchlist.
-func (s *Service) getPublicWatched(db *gorm.DB, userId uint, username string) ([]entity.Watched, error) {
+func (s *Service) getPublicWatched(userId uint, username string) ([]entity.Watched, error) {
 	slog.Debug("getPublicWatched running", "user_id", userId, "username", username)
 	// First we need to make sure the users list is public
 	user := new(entity.User)
 	// Figure we require knowlege of the users id and name to make it
 	// harder to just type in random ids and see someones list.. dunno
 	// if this is a thing we need but its here.. for now at least.
-	res := db.Where("id = ? AND username = ?", userId, username).Take(&user)
+	res := s.db.Where("id = ? AND username = ?", userId, username).Take(&user)
 	if res.Error != nil {
 		slog.Error("Failed to get user for getPublicWatched request", "user_id", userId)
 		return []entity.Watched{}, errors.New("failed to check privacy settings")
@@ -265,17 +266,17 @@ func (s *Service) getPublicWatched(db *gorm.DB, userId uint, username string) ([
 	}
 	// Now we know the user is public, return their list
 	watched := new([]entity.Watched)
-	res = db.Model(&entity.Watched{}).Preload("Content").Preload("Game").Preload("Game.Poster").Preload("Activity").Where("user_id = ?", userId).Find(&watched)
+	res = s.db.Model(&entity.Watched{}).Preload("Content").Preload("Game").Preload("Game.Poster").Preload("Activity").Where("user_id = ?", userId).Find(&watched)
 	if res.Error != nil {
 		panic(res.Error)
 	}
 	return *watched, nil
 }
 
-func (s *Service) AddWatched(db *gorm.DB, userId uint, ar WatchedAddRequest, at entity.ActivityType) (entity.Watched, error) {
+func (s *Service) AddWatched(userId uint, ar WatchedAddRequest, at entity.ActivityType) (entity.Watched, error) {
 	slog.Debug("Adding watched item", "userId", userId, "contentType", ar.ContentType, "contentId", ar.ContentID)
 	// Get content cache (or cache it if we don't have it locally)
-	content, err := s.cp.GetOrCacheContent(db, ar.ContentType, ar.ContentID)
+	content, err := s.cp.GetOrCacheContent(ar.ContentType, ar.ContentID)
 	if err != nil {
 		return entity.Watched{}, err
 	}
@@ -303,10 +304,10 @@ func (s *Service) AddWatched(db *gorm.DB, userId uint, ar WatchedAddRequest, at 
 		watched.CreatedAt = ar.WatchedDate
 		watched.UpdatedAt = ar.WatchedDate
 	}
-	res := db.Create(&watched)
+	res := s.db.Create(&watched)
 	if res.Error != nil {
 		if res.Error == gorm.ErrDuplicatedKey {
-			res = db.Model(&entity.Watched{}).Unscoped().Preload("Activity").Where("user_id = ? AND content_id = ?", userId, watched.ContentID).Take(&watched)
+			res = s.db.Model(&entity.Watched{}).Unscoped().Preload("Activity").Where("user_id = ? AND content_id = ?", userId, watched.ContentID).Take(&watched)
 			if res.Error != nil {
 				return entity.Watched{}, errors.New("content already on watched list. errored checking for soft deleted record")
 			}
@@ -314,7 +315,7 @@ func (s *Service) AddWatched(db *gorm.DB, userId uint, ar WatchedAddRequest, at 
 				return watched, errors.New("content already on watched list")
 			} else {
 				slog.Info("addWatched: Watched list item for this content exists as soft deleted record.. attempting to restore")
-				res = db.Model(&entity.Watched{}).Unscoped().Where("user_id = ? AND content_id = ?", userId, watched.ContentID).Updates(map[string]interface{}{"status": ar.Status, "rating": ar.Rating, "deleted_at": nil})
+				res = s.db.Model(&entity.Watched{}).Unscoped().Where("user_id = ? AND content_id = ?", userId, watched.ContentID).Updates(map[string]interface{}{"status": ar.Status, "rating": ar.Rating, "deleted_at": nil})
 				watched.Status = ar.Status
 				watched.Rating = ar.Rating
 				watched.Thoughts = ar.Thoughts
@@ -334,9 +335,9 @@ func (s *Service) AddWatched(db *gorm.DB, userId uint, ar WatchedAddRequest, at 
 	activityJson, err := json.Marshal(map[string]interface{}{"status": ar.Status, "rating": ar.Rating})
 	if err != nil {
 		slog.Error("Failed to marshal json for data in ADD_WATCHED activity request, adding without data", "error", err.Error())
-		act, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at})
+		act, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at})
 	} else {
-		act, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at, Data: string(activityJson)})
+		act, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at, Data: string(activityJson)})
 	}
 	watched.Activity = append(watched.Activity, act)
 	watched.Content = &content
@@ -344,10 +345,10 @@ func (s *Service) AddWatched(db *gorm.DB, userId uint, ar WatchedAddRequest, at 
 }
 
 // this method is too ugly to look at please make him look better, future irhm
-func (s *Service) updateWatched(db *gorm.DB, userId uint, id uint, ar WatchedUpdateRequest) (WatchedUpdateResponse, error) {
+func (s *Service) updateWatched(userId uint, id uint, ar WatchedUpdateRequest) (WatchedUpdateResponse, error) {
 	slog.Debug("UpdateWatched", "request_data", ar)
 	upwat := entity.Watched{}
-	res := db.Model(&entity.Watched{}).Where("id = ? AND user_id = ?", id, userId).Take(&upwat)
+	res := s.db.Model(&entity.Watched{}).Where("id = ? AND user_id = ?", id, userId).Take(&upwat)
 	if res.Error != nil {
 		slog.Error("Watched entry update failed:", "id", id, "error", res.Error.Error())
 		return WatchedUpdateResponse{}, errors.New("failed to update watched entry")
@@ -368,29 +369,29 @@ func (s *Service) updateWatched(db *gorm.DB, userId uint, id uint, ar WatchedUpd
 	if ar.Pinned != nil {
 		upwat.Pinned = *ar.Pinned
 	}
-	res = db.Save(upwat)
+	res = s.db.Save(upwat)
 	if res.RowsAffected <= 0 {
 		return WatchedUpdateResponse{}, errors.New("no watched entry found")
 	}
 	addedActivity := entity.Activity{}
 	if ar.Rating != 0 {
-		addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.RATING_CHANGED, Data: strconv.Itoa(int(ar.Rating))})
+		addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.RATING_CHANGED, Data: strconv.Itoa(int(ar.Rating))})
 	}
 	if ar.Status != "" {
-		addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.STATUS_CHANGED, Data: string(ar.Status)})
+		addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.STATUS_CHANGED, Data: string(ar.Status)})
 	}
 	if ar.Thoughts != "" {
-		addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.THOUGHTS_CHANGED})
+		addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.THOUGHTS_CHANGED})
 	}
 	if ar.RemoveThoughts {
-		addedActivity, _ = s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.THOUGHTS_REMOVED, Data: originalThoughts})
+		addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.THOUGHTS_REMOVED, Data: originalThoughts})
 	}
 	return WatchedUpdateResponse{NewActivity: addedActivity}, nil
 }
 
-func (s *Service) UpdateWatchedLastViewedSeason(db *gorm.DB, userId uint, id uint, seasonNum int) error {
+func (s *Service) UpdateWatchedLastViewedSeason(userId uint, id uint, seasonNum int) error {
 	slog.Debug("UpdateWatchedLastViewedSeason", "user_id", userId, "id", id, "season_num", seasonNum)
-	res := db.
+	res := s.db.
 		Model(&entity.Watched{}).
 		Where("id = ? AND user_id = ?", id, userId).
 		Update("last_viewed_season", seasonNum)
@@ -406,13 +407,13 @@ func (s *Service) UpdateWatchedLastViewedSeason(db *gorm.DB, userId uint, id uin
 	return nil
 }
 
-func (s *Service) removeWatched(db *gorm.DB, userId uint, id uint) (WatchedRemoveResponse, error) {
+func (s *Service) removeWatched(userId uint, id uint) (WatchedRemoveResponse, error) {
 	slog.Debug("Removing watched item:", "id", id, "user_id", userId)
 	// Our model has a deleted_at field, which will make gorm do a soft delete.
 	// Since other tables (eg activities) will link their rows to a watched_id, it's best to soft
 	// delete, so if user restores watched item they still have activity for example (also so
 	// someone else wont get other users activity if auto increment gives them the same watched id).
-	res := db.Model(&entity.Watched{}).Where("id = ? AND user_id = ?", id, userId).Delete(&entity.Watched{})
+	res := s.db.Model(&entity.Watched{}).Where("id = ? AND user_id = ?", id, userId).Delete(&entity.Watched{})
 	if res.Error != nil {
 		slog.Error("Removing watched entry failed", "id", id, "error", res.Error.Error())
 		return WatchedRemoveResponse{}, errors.New("failed to remove watched entry")
@@ -420,6 +421,6 @@ func (s *Service) removeWatched(db *gorm.DB, userId uint, id uint) (WatchedRemov
 	if res.RowsAffected <= 0 {
 		return WatchedRemoveResponse{}, errors.New("no watched entry found")
 	}
-	addedActivity, _ := s.activityProvider.AddActivity(db, userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.REMOVED_WATCHED})
+	addedActivity, _ := s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: id, Type: entity.REMOVED_WATCHED})
 	return WatchedRemoveResponse{NewActivity: addedActivity}, nil
 }

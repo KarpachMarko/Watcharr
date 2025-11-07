@@ -141,7 +141,7 @@ func (r *Router) GetStats(c *gin.Context) {
 
 // Get all server users (for manage users page)
 func (r *Router) GetAllUsers(c *gin.Context) {
-	resp, err := r.userManageProvider.GetAll(r.br.DB)
+	resp, err := r.userManageProvider.GetAll()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 		return
@@ -160,7 +160,7 @@ func (r *Router) UpdateManageUser(c *gin.Context) {
 	var ur domain.UpdateUserRequest
 	err = c.ShouldBindJSON(&ur)
 	if err == nil {
-		err := r.userManageProvider.Manage(r.br.DB, uint(userId), ur)
+		err := r.userManageProvider.Manage(uint(userId), ur)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
 			return
