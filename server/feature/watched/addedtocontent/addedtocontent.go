@@ -7,19 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// This struct is for embedding inside content response structs.
-// This holds the watched entry response data that will go along
-// with the content responses.
-type WatchedAddedToContent struct {
-	// The related watched entry.
-	Watched *entity.Watched `json:"watched,omitempty"`
-	// If we failed to get the watched entry,
-	// set this to true, so the frontend can
-	// notify the user of why there is possibly
-	// missing watched list data.
-	FailedToGetWatched bool `json:"failedToGetWatched,omitempty"`
-}
-
 type Addable interface {
 	GetId() int
 	GetMediaType() entity.ContentType
