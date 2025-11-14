@@ -38,7 +38,10 @@ func AddList[S Addable](
 	s []S,
 	addCb func(i int, w *entity.Watched),
 ) error {
-	// TODO Check len of s
+	if len(s) <= 0 {
+		slog.Debug("AddList: 's' is empty.")
+		return nil
+	}
 	contentIdAndTypePairs := [][]any{}
 	for _, v := range s {
 		contentIdAndTypePairs = append(contentIdAndTypePairs, []any{
