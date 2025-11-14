@@ -50,9 +50,9 @@ type ImportRequest struct {
 }
 
 type ImportResponse struct {
-	Type    ImportResponseType            `json:"type"`
-	Results []tmdb.TMDBSearchMultiResults `json:"results"`
-	Match   tmdb.TMDBSearchMultiResults   `json:"match"`
+	Type    ImportResponseType           `json:"type"`
+	Results []tmdb.TMDBSearchMultiResult `json:"results"`
+	Match   tmdb.TMDBSearchMultiResult   `json:"match"`
 	// On success this will be filled with the new watched entry
 	WatchedEntry entity.Watched `json:"watchedEntry"`
 }
@@ -186,7 +186,7 @@ func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, 
 		slog.Error("import: content search failed", "error", err)
 		return ImportResponse{}, errors.New("content search failed")
 	}
-	pMatches := []tmdb.TMDBSearchMultiResults{}
+	pMatches := []tmdb.TMDBSearchMultiResult{}
 	for _, r := range sr.Results {
 		if r.MediaType != "person" {
 			pMatches = append(pMatches, r)
@@ -202,7 +202,7 @@ func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, 
 		// If there are multiple responses, but only one item
 		// from the results is a 100% match for the imported
 		// items name, then consider successful match with that.
-		perfectMatches := []tmdb.TMDBSearchMultiResults{}
+		perfectMatches := []tmdb.TMDBSearchMultiResult{}
 		for _, r := range pMatches {
 			itemName := r.Name
 			if itemName == "" {

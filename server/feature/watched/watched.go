@@ -157,7 +157,7 @@ func (s *Service) GetWatchedItemByTmdbId(userId uint, tmdbId uint, contentType e
 	slog.Debug("GetWatchedItemByTmdbId: Running.", "userId", userId, "tmdbId", tmdbId)
 	watched := new(entity.Watched)
 	res := s.db.Model(&entity.Watched{}).
-		Preload("Content").
+		Joins("Content").
 		Preload("Activity").
 		Preload("WatchedSeasons").
 		Preload("WatchedEpisodes").
@@ -179,14 +179,13 @@ func (s *Service) GetWatchedItemsByTmdbIds(userId uint, c [][]any) ([]entity.Wat
 	slog.Debug("GetWatchedItemsByTmdbIds: Running.", "userId", userId, "c", c)
 	watched := new([]entity.Watched)
 	res := s.db.Model(&entity.Watched{}).
-		Preload("Content").
+		Joins("Content").
 		Preload("Activity").
 		Preload("WatchedSeasons").
 		Preload("WatchedEpisodes").
 		Preload("Tags").
 		Where("user_id = ?", userId).
-		Where(
-			"(Content.tmdb_id, Content.type) IN ?", c).
+		Where("(Content.tmdb_id, Content.type) IN ?", c).
 		Find(&watched)
 	if res.Error != nil {
 		slog.Error("GetWatchedItemsByTmdbIds: Failed!", "error", res.Error)
@@ -203,7 +202,7 @@ func (s *Service) GetWatchedItemsByTmdbIds(userId uint, c [][]any) ([]entity.Wat
 
 // Get a watched list item by game (igdb) id (must be for `userId`).
 // TODO update var names soon
-func (s *Service) getWatchedItemByIgdbId(userId uint, tmdbId uint) (entity.Watched, error) {
+func (s *Service) GetWatchedItemByIgdbId(userId uint, tmdbId uint) (entity.Watched, error) {
 	slog.Debug("getWatchedItemByIgdbId: Running.", "userId", userId, "tmdbId", tmdbId)
 	watched := new(entity.Watched)
 	res := s.db.Model(&entity.Watched{}).
@@ -223,7 +222,7 @@ func (s *Service) getWatchedItemByIgdbId(userId uint, tmdbId uint) (entity.Watch
 
 // Same as `getWatchedItemByIgdbId` except for getting in bulk (multiple content ids).
 // `c` should be a slice of igdb ids.
-func (s *Service) getWatchedItemsByIgdbIds(userId uint, c []int) ([]entity.Watched, error) {
+func (s *Service) GetWatchedItemsByIgdbIds(userId uint, c []int) ([]entity.Watched, error) {
 	slog.Debug("getWatchedItemsByIgdbIds: Running.", "userId", userId, "c", c)
 	watched := new([]entity.Watched)
 	res := s.db.Model(&entity.Watched{}).

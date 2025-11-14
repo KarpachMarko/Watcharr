@@ -8,9 +8,11 @@ import (
 
 	"github.com/gin-contrib/cache"
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/copier"
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
+	"github.com/sbondCo/Watcharr/media/tmdb"
 	"github.com/sbondCo/Watcharr/router"
 	"github.com/sbondCo/Watcharr/util"
 )
@@ -18,6 +20,7 @@ import (
 type WatchedProvider interface {
 	UpdateWatchedLastViewedSeason(userId uint, id uint, seasonNum int) error
 	GetWatchedItemsByTmdbIds(userId uint, c [][]any) ([]entity.Watched, error)
+	GetWatchedItemByTmdbId(userId uint, tmdbId uint, contentType entity.ContentType) (entity.Watched, error)
 }
 
 type Router struct {
@@ -38,8 +41,8 @@ func (r *Router) AddRoutes() {
 	content := r.br.Router.Group("/content").Use(authmiddleware.AuthRequired(nil, r.br.Cfg))
 	exp := time.Hour * 24
 
-	// TODO verify the routes that use cache here actually need it
-	// (because watched data will be added to most)
+	// NOTE: Some routes use `cache.CachePage`, but others that contain user watched data
+	// don't and rather have their caching on the TMDB methods directly.
 
 	// Search for content
 	content.GET("/search/multi", router.PaginatedRequest(true), r.GetSearchMulti)
@@ -52,7 +55,7 @@ func (r *Router) AddRoutes() {
 	// Search for content with external id
 	content.GET("/search/ext/:id/:source", cache.CachePage(r.br.MemStore, exp, r.GetSearchByExternalId))
 	// Get movie details (for movie page)
-	content.GET("/movie/:id", router.WhereaboutsRequired(r.br.Cfg), cache.CachePage(r.br.MemStore, exp, r.GetMovieDetails))
+	content.GET("/movie/:id", router.WhereaboutsRequired(r.br.Cfg), r.GetMovieDetails)
 	// Get movie cast
 	content.GET("/movie/:id/credits", cache.CachePage(r.br.MemStore, exp, r.GetMovieCredits))
 	// Get tv details (for tv page)
@@ -63,7 +66,7 @@ func (r *Router) AddRoutes() {
 	// Supports `watchedId` query parameter for saving the requested season as `LastViewedSeason`.
 	content.GET("/tv/:id/season/:num", r.GetSeasonDetails)
 	// Get person details
-	content.GET("/person/:id", cache.CachePage(r.br.MemStore, exp, r.GetPerson))
+	content.GET("/person/:id", r.GetPerson)
 	// Get person credits
 	content.GET("/person/:id/credits", cache.CachePage(r.br.MemStore, exp, r.GetPersonCredits))
 	// Discover movies
@@ -80,6 +83,13 @@ func (r *Router) AddRoutes() {
 	content.GET("/regions", r.GetRegions)
 }
 
+// NOTE: The handler functions use `copier` to copy values from the response
+// structs into a new one that includes the user "Watched" data.
+// This was done to avoid adding Watched data to the response structs, as they
+// are cached in our in-mem cache, which could cause references to pollute the cache
+// resulting in user data being leaked to others.
+// We are doing to to explicitly not let that case happen.
+
 func (r *Router) GetSearchMulti(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	query := c.Query("q")
@@ -93,15 +103,28 @@ func (r *Router) GetSearchMulti(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// withWatchedResp := searchContentAddWatched(r.br.DB, userId, content)
-	// c.JSON(http.StatusOK, withWatchedResp)
-
-	addedtocontent.AddWAC(content.Results, r.wp, userId)
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBSearchMultiResponseWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetSearchMulti: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddList(
+		r.wp,
+		userId,
+		ww.Results,
+		func(i int, w *entity.Watched) {
+			ww.Results[i].Watched = w
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetSearchMovie(c *gin.Context) {
-	// userId := c.MustGet("userId").(uint)
+	userId := c.MustGet("userId").(uint)
 	query := c.Query("q")
 	if query == "" {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "a query was not provided"})
@@ -113,14 +136,28 @@ func (r *Router) GetSearchMovie(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// withWatchedResp := searchMoviesAddWatched(r.br.DB, userId, content)
-	// c.JSON(http.StatusOK, withWatchedResp)
-	// HACK TEST
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBSearchMoviesResponseWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetSearchMovie: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddList(
+		r.wp,
+		userId,
+		ww.Results,
+		func(i int, w *entity.Watched) {
+			ww.Results[i].Watched = w
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetSearchTv(c *gin.Context) {
-	// userId := c.MustGet("userId").(uint)
+	userId := c.MustGet("userId").(uint)
 	query := c.Query("q")
 	if query == "" {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "a query was not provided"})
@@ -132,10 +169,24 @@ func (r *Router) GetSearchTv(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// withWatchedResp := searchTvAddWatched(r.br.DB, userId, content)
-	// c.JSON(http.StatusOK, withWatchedResp)
-	// HACK TEST
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBSearchShowsResponseWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetSearchTv: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddList(
+		r.wp,
+		userId,
+		ww.Results,
+		func(i int, w *entity.Watched) {
+			ww.Results[i].Watched = w
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetSearchPerson(c *gin.Context) {
@@ -167,7 +218,7 @@ func (r *Router) GetSearchByExternalId(c *gin.Context) {
 }
 
 func (r *Router) GetMovieDetails(c *gin.Context) {
-	// userId := c.MustGet("userId").(uint)
+	userId := c.MustGet("userId").(uint)
 	if c.Param("id") == "" {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "an id was not provided"})
 		return
@@ -183,10 +234,32 @@ func (r *Router) GetMovieDetails(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// withWatchedResp := movieDetailsAddWatched(r.br.DB, userId, content)
-	// c.JSON(http.StatusOK, withWatchedResp)
-	// HACK TEST
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBMovieDetailsWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetMovieDetails: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddSingularAndList(
+		r.wp,
+		userId,
+		ww,
+		func(w *entity.Watched) {
+			ww.Watched = w
+		},
+		[]*addedtocontent.AddListCall[tmdb.TMDBMovieSimilarResultWithWatched]{
+			addedtocontent.NewAddListCall(
+				ww.Similar.Results,
+				func(i int, w *entity.Watched) {
+					ww.Similar.Results[i].Watched = w
+				},
+			),
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetMovieCredits(c *gin.Context) {
@@ -203,7 +276,7 @@ func (r *Router) GetMovieCredits(c *gin.Context) {
 }
 
 func (r *Router) GetTvDetails(c *gin.Context) {
-	// userId := c.MustGet("userId").(uint)
+	userId := c.MustGet("userId").(uint)
 	if c.Param("id") == "" {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "an id was not provided"})
 		return
@@ -220,10 +293,32 @@ func (r *Router) GetTvDetails(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// withWatchedResp := tvDetailsAddWatched(r.br.DB, userId, content)
-	// c.JSON(http.StatusOK, withWatchedResp)
-	// HACK TEST
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBShowDetailsWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetTvDetails: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddSingularAndList(
+		r.wp,
+		userId,
+		ww,
+		func(w *entity.Watched) {
+			ww.Watched = w
+		},
+		[]*addedtocontent.AddListCall[tmdb.TMDBShowSimilarResultWithWatched]{
+			addedtocontent.NewAddListCall(
+				ww.Similar.Results,
+				func(i int, w *entity.Watched) {
+					ww.Similar.Results[i].Watched = w
+				},
+			),
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetTvCredits(c *gin.Context) {
@@ -303,68 +398,138 @@ func (r *Router) GetPersonCredits(c *gin.Context) {
 }
 
 func (r *Router) GetDiscoverMovies(c *gin.Context) {
-	// userId := c.MustGet("userId").(uint)
+	userId := c.MustGet("userId").(uint)
 	content, err := r.cs.DiscoverMovies()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// withWatchedResp := discoverMoviesAddWatched(r.br.DB, userId, content)
-	// c.JSON(http.StatusOK, withWatchedResp)
-	// HACK TEST
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBDiscoverMoviesWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetDiscoverMovies: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddList(
+		r.wp,
+		userId,
+		ww.Results,
+		func(i int, w *entity.Watched) {
+			ww.Results[i].Watched = w
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetDiscoverTv(c *gin.Context) {
-	// userId := c.MustGet("userId").(uint)
+	userId := c.MustGet("userId").(uint)
 	content, err := r.cs.DiscoverTv()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// withWatchedResp := discoverTvAddWatched(r.br.DB, userId, content)
-	// c.JSON(http.StatusOK, withWatchedResp)
-	// HACK TEST
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBDiscoverShowsWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetDiscoverTv: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddList(
+		r.wp,
+		userId,
+		ww.Results,
+		func(i int, w *entity.Watched) {
+			ww.Results[i].Watched = w
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetTrending(c *gin.Context) {
-	// userId := c.MustGet("userId").(uint)
+	userId := c.MustGet("userId").(uint)
 	content, err := r.cs.AllTrending()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// withWatchedResp := allTrendingAddWatched(r.br.DB, userId, content)
-	// c.JSON(http.StatusOK, withWatchedResp)
-	// HACK TEST
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBTrendingAllWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetTrending: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddList(
+		r.wp,
+		userId,
+		ww.Results,
+		func(i int, w *entity.Watched) {
+			ww.Results[i].Watched = w
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetUpcomingMovies(c *gin.Context) {
-	// userId := c.MustGet("userId").(uint)
+	userId := c.MustGet("userId").(uint)
 	content, err := r.cs.UpcomingMovies()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// withWatchedResp := upcomingMoviesAddWatched(r.br.DB, userId, content)
-	// c.JSON(http.StatusOK, withWatchedResp)
-	// HACK TEST
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBUpcomingMoviesWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetUpcomingMovies: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddList(
+		r.wp,
+		userId,
+		ww.Results,
+		func(i int, w *entity.Watched) {
+			ww.Results[i].Watched = w
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetUpcomingTv(c *gin.Context) {
-	// userId := c.MustGet("userId").(uint)
+	userId := c.MustGet("userId").(uint)
 	content, err := r.cs.UpcomingTv()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// withWatchedResp := upcomingTvAddWatched(r.br.DB, userId, content)
-	// c.JSON(http.StatusOK, withWatchedResp)
-	// HACK TEST
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBUpcomingShowsWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetUpcomingTv: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddList(
+		r.wp,
+		userId,
+		ww.Results,
+		func(i int, w *entity.Watched) {
+			ww.Results[i].Watched = w
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetRegions(c *gin.Context) {

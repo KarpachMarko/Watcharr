@@ -399,13 +399,13 @@ func (s *Service) SearchByExternalId(id string, source string) (tmdb.TMDBSearchM
 		slog.Error("Failed to complete find/external_id request!", "error", err.Error())
 		return tmdb.TMDBSearchMultiResponse{}, errors.New("failed to complete find/external_id request")
 	}
-	comb := []tmdb.TMDBSearchMultiResults{}
+	comb := []tmdb.TMDBSearchMultiResult{}
 	comb = append(comb, resp.MovieResults...)
 	comb = append(comb, resp.TvResults...)
 	comb = append(comb, resp.PersonResults...)
 	comb = append(comb, resp.TvSeasonResults...)
 	comb = append(comb, resp.TvEpisodeResults...)
-	return tmdb.TMDBSearchMultiResponse{TMDBSearchResponse: tmdb.TMDBSearchResponse[tmdb.TMDBSearchMultiResults]{
+	return tmdb.TMDBSearchMultiResponse{TMDBSearchResponse: tmdb.TMDBSearchResponse[tmdb.TMDBSearchMultiResult]{
 		Results: comb,
 		TMDBPageFields: tmdb.TMDBPageFields{
 			TotalResults: len(comb),

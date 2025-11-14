@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
-	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
 )
 
 // Separated from `TMDBSearchResponse` so we can embed it for
@@ -25,13 +24,21 @@ type TMDBSearchResult struct {
 	// TMDB ID
 	ID int `json:"id"`
 	// Media Type (movie, show, person)
-	// Some requests won't return this value
+	// **Some requests won't return this value
 	// (namely any request other than a multi
-	// type search), but we add it in manually.
+	// type search), but we add it in manually.**
 	MediaType string `json:"media_type"`
 }
 
-type TMDBSearchMultiResults struct {
+//
+// Multi Search
+//
+
+type TMDBSearchMultiResponse struct {
+	TMDBSearchResponse[TMDBSearchMultiResult]
+}
+
+type TMDBSearchMultiResult struct {
 	TMDBSearchResult
 	Adult            bool     `json:"adult"`
 	BackdropPath     string   `json:"backdrop_path"`
@@ -60,34 +67,31 @@ type TMDBSearchMultiResults struct {
 	SeasonNumber   int    `json:"season_number,omitempty"`
 	ShowId         int    `json:"show_id,omitempty"`
 	StillPath      string `json:"still_path,omitempty"`
-
-	//
-	Watched *entity.Watched
 }
 
-func (t TMDBSearchMultiResults) GetId() int {
+func (t TMDBSearchMultiResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBSearchMultiResults) AddWatched(w *entity.Watched) {
-	t.Watched = w
-}
-
-func (t TMDBSearchMultiResults) GetMediaType() string {
+func (t TMDBSearchMultiResult) GetMediaType() string {
 	return t.MediaType
 }
 
-type TMDBSearchMultiResultsWithWatched struct {
-	TMDBSearchMultiResults
-	addedtocontent.WatchedAddedToContent
-}
-
-type TMDBSearchMultiResponse struct {
-	TMDBSearchResponse[TMDBSearchMultiResults]
-}
-
 type TMDBSearchMultiResponseWithWatched struct {
-	TMDBSearchResponse[TMDBSearchMultiResultsWithWatched]
+	TMDBSearchResponse[TMDBSearchMultiResultWithWatched]
+}
+
+type TMDBSearchMultiResultWithWatched struct {
+	TMDBSearchMultiResult
+	Watched *entity.Watched `json:"watched,omitempty"`
+}
+
+//
+// Movie Search
+//
+
+type TMDBSearchMoviesResponse struct {
+	TMDBSearchResponse[TMDBSearchMovieResult]
 }
 
 type TMDBSearchMovieResult struct {
@@ -107,17 +111,29 @@ type TMDBSearchMovieResult struct {
 	VoteCount        int     `json:"vote_count"`
 }
 
-type TMDBSearchMovieResultWithWatched struct {
-	TMDBSearchMovieResult
-	addedtocontent.WatchedAddedToContent
+func (t TMDBSearchMovieResult) GetId() int {
+	return t.ID
 }
 
-type TMDBSearchMoviesResponse struct {
-	TMDBSearchResponse[TMDBSearchMovieResult]
+func (t TMDBSearchMovieResult) GetMediaType() string {
+	return string(entity.MOVIE)
 }
 
 type TMDBSearchMoviesResponseWithWatched struct {
 	TMDBSearchResponse[TMDBSearchMovieResultWithWatched]
+}
+
+type TMDBSearchMovieResultWithWatched struct {
+	TMDBSearchMovieResult
+	Watched *entity.Watched `json:"watched,omitempty"`
+}
+
+//
+// Tv Shows Search
+//
+
+type TMDBSearchShowsResponse struct {
+	TMDBSearchResponse[TMDBSearchShowsResult]
 }
 
 type TMDBSearchShowsResult struct {
@@ -137,18 +153,26 @@ type TMDBSearchShowsResult struct {
 	VoteCount        int      `json:"vote_count"`
 }
 
-type TMDBSearchShowsResultWithWatched struct {
-	TMDBSearchShowsResult
-	addedtocontent.WatchedAddedToContent
+func (t TMDBSearchShowsResult) GetId() int {
+	return t.ID
 }
 
-type TMDBSearchShowsResponse struct {
-	TMDBSearchResponse[TMDBSearchShowsResult]
+func (t TMDBSearchShowsResult) GetMediaType() string {
+	return string(entity.SHOW)
 }
 
 type TMDBSearchShowsResponseWithWatched struct {
 	TMDBSearchResponse[TMDBSearchShowsResultWithWatched]
 }
+
+type TMDBSearchShowsResultWithWatched struct {
+	TMDBSearchShowsResult
+	Watched *entity.Watched `json:"watched,omitempty"`
+}
+
+//
+// People Search
+//
 
 type TMDBSearchPeopleResult struct {
 	TMDBSearchResult
@@ -182,17 +206,26 @@ type TMDBSearchPeopleResponse struct {
 	TMDBSearchResponse[TMDBSearchPeopleResult]
 }
 
+//
+// Search By External ID
+//
+
 type TMDBFindByExternalIdResponse struct {
-	// These are all a TMDBSearchMultiResults so our search func can easily
-	// combine all of them into one []TMDBSearchMultiResults for response
-	// to client (seems not easy to convert to TMDBSearchMultiResults for
+	// These are all a TMDBSearchMultiResult so our search func can easily
+	// combine all of them into one []TMDBSearchMultiResult for response
+	// to client (seems not easy to convert to TMDBSearchMultiResult for
 	// concatenation after unmarshalling to correct type).
-	MovieResults     []TMDBSearchMultiResults `json:"movie_results"`
-	PersonResults    []TMDBSearchMultiResults `json:"person_results"`
-	TvResults        []TMDBSearchMultiResults `json:"tv_results"`
-	TvSeasonResults  []TMDBSearchMultiResults `json:"tv_season_results"`
-	TvEpisodeResults []TMDBSearchMultiResults `json:"tv_episode_results"`
+	MovieResults     []TMDBSearchMultiResult `json:"movie_results"`
+	PersonResults    []TMDBSearchMultiResult `json:"person_results"`
+	TvResults        []TMDBSearchMultiResult `json:"tv_results"`
+	TvSeasonResults  []TMDBSearchMultiResult `json:"tv_season_results"`
+	TvEpisodeResults []TMDBSearchMultiResult `json:"tv_episode_results"`
 }
+
+//
+// Content Details
+// A base for details structs.
+//
 
 type TMDBContentDetails struct {
 	ID           int    `json:"id"`
@@ -227,6 +260,10 @@ type TMDBContentDetails struct {
 	} `json:"spoken_languages"`
 }
 
+//
+// Movie Details
+//
+
 type TMDBMovieDetailsBase struct {
 	TMDBContentDetails
 	Adult               bool   `json:"adult"`
@@ -241,10 +278,9 @@ type TMDBMovieDetailsBase struct {
 	Video               bool   `json:"video"`
 
 	// Extra items because we use `append_to_response` on the request
-	Videos         TMDBContentVideos `json:"videos"`
-	WatchProviders interface{}       `json:"watch/providers"`
-	// Similar        TMDBMovieSimilar     `json:"similar"`
-	ExternalIds TMDBExternalIdsMovie `json:"external_ids"`
+	Videos         TMDBContentVideos    `json:"videos"`
+	WatchProviders interface{}          `json:"watch/providers"`
+	ExternalIds    TMDBExternalIdsMovie `json:"external_ids"`
 }
 
 type TMDBMovieDetails struct {
@@ -252,11 +288,65 @@ type TMDBMovieDetails struct {
 	Similar TMDBMovieSimilar `json:"similar"`
 }
 
+func (t TMDBMovieDetails) GetId() int {
+	return t.ID
+}
+
+func (t TMDBMovieDetails) GetMediaType() string {
+	return string(entity.MOVIE)
+}
+
 type TMDBMovieDetailsWithWatched struct {
-	addedtocontent.WatchedAddedToContent
 	TMDBMovieDetailsBase
 	Similar TMDBMovieSimilarWithWatched `json:"similar"`
+	Watched *entity.Watched             `json:"watched,omitempty"`
 }
+
+//
+// Movie Details Similar
+//
+
+type TMDBMovieSimilar struct {
+	TMDBSearchResponse[TMDBMovieSimilarResult]
+}
+
+type TMDBMovieSimilarResult struct {
+	Adult            bool    `json:"adult"`
+	BackdropPath     string  `json:"backdrop_path"`
+	GenreIds         []int   `json:"genre_ids"`
+	ID               int     `json:"id"`
+	OriginalLanguage string  `json:"original_language"`
+	OriginalTitle    string  `json:"original_title"`
+	Overview         string  `json:"overview"`
+	Popularity       float64 `json:"popularity"`
+	PosterPath       string  `json:"poster_path"`
+	ReleaseDate      string  `json:"release_date"`
+	Title            string  `json:"title"`
+	Video            bool    `json:"video"`
+	VoteAverage      float64 `json:"vote_average"`
+	VoteCount        uint32  `json:"vote_count"`
+}
+
+func (t TMDBMovieSimilarResult) GetId() int {
+	return t.ID
+}
+
+func (t TMDBMovieSimilarResult) GetMediaType() string {
+	return string(entity.MOVIE)
+}
+
+type TMDBMovieSimilarWithWatched struct {
+	TMDBSearchResponse[TMDBMovieSimilarResultWithWatched]
+}
+
+type TMDBMovieSimilarResultWithWatched struct {
+	TMDBMovieSimilarResult
+	Watched *entity.Watched `json:"watched,omitempty"`
+}
+
+//
+// Show Details
+//
 
 type TMDBShowDetailsBase struct {
 	TMDBContentDetails
@@ -308,7 +398,6 @@ type TMDBShowDetailsBase struct {
 	Type string `json:"type"`
 
 	// Extra items because we use `append_to_response` on the request
-	// Similar        SS                  `json:"similar"`
 	Videos         TMDBContentVideos   `json:"videos"`
 	WatchProviders interface{}         `json:"watch/providers"`
 	ExternalIds    TMDBExternalIdsShow `json:"external_ids"`
@@ -320,10 +409,18 @@ type TMDBShowDetails struct {
 	Similar TMDBShowSimilar `json:"similar"`
 }
 
+func (t TMDBShowDetailsBase) GetId() int {
+	return t.ID
+}
+
+func (t TMDBShowDetailsBase) GetMediaType() string {
+	return string(entity.SHOW)
+}
+
 type TMDBShowDetailsWithWatched struct {
-	addedtocontent.WatchedAddedToContent
 	TMDBShowDetailsBase
 	Similar TMDBShowSimilarWithWatched `json:"similar"`
+	Watched *entity.Watched            `json:"watched,omitempty"`
 }
 
 type WatchProvider struct {
@@ -398,6 +495,10 @@ type TMDBSeasonDetails struct {
 	SeasonNumber int    `json:"season_number"`
 }
 
+//
+// Show Details Similar
+//
+
 type TMDBShowSimilar struct {
 	TMDBSearchResponse[TMDBShowSimilarResult]
 }
@@ -419,44 +520,26 @@ type TMDBShowSimilarResult struct {
 	VoteCount        uint32   `json:"vote_count"`
 }
 
+func (t TMDBShowSimilarResult) GetId() int {
+	return t.ID
+}
+
+func (t TMDBShowSimilarResult) GetMediaType() string {
+	return string(entity.SHOW)
+}
+
 type TMDBShowSimilarWithWatched struct {
 	TMDBSearchResponse[TMDBShowSimilarResultWithWatched]
 }
 
 type TMDBShowSimilarResultWithWatched struct {
 	TMDBShowSimilarResult
-	addedtocontent.WatchedAddedToContent
+	Watched *entity.Watched `json:"watched,omitempty"`
 }
 
-type TMDBMovieSimilar struct {
-	TMDBSearchResponse[TMDBMovieSimilarResult]
-}
-
-type TMDBMovieSimilarResult struct {
-	Adult            bool    `json:"adult"`
-	BackdropPath     string  `json:"backdrop_path"`
-	GenreIds         []int   `json:"genre_ids"`
-	ID               int     `json:"id"`
-	OriginalLanguage string  `json:"original_language"`
-	OriginalTitle    string  `json:"original_title"`
-	Overview         string  `json:"overview"`
-	Popularity       float64 `json:"popularity"`
-	PosterPath       string  `json:"poster_path"`
-	ReleaseDate      string  `json:"release_date"`
-	Title            string  `json:"title"`
-	Video            bool    `json:"video"`
-	VoteAverage      float64 `json:"vote_average"`
-	VoteCount        uint32  `json:"vote_count"`
-}
-
-type TMDBMovieSimilarWithWatched struct {
-	TMDBSearchResponse[TMDBMovieSimilarResultWithWatched]
-}
-
-type TMDBMovieSimilarResultWithWatched struct {
-	TMDBMovieSimilarResult
-	addedtocontent.WatchedAddedToContent
-}
+//
+// Person Details
+//
 
 type TMDBPersonDetails struct {
 	Birthday           string   `json:"birthday"`
@@ -537,12 +620,12 @@ type TMDBContentCredits struct {
 	} `json:"crew"`
 }
 
+//
+// Discover Movies
+//
+
 type TMDBDiscoverMovies struct {
 	TMDBSearchResponse[TMDBDiscoverMoviesResult]
-}
-
-type TMDBDiscoverMoviesWithWatched struct {
-	TMDBSearchResponse[TMDBDiscoverMoviesResultWithWatched]
 }
 
 type TMDBDiscoverMoviesResult struct {
@@ -562,17 +645,29 @@ type TMDBDiscoverMoviesResult struct {
 	VoteCount        int     `json:"vote_count"`
 }
 
+func (t TMDBDiscoverMoviesResult) GetId() int {
+	return t.ID
+}
+
+func (t TMDBDiscoverMoviesResult) GetMediaType() string {
+	return string(entity.MOVIE)
+}
+
+type TMDBDiscoverMoviesWithWatched struct {
+	TMDBSearchResponse[TMDBDiscoverMoviesResultWithWatched]
+}
+
 type TMDBDiscoverMoviesResultWithWatched struct {
 	TMDBDiscoverMoviesResult
-	addedtocontent.WatchedAddedToContent
+	Watched *entity.Watched `json:"watched,omitempty"`
 }
+
+//
+// Discover Shows
+//
 
 type TMDBDiscoverShows struct {
 	TMDBSearchResponse[TMDBDiscoverShowsResult]
-}
-
-type TMDBDiscoverShowsWithWatched struct {
-	TMDBSearchResponse[TMDBDiscoverShowsResultWithWatched]
 }
 
 type TMDBDiscoverShowsResult struct {
@@ -591,17 +686,29 @@ type TMDBDiscoverShowsResult struct {
 	VoteCount        int      `json:"vote_count"`
 }
 
+func (t TMDBDiscoverShowsResult) GetId() int {
+	return t.ID
+}
+
+func (t TMDBDiscoverShowsResult) GetMediaType() string {
+	return string(entity.SHOW)
+}
+
+type TMDBDiscoverShowsWithWatched struct {
+	TMDBSearchResponse[TMDBDiscoverShowsResultWithWatched]
+}
+
 type TMDBDiscoverShowsResultWithWatched struct {
 	TMDBDiscoverShowsResult
-	addedtocontent.WatchedAddedToContent
+	Watched *entity.Watched `json:"watched,omitempty"`
 }
+
+//
+// Discover All Trending
+//
 
 type TMDBTrendingAll struct {
 	TMDBSearchResponse[TMDBTrendingAllResult]
-}
-
-type TMDBTrendingAllWithWatched struct {
-	TMDBSearchResponse[TMDBTrendingAllResultWithWatched]
 }
 
 type TMDBTrendingAllResult struct {
@@ -626,10 +733,26 @@ type TMDBTrendingAllResult struct {
 	OriginCountry    []string `json:"origin_country,omitempty"`
 }
 
+func (t TMDBTrendingAllResult) GetId() int {
+	return t.ID
+}
+
+func (t TMDBTrendingAllResult) GetMediaType() string {
+	return string(t.MediaType)
+}
+
+type TMDBTrendingAllWithWatched struct {
+	TMDBSearchResponse[TMDBTrendingAllResultWithWatched]
+}
+
 type TMDBTrendingAllResultWithWatched struct {
 	TMDBTrendingAllResult
-	addedtocontent.WatchedAddedToContent
+	Watched *entity.Watched `json:"watched,omitempty"`
 }
+
+//
+// Discover Upcoming Movies
+//
 
 type TMDBUpcomingMovies struct {
 	Dates struct {
@@ -637,14 +760,6 @@ type TMDBUpcomingMovies struct {
 		Minimum string `json:"minimum"`
 	} `json:"dates"`
 	TMDBSearchResponse[TMDBUpcomingMoviesResult]
-}
-
-type TMDBUpcomingMoviesWithWatched struct {
-	Dates struct {
-		Maximum string `json:"maximum"`
-		Minimum string `json:"minimum"`
-	} `json:"dates"`
-	TMDBSearchResponse[TMDBUpcomingMoviesResultWithWatched]
 }
 
 type TMDBUpcomingMoviesResult struct {
@@ -664,17 +779,29 @@ type TMDBUpcomingMoviesResult struct {
 	VoteCount        int     `json:"vote_count"`
 }
 
+func (t TMDBUpcomingMoviesResult) GetId() int {
+	return t.ID
+}
+
+func (t TMDBUpcomingMoviesResult) GetMediaType() string {
+	return string(entity.MOVIE)
+}
+
+type TMDBUpcomingMoviesWithWatched struct {
+	TMDBSearchResponse[TMDBUpcomingMoviesResultWithWatched]
+}
+
 type TMDBUpcomingMoviesResultWithWatched struct {
 	TMDBUpcomingMoviesResult
-	addedtocontent.WatchedAddedToContent
+	Watched *entity.Watched `json:"watched,omitempty"`
 }
+
+//
+// Discover Upcoming Shows
+//
 
 type TMDBUpcomingShows struct {
 	TMDBSearchResponse[TMDBUpcomingShowsResult]
-}
-
-type TMDBUpcomingShowsWithWatched struct {
-	TMDBSearchResponse[TMDBUpcomingShowsResultWithWatched]
 }
 
 type TMDBUpcomingShowsResult struct {
@@ -693,10 +820,26 @@ type TMDBUpcomingShowsResult struct {
 	VoteCount        int      `json:"vote_count"`
 }
 
+func (t TMDBUpcomingShowsResult) GetId() int {
+	return t.ID
+}
+
+func (t TMDBUpcomingShowsResult) GetMediaType() string {
+	return string(entity.SHOW)
+}
+
+type TMDBUpcomingShowsWithWatched struct {
+	TMDBSearchResponse[TMDBUpcomingShowsResultWithWatched]
+}
+
 type TMDBUpcomingShowsResultWithWatched struct {
 	TMDBUpcomingShowsResult
-	addedtocontent.WatchedAddedToContent
+	Watched *entity.Watched `json:"watched,omitempty"`
 }
+
+//
+//
+//
 
 type TMDBExternalIds struct {
 	ID          int    `json:"id"`
