@@ -4,7 +4,7 @@
 	import { store } from "@/store.svelte.js";
 	import PageError from "@/lib/PageError.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
-	import axios from "axios";
+	import axios, { isAxiosError } from "axios";
 	import PersonPoster from "@/lib/poster/PersonPoster.svelte";
 	import type {
 		ContentSearch,
@@ -383,9 +383,13 @@
 				// Check this after setting searchResults, so if only game search fails,
 				// we can still show the multi results if that succeeded (and vice versa).
 				if (r[0].status === "rejected") {
-					throw r[0].reason;
+					throw new window.Error(
+						`Content ${isAxiosError(r[0].reason) ? r[0].reason.message : r[0].reason}`,
+					);
 				} else if (r[1].status === "rejected") {
-					throw r[1].reason;
+					throw new window.Error(
+						`Game ${isAxiosError(r[1].reason) ? r[1].reason.message : r[1].reason}`,
+					);
 				}
 			}
 			console.debug("allSearchResults:", allSearchResults);
