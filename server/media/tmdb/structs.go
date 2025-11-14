@@ -288,11 +288,11 @@ type TMDBMovieDetails struct {
 	Similar TMDBMovieSimilar `json:"similar"`
 }
 
-func (t TMDBMovieDetails) GetId() int {
+func (t TMDBMovieDetailsBase) GetId() int {
 	return t.ID
 }
 
-func (t TMDBMovieDetails) GetMediaType() string {
+func (t TMDBMovieDetailsBase) GetMediaType() string {
 	return string(entity.MOVIE)
 }
 
