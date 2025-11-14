@@ -112,14 +112,21 @@ func (r *Router) GetSearchMulti(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddList(
+	if err := addedtocontent.AddList(
 		r.wp,
 		userId,
 		ww.Results,
 		func(i int, w *entity.Watched) {
 			ww.Results[i].Watched = w
 		},
-	)
+	); err != nil {
+		slog.Error("GetSearchMulti: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
@@ -145,14 +152,21 @@ func (r *Router) GetSearchMovie(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddList(
+	if err := addedtocontent.AddList(
 		r.wp,
 		userId,
 		ww.Results,
 		func(i int, w *entity.Watched) {
 			ww.Results[i].Watched = w
 		},
-	)
+	); err != nil {
+		slog.Error("GetSearchMovie: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
@@ -178,14 +192,21 @@ func (r *Router) GetSearchTv(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddList(
+	if err := addedtocontent.AddList(
 		r.wp,
 		userId,
 		ww.Results,
 		func(i int, w *entity.Watched) {
 			ww.Results[i].Watched = w
 		},
-	)
+	); err != nil {
+		slog.Error("GetSearchTv: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
@@ -224,14 +245,21 @@ func (r *Router) GetSearchByExternalId(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddList(
+	if err := addedtocontent.AddList(
 		r.wp,
 		userId,
 		ww.Results,
 		func(i int, w *entity.Watched) {
 			ww.Results[i].Watched = w
 		},
-	)
+	); err != nil {
+		slog.Error("GetSearchByExternalId: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
@@ -261,7 +289,7 @@ func (r *Router) GetMovieDetails(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddSingularAndList(
+	if err := addedtocontent.AddSingularAndList(
 		r.wp,
 		userId,
 		ww,
@@ -276,7 +304,14 @@ func (r *Router) GetMovieDetails(c *gin.Context) {
 				},
 			),
 		},
-	)
+	); err != nil {
+		slog.Error("GetMovieDetails: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
@@ -320,7 +355,7 @@ func (r *Router) GetTvDetails(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddSingularAndList(
+	if err := addedtocontent.AddSingularAndList(
 		r.wp,
 		userId,
 		ww,
@@ -335,7 +370,14 @@ func (r *Router) GetTvDetails(c *gin.Context) {
 				},
 			),
 		},
-	)
+	); err != nil {
+		slog.Error("GetTvDetails: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
@@ -431,14 +473,21 @@ func (r *Router) GetDiscoverMovies(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddList(
+	if err := addedtocontent.AddList(
 		r.wp,
 		userId,
 		ww.Results,
 		func(i int, w *entity.Watched) {
 			ww.Results[i].Watched = w
 		},
-	)
+	); err != nil {
+		slog.Error("GetDiscoverMovies: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
@@ -458,14 +507,21 @@ func (r *Router) GetDiscoverTv(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddList(
+	if err := addedtocontent.AddList(
 		r.wp,
 		userId,
 		ww.Results,
 		func(i int, w *entity.Watched) {
 			ww.Results[i].Watched = w
 		},
-	)
+	); err != nil {
+		slog.Error("GetDiscoverTv: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
@@ -485,14 +541,21 @@ func (r *Router) GetTrending(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddList(
+	if err := addedtocontent.AddList(
 		r.wp,
 		userId,
 		ww.Results,
 		func(i int, w *entity.Watched) {
 			ww.Results[i].Watched = w
 		},
-	)
+	); err != nil {
+		slog.Error("GetTrending: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
@@ -512,14 +575,21 @@ func (r *Router) GetUpcomingMovies(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddList(
+	if err := addedtocontent.AddList(
 		r.wp,
 		userId,
 		ww.Results,
 		func(i int, w *entity.Watched) {
 			ww.Results[i].Watched = w
 		},
-	)
+	); err != nil {
+		slog.Error("GetUpcomingMovies: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
@@ -539,14 +609,21 @@ func (r *Router) GetUpcomingTv(c *gin.Context) {
 		)
 		return
 	}
-	addedtocontent.AddList(
+	if err := addedtocontent.AddList(
 		r.wp,
 		userId,
 		ww.Results,
 		func(i int, w *entity.Watched) {
 			ww.Results[i].Watched = w
 		},
-	)
+	); err != nil {
+		slog.Error("GetUpcomingTv: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
 	c.JSON(http.StatusOK, ww)
 }
 
