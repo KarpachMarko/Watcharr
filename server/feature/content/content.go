@@ -394,10 +394,17 @@ func (s *Service) SearchByExternalId(id string, source string) (tmdb.TMDBSearchM
 	if source == "" {
 		source = "imdb"
 	}
-	err := s.tmdb.Request("/find/"+id, map[string]string{"external_source": source + "_id"}, &resp)
-	if err != nil {
-		slog.Error("Failed to complete find/external_id request!", "error", err.Error())
-		return tmdb.TMDBSearchMultiResponse{}, errors.New("failed to complete find/external_id request")
+	cacheKey := cache.CreateCacheKey("SearchByExternalId", id, source)
+	if cache.GetCache(ContentStore, cacheKey, &resp) {
+		slog.Debug("SearchByExternalId: Got cache.")
+	} else {
+		// If not found in cache, request data from tmdb.
+		err := s.tmdb.Request("/find/"+id, map[string]string{"external_source": source + "_id"}, &resp)
+		if err != nil {
+			slog.Error("Failed to complete find/external_id request!", "error", err.Error())
+			return tmdb.TMDBSearchMultiResponse{}, errors.New("failed to complete find/external_id request")
+		}
+		ContentStore.Set(cacheKey, resp, time.Hour*24)
 	}
 	comb := []tmdb.TMDBSearchMultiResult{}
 	comb = append(comb, resp.MovieResults...)
