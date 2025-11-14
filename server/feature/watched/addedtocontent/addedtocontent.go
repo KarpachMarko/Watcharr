@@ -55,8 +55,8 @@ func AddList[S Addable](
 			}
 		}
 	} else {
-		// TODO Set 'FailedToGetWatched' to `true` for the whole response obj when supported in structs
-		slog.Error("Getting watched items by tmdbIds failed!")
+		slog.Error("AddList: Getting watched items by tmdbIds failed!", "error", err)
+		return err
 	}
 	return nil
 }
@@ -66,19 +66,20 @@ func Add[S Addable](
 	userId uint,
 	s S,
 	addCb func(w *entity.Watched),
-) {
+) error {
 	watchedEntry, err := wp.GetWatchedItemByTmdbId(
 		userId,
 		uint(s.GetId()),
 		s.GetMediaType(),
 	)
 	if err != nil {
-		if err != gorm.ErrRecordNotFound {
-			// withWatchedResp.FailedToGetWatched = true
+		if err == gorm.ErrRecordNotFound {
+			return nil
 		}
-		return
+		return err
 	}
 	addCb(&watchedEntry)
+	return nil
 }
 
 func AddSingularAndList[S Addable, S2 Addable](
@@ -87,9 +88,15 @@ func AddSingularAndList[S Addable, S2 Addable](
 	s S,
 	addCb func(w *entity.Watched),
 	list []*AddListCall[S2],
-) {
-	Add(wp, userId, s, addCb)
-	for i := range list {
-		AddList(wp, userId, list[i].s, list[i].addCb)
+) error {
+	err := Add(wp, userId, s, addCb)
+	if err != nil {
+		return err
 	}
+	for i := range list {
+		if err := AddList(wp, userId, list[i].s, list[i].addCb); err != nil {
+			return err
+		}
+	}
+	return nil
 }
