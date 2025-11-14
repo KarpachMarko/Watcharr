@@ -22,7 +22,7 @@ type WatchedAddedToContent struct {
 
 type Addable interface {
 	GetId() int
-	GetMediaType() string
+	GetMediaType() entity.ContentType
 }
 
 type WatchedProvider interface {
@@ -56,13 +56,13 @@ func AddList[S Addable](
 	for _, v := range s {
 		contentIdAndTypePairs = append(contentIdAndTypePairs, []any{
 			v.GetId(),
-			entity.ContentType(v.GetMediaType()),
+			v.GetMediaType(),
 		})
 	}
 	if ws, err := wp.GetWatchedItemsByTmdbIds(userId, contentIdAndTypePairs); err == nil {
 		for _, v := range ws {
 			for i, vv := range s {
-				if vv.GetId() == v.Content.TmdbID && vv.GetMediaType() == string(v.Content.Type) {
+				if vv.GetId() == v.Content.TmdbID && vv.GetMediaType() == v.Content.Type {
 					addCb(i, &v)
 				}
 			}
@@ -83,7 +83,7 @@ func Add[S Addable](
 	watchedEntry, err := wp.GetWatchedItemByTmdbId(
 		userId,
 		uint(s.GetId()),
-		entity.ContentType(s.GetMediaType()),
+		s.GetMediaType(),
 	)
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {

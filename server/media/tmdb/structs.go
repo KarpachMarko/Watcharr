@@ -73,8 +73,8 @@ func (t TMDBSearchMultiResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBSearchMultiResult) GetMediaType() string {
-	return t.MediaType
+func (t TMDBSearchMultiResult) GetMediaType() entity.ContentType {
+	return entity.ContentType(t.MediaType)
 }
 
 type TMDBSearchMultiResponseWithWatched struct {
@@ -115,8 +115,8 @@ func (t TMDBSearchMovieResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBSearchMovieResult) GetMediaType() string {
-	return string(entity.MOVIE)
+func (t TMDBSearchMovieResult) GetMediaType() entity.ContentType {
+	return entity.MOVIE
 }
 
 type TMDBSearchMoviesResponseWithWatched struct {
@@ -157,8 +157,8 @@ func (t TMDBSearchShowsResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBSearchShowsResult) GetMediaType() string {
-	return string(entity.SHOW)
+func (t TMDBSearchShowsResult) GetMediaType() entity.ContentType {
+	return entity.SHOW
 }
 
 type TMDBSearchShowsResponseWithWatched struct {
@@ -292,8 +292,8 @@ func (t TMDBMovieDetailsBase) GetId() int {
 	return t.ID
 }
 
-func (t TMDBMovieDetailsBase) GetMediaType() string {
-	return string(entity.MOVIE)
+func (t TMDBMovieDetailsBase) GetMediaType() entity.ContentType {
+	return entity.MOVIE
 }
 
 type TMDBMovieDetailsWithWatched struct {
@@ -331,8 +331,8 @@ func (t TMDBMovieSimilarResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBMovieSimilarResult) GetMediaType() string {
-	return string(entity.MOVIE)
+func (t TMDBMovieSimilarResult) GetMediaType() entity.ContentType {
+	return entity.MOVIE
 }
 
 type TMDBMovieSimilarWithWatched struct {
@@ -413,8 +413,8 @@ func (t TMDBShowDetailsBase) GetId() int {
 	return t.ID
 }
 
-func (t TMDBShowDetailsBase) GetMediaType() string {
-	return string(entity.SHOW)
+func (t TMDBShowDetailsBase) GetMediaType() entity.ContentType {
+	return entity.SHOW
 }
 
 type TMDBShowDetailsWithWatched struct {
@@ -524,8 +524,8 @@ func (t TMDBShowSimilarResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBShowSimilarResult) GetMediaType() string {
-	return string(entity.SHOW)
+func (t TMDBShowSimilarResult) GetMediaType() entity.ContentType {
+	return entity.SHOW
 }
 
 type TMDBShowSimilarWithWatched struct {
@@ -649,8 +649,8 @@ func (t TMDBDiscoverMoviesResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBDiscoverMoviesResult) GetMediaType() string {
-	return string(entity.MOVIE)
+func (t TMDBDiscoverMoviesResult) GetMediaType() entity.ContentType {
+	return entity.MOVIE
 }
 
 type TMDBDiscoverMoviesWithWatched struct {
@@ -690,8 +690,8 @@ func (t TMDBDiscoverShowsResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBDiscoverShowsResult) GetMediaType() string {
-	return string(entity.SHOW)
+func (t TMDBDiscoverShowsResult) GetMediaType() entity.ContentType {
+	return entity.SHOW
 }
 
 type TMDBDiscoverShowsWithWatched struct {
@@ -737,8 +737,8 @@ func (t TMDBTrendingAllResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBTrendingAllResult) GetMediaType() string {
-	return string(t.MediaType)
+func (t TMDBTrendingAllResult) GetMediaType() entity.ContentType {
+	return entity.ContentType(t.MediaType)
 }
 
 type TMDBTrendingAllWithWatched struct {
@@ -783,8 +783,8 @@ func (t TMDBUpcomingMoviesResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBUpcomingMoviesResult) GetMediaType() string {
-	return string(entity.MOVIE)
+func (t TMDBUpcomingMoviesResult) GetMediaType() entity.ContentType {
+	return entity.MOVIE
 }
 
 type TMDBUpcomingMoviesWithWatched struct {
@@ -824,8 +824,8 @@ func (t TMDBUpcomingShowsResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBUpcomingShowsResult) GetMediaType() string {
-	return string(entity.SHOW)
+func (t TMDBUpcomingShowsResult) GetMediaType() entity.ContentType {
+	return entity.SHOW
 }
 
 type TMDBUpcomingShowsWithWatched struct {
