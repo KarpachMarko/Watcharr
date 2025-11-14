@@ -53,7 +53,7 @@ func (r *Router) AddRoutes() {
 	// Search for people
 	content.GET("/search/person", router.PaginatedRequest(true), cache.CachePage(r.br.MemStore, exp, r.GetSearchPerson))
 	// Search for content with external id
-	content.GET("/search/ext/:id/:source", cache.CachePage(r.br.MemStore, exp, r.GetSearchByExternalId))
+	content.GET("/search/ext/:id/:source", r.GetSearchByExternalId)
 	// Get movie details (for movie page)
 	content.GET("/movie/:id", router.WhereaboutsRequired(r.br.Cfg), r.GetMovieDetails)
 	// Get movie cast
@@ -205,6 +205,7 @@ func (r *Router) GetSearchPerson(c *gin.Context) {
 }
 
 func (r *Router) GetSearchByExternalId(c *gin.Context) {
+	userId := c.MustGet("userId").(uint)
 	if c.Param("id") == "" {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "an id was not provided"})
 		return
@@ -214,7 +215,24 @@ func (r *Router) GetSearchByExternalId(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBSearchMultiResponseWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetSearchByExternalId: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	addedtocontent.AddList(
+		r.wp,
+		userId,
+		ww.Results,
+		func(i int, w *entity.Watched) {
+			ww.Results[i].Watched = w
+		},
+	)
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetMovieDetails(c *gin.Context) {
