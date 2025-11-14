@@ -27,8 +27,8 @@ func NewRouter(
 func (r *Router) AddRoutes() {
 	season := r.br.Router.Group("/watched/season").Use(authmiddleware.AuthRequired(nil, r.br.Cfg))
 
-	season.POST("/season", r.AddWatchedSeason)
-	season.DELETE("/season/:id", r.DeleteWatchedSeason)
+	season.POST("", r.AddWatchedSeason)
+	season.DELETE(":id", r.DeleteWatchedSeason)
 }
 
 func (r *Router) AddWatchedSeason(c *gin.Context) {
