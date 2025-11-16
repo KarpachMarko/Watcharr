@@ -511,12 +511,18 @@ func (s *Service) PersonDetails(id string) (tmdb.TMDBPersonDetails, error) {
 }
 
 func (s *Service) PersonCredits(id string) (tmdb.TMDBPersonCombinedCredits, error) {
+	cacheKey := cache.CreateCacheKey("PersonCredits", id)
 	resp := new(tmdb.TMDBPersonCombinedCredits)
+	if cache.GetCache(ContentStore, cacheKey, &resp) {
+		slog.Debug("PersonCredits: Returning cache.")
+		return *resp, nil
+	}
 	err := s.tmdb.Request("/person/"+id+"/combined_credits", map[string]string{}, &resp)
 	if err != nil {
 		slog.Error("Failed to complete person details request!", "error", err.Error())
 		return tmdb.TMDBPersonCombinedCredits{}, errors.New("failed to complete person details request")
 	}
+	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil
 }
 

@@ -66,9 +66,9 @@ func (r *Router) AddRoutes() {
 	// Supports `watchedId` query parameter for saving the requested season as `LastViewedSeason`.
 	content.GET("/tv/:id/season/:num", r.GetSeasonDetails)
 	// Get person details
-	content.GET("/person/:id", r.GetPerson)
+	content.GET("/person/:id", cache.CachePage(r.br.MemStore, exp, r.GetPerson))
 	// Get person credits
-	content.GET("/person/:id/credits", cache.CachePage(r.br.MemStore, exp, r.GetPersonCredits))
+	content.GET("/person/:id/credits", r.GetPersonCredits)
 	// Discover movies
 	content.GET("/discover/movies", r.GetDiscoverMovies)
 	// Discover shows
@@ -445,6 +445,7 @@ func (r *Router) GetPerson(c *gin.Context) {
 }
 
 func (r *Router) GetPersonCredits(c *gin.Context) {
+	userId := c.MustGet("userId").(uint)
 	if c.Param("id") == "" {
 		c.Status(400)
 		return
@@ -454,7 +455,31 @@ func (r *Router) GetPersonCredits(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, content)
+	ww := tmdb.TMDBPersonCombinedCreditsWithWatched{}
+	if err := copier.Copy(&ww, &content); err != nil {
+		slog.Error("GetPersonCredits: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	if err := addedtocontent.AddList(
+		r.wp,
+		userId,
+		ww.Cast,
+		func(i int, w *entity.Watched) {
+			ww.Cast[i].Watched = w
+		},
+	); err != nil {
+		slog.Error("GetPersonCredits: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
+	c.JSON(http.StatusOK, ww)
 }
 
 func (r *Router) GetDiscoverMovies(c *gin.Context) {

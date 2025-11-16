@@ -189,7 +189,6 @@ export interface WatchedEpisodeAddResponse {
 
 export interface WatchedAddedToContent {
 	watched?: Watched;
-	failedToGetWatched: boolean;
 }
 
 export type TMDBShowDetailsWithWatched = WatchedAddedToContent &
@@ -585,7 +584,7 @@ export interface TMDBPersonCombinedCredits {
 	cast: TMDBPersonCombinedCreditsCast[];
 }
 
-export interface TMDBPersonCombinedCreditsCast {
+export interface TMDBPersonCombinedCreditsCast extends WatchedAddedToContent {
 	id: number;
 	original_language: string;
 	episode_count: number;
@@ -594,7 +593,7 @@ export interface TMDBPersonCombinedCreditsCast {
 	original_name: string;
 	genre_ids: number[];
 	name: string;
-	media_type: MediaType;
+	media_type: ContentType;
 	poster_path: string;
 	first_air_date: string;
 	vote_average: number;

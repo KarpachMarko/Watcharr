@@ -5,8 +5,6 @@
 	import PosterList from "@/lib/poster/PosterList.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
 	import DropDown from "@/lib/DropDown.svelte";
-	import { getWatchedDependedProps } from "@/lib/util/helpers";
-	import { store } from "@/store.svelte.js";
 	import type {
 		TMDBPersonCombinedCredits,
 		TMDBPersonCombinedCreditsCast,
@@ -207,14 +205,10 @@
 					</div>
 					<div class="page">
 						<PosterList>
-							{#each credits.cast as c (c.id)}
+							{#each credits.cast as c, i (c.id)}
 								<Poster
 									media={c}
-									{...getWatchedDependedProps(
-										c.id,
-										c.media_type,
-										store.watchedList,
-									)}
+									bind:watched={credits.cast[i].watched}
 									fluidSize
 									hideIfNotOnList={onMyListFilter}
 								/>

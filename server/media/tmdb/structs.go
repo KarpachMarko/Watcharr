@@ -558,10 +558,19 @@ type TMDBPersonDetails struct {
 	Homepage           string   `json:"homepage"`
 }
 
+//
+// Person Combined Credits
+//
+
 type TMDBPersonCombinedCredits struct {
 	ID   int                             `json:"id"`
 	Cast []TMDBPersonCombinedCreditsCast `json:"cast"`
 	// crew TMDBPersonCombinedCreditsCrew
+}
+
+type TMDBPersonCombinedCreditsWithWatched struct {
+	ID   int                                        `json:"id"`
+	Cast []TMDBPersonCombinedCreditsCastWithWatched `json:"cast"`
 }
 
 type TMDBPersonCombinedCreditsCast struct {
@@ -588,6 +597,23 @@ type TMDBPersonCombinedCreditsCast struct {
 	Title            string   `json:"title"`
 	Adult            bool     `json:"adult"`
 }
+
+func (t TMDBPersonCombinedCreditsCast) GetId() int {
+	return t.ID
+}
+
+func (t TMDBPersonCombinedCreditsCast) GetMediaType() entity.ContentType {
+	return entity.ContentType(t.MediaType)
+}
+
+type TMDBPersonCombinedCreditsCastWithWatched struct {
+	TMDBPersonCombinedCreditsCast
+	Watched *entity.Watched `json:"watched,omitempty"`
+}
+
+//
+// Content Credits
+//
 
 type TMDBContentCredits struct {
 	ID   int `json:"id"`
