@@ -27,8 +27,7 @@ func (r *Router) AddRoutes() {
 	tag := r.br.Router.Group("/tag").Use(authmiddleware.AuthRequired(nil, r.br.Cfg))
 
 	tag.GET("", r.GetTags)
-	// TODO implement getting a tag (with pagination support)
-	// tag.GET(":id", r.GetTag)
+	tag.GET(":id", r.GetTag)
 	tag.POST("", r.CreateTag)
 	tag.PUT(":id", r.UpdateTag)
 	tag.DELETE(":id", r.DeleteTag)
@@ -47,19 +46,19 @@ func (r *Router) GetTags(c *gin.Context) {
 
 // Get all items within one of our tags.
 func (r *Router) GetTag(c *gin.Context) {
-	// id, err := strconv.Atoi(c.Param("id"))
-	// if err != nil {
-	// 	slog.Error("getTag route failed to convert id param to int", "error", err)
-	// 	c.Status(http.StatusBadRequest)
-	// 	return
-	// }
-	// userId := c.MustGet("userId").(uint)
-	// tags, err := getTag(userId, uint(id))
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
-	// 	return
-	// }
-	// c.JSON(http.StatusOK, tags)
+	userId := c.MustGet("userId").(uint)
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		slog.Error("getTag route failed to convert id param to int", "error", err)
+		c.Status(http.StatusBadRequest)
+		return
+	}
+	tags, err := r.service.GetTag(userId, uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, router.ErrorResponse{Error: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, tags)
 }
 
 // Create a tag.

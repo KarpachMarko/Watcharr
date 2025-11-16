@@ -33,27 +33,44 @@ func (s *Service) GetTags(userId uint) ([]entity.Tag, error) {
 	return *tags, nil
 }
 
-// func GetTag(userId uint, tagId uint) (Tag, error) {
-// 	tag := new(Tag)
-// 	res := s.db.Model(&Tag{}).Where("id = ? AND user_id = ?", tagId, userId).Preload("Watched").Find(&tag)
-// 	if res.Error != nil {
-// 		slog.Error("getTag: Failed getting tag from database", "error", res.Error.Error())
-// 		return Tag{}, errors.New("failed getting tag")
-// 	}
-// 	if tag.ID == 0 {
-// 		slog.Error("getTag: Tag does not exist for this user.", "user_id", userId)
-// 		return Tag{}, errors.New("tag does not exist")
-// 	}
-// 	return *tag, nil
-// }
+func (s *Service) GetTag(userId uint, tagId uint) (entity.Tag, error) {
+	tag := new(entity.Tag)
+	res := s.db.
+		Model(&entity.Tag{}).
+		Where("id = ? AND user_id = ?", tagId, userId).
+		Preload("Watched").
+		Preload("Watched.Content").
+		Find(&tag)
+	if res.Error != nil {
+		slog.Error("getTag: Failed getting tag from database",
+			"tag_id", tagId, "error", res.Error.Error())
+		return entity.Tag{}, errors.New("failed getting tag")
+	}
+	if tag.ID == 0 {
+		slog.Error("getTag: Tag does not exist for this user.",
+			"user_id", userId, "tag_id", tagId)
+		return entity.Tag{}, errors.New("tag does not exist")
+	}
+	return *tag, nil
+}
 
 // This method should only be used when we don't have the tagId
 // (eg: when we are importing data) because this is not technically
 // reliable, since users can have multiple tags with the same name/colors
 // (realistically they probably won't, but...).
-func (s *Service) GetTagByNameAndColor(userId uint, tagName string, tagColor string, tagBgColor string) (entity.Tag, error) {
+func (s *Service) GetTagByNameAndColor(
+	userId uint,
+	tagName string,
+	tagColor string,
+	tagBgColor string,
+) (entity.Tag, error) {
 	tag := new(entity.Tag)
-	res := s.db.Model(&entity.Tag{}).Where("name = ? AND user_id = ? AND color = ? AND bg_color = ?", tagName, userId, tagColor, tagBgColor).Preload("Watched").Find(&tag)
+	res := s.db.
+		Model(&entity.Tag{}).
+		Where("name = ? AND user_id = ? AND color = ? AND bg_color = ?",
+			tagName, userId, tagColor, tagBgColor).
+		Preload("Watched").
+		Find(&tag)
 	if res.Error != nil {
 		slog.Error("getTagByNameAndColor: Failed getting tag from database", "error", res.Error.Error())
 		return entity.Tag{}, errors.New("failed getting tag")
