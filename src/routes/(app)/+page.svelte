@@ -47,6 +47,7 @@
 				signal: reqController.signal,
 			});
 			if (pl.data.results.length <= 0) {
+				listLoading = false;
 				console.log("loadWatchedList: No results.");
 				return;
 			}
