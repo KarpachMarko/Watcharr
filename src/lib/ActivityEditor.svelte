@@ -5,18 +5,16 @@
 	import { notify } from "./util/notify";
 
 	interface Props {
-		watchedId: number;
 		activity: Activity;
 		activityMessage: string;
 		onClose: () => void;
+		onRemoved: (activityId: number) => void;
+		onUpdated: (activityId: number, updatedActivity: Activity) => void;
 	}
 
-	let { watchedId, activity, activityMessage, onClose }: Props = $props();
+	let { activity, activityMessage, onClose, onRemoved, onUpdated }: Props =
+		$props();
 
-	let isDateTimeChanged: boolean = $derived(
-		currentDateString != selectedDateString ||
-			currentTimeString != selectedTimeString,
-	);
 	let isDateTimeValid = $state(true);
 	let currentDateObject = new Date(
 		Date.parse(activity.customDate ?? activity.createdAt),
@@ -25,6 +23,10 @@
 	let currentTimeString = dateToInputTimeString(currentDateObject);
 	let selectedDateString = $state(currentDateString);
 	let selectedTimeString = $state(currentTimeString);
+	let isDateTimeChanged: boolean = $derived(
+		currentDateString != selectedDateString ||
+			currentTimeString != selectedTimeString,
+	);
 
 	function dateToInputDateString(date: Date) {
 		const year = date.getFullYear();
@@ -57,10 +59,15 @@
 		}
 	}
 
-	function update() {
+	async function update() {
 		const dateObj = validateNewDate();
 		if (dateObj && isDateTimeValid && isDateTimeChanged) {
-			updateActivity(watchedId, activity.id, dateObj);
+			const updatedActivity = await updateActivity(activity, dateObj);
+			if (!updatedActivity) {
+				// Failed..
+				return;
+			}
+			onUpdated(updatedActivity.id, updatedActivity);
 			onClose();
 			return;
 		}
@@ -73,8 +80,12 @@
 		);
 	}
 
-	function remove() {
-		removeActivity(watchedId, activity.id);
+	async function remove() {
+		const success = await removeActivity(activity.id);
+		if (!success) {
+			return;
+		}
+		onRemoved(activity.id);
 		onClose();
 	}
 </script>

@@ -263,7 +263,7 @@
 			{/if}
 
 			{#if game.watched}
-				<Activity wListId={game.watched.id} activity={game.watched.activity} />
+				<Activity bind:activity={game.watched.activity} />
 			{/if}
 		</div>
 	</div>

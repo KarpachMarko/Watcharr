@@ -319,7 +319,7 @@
 			<SimilarContent type="tv" similar={show.similar} />
 
 			{#if show.watched}
-				<Activity wListId={show.watched.id} activity={show.watched.activity} />
+				<Activity bind:activity={show.watched.activity} />
 			{/if}
 			{#if data?.tvId}
 				<SeasonsList

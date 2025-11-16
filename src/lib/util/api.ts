@@ -13,6 +13,7 @@ import {
 	type PlayedAddRequest,
 	type ActivityUpdateRequest,
 	type WatchedAddedToContent,
+	type Activity,
 } from "@/types";
 import axios from "axios";
 import { notify, unNotify } from "./notify";
@@ -225,55 +226,40 @@ export async function updatePlayed(
 	}
 }
 
-export function updateActivity(
-	watchedId: number,
-	activityId: number,
+export async function updateActivity(
+	activity: Activity,
 	date: Date,
-) {
+): Promise<Activity | undefined> {
 	const nid = notify({ text: "Updating", type: "loading" });
-	console.debug("updateActivity called", watchedId, activityId, date);
+	console.debug("updateActivity:", activity, date);
 	try {
-		axios
-			.put("/activity/" + activityId, {
-				customDate: date.toISOString(),
-			} as ActivityUpdateRequest)
-			.then((resp) => {
-				console.log("Updated activity timestamp:", resp.status);
-				const activity = store.watchedList
-					.find((w) => w.id === watchedId)
-					?.activity.find((a) => a.id === activityId);
-				if (activity) {
-					activity.customDate = date.toISOString();
-				}
-				notify({ id: nid, text: "Updated!", type: "success" });
-			})
-			.catch((err) => {
-				console.error(err);
-				notify({ id: nid, text: "Failed to Update!", type: "error" });
-			});
+		const resp = await axios.put(`/activity/${activity.id}`, {
+			customDate: date.toISOString(),
+		} as ActivityUpdateRequest);
+		console.log("updateActivity: Response status:", resp.status);
+		if (activity) {
+			activity.customDate = date.toISOString();
+		}
+		notify({ id: nid, text: "Updated!", type: "success" });
+		return activity;
 	} catch (err) {
 		console.error("updateActivity failed!", err);
-		notify({ id: nid, text: "Failed!", type: "error" });
+		notify({ id: nid, text: "Failed to Update!", type: "error" });
 	}
 }
 
-export function removeActivity(watchedId: number, activityId: number) {
+export async function removeActivity(activityId: number): Promise<boolean> {
 	const nid = notify({ text: "Deleting", type: "loading" });
-	axios
-		.delete("/activity/" + activityId)
-		.then((resp) => {
-			const wListItem = store.watchedList.find((w) => w.id === watchedId);
-			if (wListItem) {
-				wListItem.activity = wListItem.activity.filter(
-					(i) => i.id !== activityId,
-				);
-			}
-			notify({ id: nid, text: "Deleted!", type: "success" });
-		})
-		.catch((err) => {
-			console.error(err);
-			notify({ id: nid, text: "Failed to Delete!", type: "error" });
-		});
+	try {
+		await axios.delete("/activity/" + activityId);
+		console.log("removeActivity: Removed:", activityId);
+		notify({ id: nid, text: "Deleted!", type: "success" });
+		return true;
+	} catch (err) {
+		console.error("removeActivity: Failed!", err);
+		notify({ id: nid, text: "Failed to Delete!", type: "error" });
+	}
+	return false;
 }
 
 export async function contentExistsOnJellyfin(

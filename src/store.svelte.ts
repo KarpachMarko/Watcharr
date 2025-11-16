@@ -8,7 +8,6 @@ import type {
 	Theme,
 	UserSettings,
 	WLDetailedViewOption,
-	Watched,
 } from "./types";
 import type { Notification } from "./lib/util/notify";
 import { browser } from "$app/environment";

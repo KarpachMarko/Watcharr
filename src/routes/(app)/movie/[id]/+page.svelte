@@ -317,10 +317,7 @@
 			<SimilarContent type="movie" similar={movie.similar} />
 
 			{#if movie.watched}
-				<Activity
-					wListId={movie.watched.id}
-					activity={movie.watched.activity}
-				/>
+				<Activity bind:activity={movie.watched.activity} />
 			{/if}
 		</div>
 	</div>

@@ -50,7 +50,10 @@ func (s *Service) UpdateActivity(userId uint, id uint, activityUpdateRequest dom
 	if activityUpdateRequest.CustomDate.IsZero() {
 		return errors.New("customDate must be set to update an activity")
 	}
-	res := s.db.Model(&entity.Activity{}).Where("user_id = ? AND id = ?", userId, id).Update("custom_date", activityUpdateRequest.CustomDate)
+	res := s.db.
+		Model(&entity.Activity{}).
+		Where("user_id = ? AND id = ?", userId, id).
+		Update("custom_date", activityUpdateRequest.CustomDate)
 	if res.Error != nil {
 		slog.Error("Error updating activity in database", "error", res.Error.Error())
 		return errors.New("failed updating activity in database")

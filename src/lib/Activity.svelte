@@ -11,10 +11,13 @@
 
 	interface Props {
 		activity: Activity[] | undefined;
-		wListId: number;
 	}
 
-	let { activity, wListId }: Props = $props();
+	let {
+		// Bindable so we can update/delete activity and reflect
+		// the change upstream.
+		activity = $bindable(undefined),
+	}: Props = $props();
 
 	let clickedActivity: Activity | undefined = $state();
 	let groupedActivities: { [index: string]: any } = $derived(
@@ -202,10 +205,28 @@
 
 {#if clickedActivity}
 	<ActivityEditor
-		watchedId={wListId}
 		activity={clickedActivity}
 		activityMessage={getMsg(clickedActivity)}
 		onClose={() => (clickedActivity = undefined)}
+		onUpdated={(activityId, updatedActivity) => {
+			if (!activity) {
+				console.error(
+					"ActivityEditor->onUpdated: 'activity' doesn't exist somehow..",
+				);
+				return;
+			}
+			const ai = activity.findIndex((a) => a.id === activityId);
+			activity[ai] = updatedActivity;
+		}}
+		onRemoved={(activityId) => {
+			if (!activity) {
+				console.error(
+					"ActivityEditor->onRemoved: 'activity' doesn't exist somehow..",
+				);
+				return;
+			}
+			activity = activity.filter((a) => a.id !== activityId);
+		}}
 	/>
 {/if}
 
