@@ -2,27 +2,15 @@
 	import { store } from "@/store.svelte";
 	import Menu from "../Menu.svelte";
 
-	function sortClicked(type: string, modeType: string = "UPDOWN") {
-		let mode: string;
-		if (modeType === "UPDOWN") {
-			mode = "UP";
-			if (store.activeSort[0] == type) {
-				if (store.activeSort[1] === "UP") {
-					mode = "DOWN";
-				} else if (store.activeSort[1] === "DOWN") {
-					mode = "";
-				}
+	function sortClicked(type: string) {
+		let mode = "UP";
+		// If this sort is already the `activeSort`
+		if (store.activeSort[0] == type) {
+			if (store.activeSort[1] === "UP") {
+				mode = "DOWN";
+			} else if (store.activeSort[1] === "DOWN") {
+				mode = "";
 			}
-		} else if (modeType === "TOGGLE") {
-			mode = "ON";
-			if (store.activeSort[0] == type) {
-				if (store.activeSort[1] === "ON") {
-					mode = "OFF";
-				}
-			}
-		} else {
-			console.error("filterClicked() ran without a valid modeType:", modeType);
-			return;
 		}
 		store.activeSort = [type, mode];
 	}
