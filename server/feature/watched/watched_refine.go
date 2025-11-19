@@ -31,15 +31,21 @@ func watchedRefine(wr WatchedGetPageRequest) func(db *gorm.DB) *gorm.DB {
 			case watchedSortLastChanged:
 				db.Order(obc("watcheds.updated_at"))
 			case watchedSortLastFinished:
-				// TODO This can make the query quite slow, look at improving performance.
 				db.
-					Joins("LEFT JOIN activities ON activities.watched_id = watcheds.id").
-					// TODO this whole query looks to work, but we have to add `watcheds.*` to this SELECT,
-					// otherwise it doesn't select them (like it does when we use Model, in the original query build),
-					// is there a better way? Cuz if we modify the Model later in main query, this would break, which isn't ideal.
-					Select("watcheds.*, MAX(MAX(activities.created_at), MAX(activities.custom_date)) as latest_watched_activity").
-					Group("watcheds.id").
-					Order(obc("latest_watched_activity"))
+					// This join looks for the latest activity for each watched entry
+					// that indiciates a 'FINISHED' status. The date of these is used
+					// in the sort below.
+					// This seems the best way to support this sort with how our current
+					// activity data is structured.
+					Joins(`LEFT JOIN (
+							SELECT
+								watched_id AS a_watched_id,
+								MAX(COALESCE(custom_date, created_at)) AS a_sort_by_date
+							FROM activities
+							WHERE data LIKE "%FINISHED%" AND deleted_at IS NULL
+							GROUP BY watched_id
+						) q ON q.a_watched_id = watcheds.id`).
+					Order(obc("q.a_sort_by_date"))
 			case watchedSortRating:
 				db.Order(obc("watcheds.rating"))
 			case watchedSortAlphabetical:
