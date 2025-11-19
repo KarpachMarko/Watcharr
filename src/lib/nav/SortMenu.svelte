@@ -12,6 +12,12 @@
 				mode = "";
 			}
 		}
+		if (!mode) {
+			// If there is no mode, then we are turning this
+			// sort off, so reset the activeSort array.
+			store.activeSort = [];
+			return;
+		}
 		store.activeSort = [type, mode];
 	}
 </script>
