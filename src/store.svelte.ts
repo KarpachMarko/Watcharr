@@ -67,14 +67,25 @@ const _store: Store = $state({
 
 const updateSortAndFiltersForQueryParams = () => {
 	try {
-		_store.sortAndFiltersForQueryParams = {
-			sort: store.activeSort[0],
-			sortDir: store.activeSort[1] === "UP" ? "asc" : "desc",
-			"filter.type": store.activeFilters?.type?.join(","),
-			"filter.status": store.activeFilters?.status?.join(","),
-		};
+		const qp: any = {};
+		if (store.activeSort?.length === 2) {
+			qp.sort = store.activeSort[0];
+			qp.sortDir = store.activeSort[1] === "UP" ? "asc" : "desc";
+		}
+		if (store.activeFilters) {
+			const t = store.activeFilters?.type?.join(",");
+			if (t) {
+				qp["filter.type"] = t;
+			}
+			const s = store.activeFilters?.status?.join(",");
+			if (s) {
+				qp["filter.status"] = s;
+			}
+		}
+		_store.sortAndFiltersForQueryParams = qp;
 	} catch (err) {
 		console.error("updateSortAndFiltersForQueryParams: Failed!", err);
+		_store.sortAndFiltersForQueryParams = {};
 	}
 };
 
