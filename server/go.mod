@@ -14,8 +14,8 @@ require (
 	github.com/robfig/go-cache v0.0.0-20130306151617-9fc39e0dbf62
 	golang.org/x/crypto v0.38.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	gorm.io/driver/sqlite v1.5.7
-	gorm.io/gorm v1.25.12
+	gorm.io/driver/sqlite v1.6.0
+	gorm.io/gorm v1.31.1
 )
 
 require (
