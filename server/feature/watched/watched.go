@@ -127,8 +127,6 @@ func (s *Service) getWatchedPage(
 		Preload("Tags").
 		Scopes(
 			util.Paginate(pp, pRes),
-			// NOTE: watchedRefine->watchedSortLastFinished sort changes the SELECT
-			// statement for this query, so keep that in mind if it ever changes.
 			watchedRefine(wr),
 		).
 		Find(&watched)
