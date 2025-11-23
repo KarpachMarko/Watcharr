@@ -45,6 +45,7 @@ func (r *Router) GetTags(c *gin.Context) {
 }
 
 // Get all items within one of our tags.
+// TODO Add pagination
 func (r *Router) GetTag(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	id, err := strconv.Atoi(c.Param("id"))

@@ -1,4 +1,3 @@
-import { store } from "@/store.svelte";
 import axios from "axios";
 import { notify } from "../util/notify";
 import type { Tag } from "@/types";
@@ -7,10 +6,8 @@ export async function tagWatched(
 	watchedId: number,
 	tag: Tag,
 ): Promise<boolean> {
-	// If item is already in watched store, run update request instead
-	const wEntry = store.watchedList.find((w) => w.id === watchedId);
 	const nid = notify({ text: `Tagging`, type: "loading" });
-	if (!wEntry) {
+	if (typeof watchedId !== "number") {
 		notify({
 			id: nid,
 			text: "Failed To Tag! Watched entry not found.",
@@ -22,12 +19,6 @@ export async function tagWatched(
 		.post(`/watched/${watchedId}/tag/${tag.id}`)
 		.then((resp) => {
 			console.log("tagWatched: Status:", resp.status);
-			if (!wEntry.tags) {
-				wEntry.tags = [tag];
-			} else {
-				wEntry.tags.push(tag);
-			}
-			// watchedList.update(() => wList);
 			notify({ id: nid, text: `Tagged!`, type: "success" });
 			return true;
 		})
@@ -42,11 +33,8 @@ export async function untagWatched(
 	watchedId: number,
 	tag: Tag,
 ): Promise<boolean> {
-	// If item is already in watched store, run update request instead
-	// const wList = get(watchedList);
-	const wEntry = store.watchedList.find((w) => w.id === watchedId);
 	const nid = notify({ text: `Untagging`, type: "loading" });
-	if (!wEntry) {
+	if (typeof watchedId !== "number") {
 		notify({
 			id: nid,
 			text: "Failed To Untag! Watched entry not found.",
@@ -58,10 +46,6 @@ export async function untagWatched(
 		.delete(`/watched/${watchedId}/tag/${tag.id}`)
 		.then((resp) => {
 			console.log("untagWatched: Status:", resp.status);
-			if (wEntry.tags) {
-				wEntry.tags = wEntry.tags.filter((t) => t.id !== tag.id);
-			}
-			// watchedList.update(() => wList);
 			notify({ id: nid, text: `Untagged!`, type: "success" });
 			return true;
 		})

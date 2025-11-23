@@ -1,27 +1,47 @@
 <script lang="ts">
+	import Error from "@/lib/Error.svelte";
 	import Icon from "@/lib/Icon.svelte";
 	import CreateTagModal from "@/lib/tag/CreateTagModal.svelte";
 	import Tag from "@/lib/tag/Tag.svelte";
 	import WatchedList from "@/lib/WatchedList.svelte";
 	import { store } from "@/store.svelte.js";
+	import axios from "axios";
+	import { onDestroy } from "svelte";
 
 	let { data } = $props();
 
 	let tagEditModalShown = $state(false);
 
 	let tag = $derived(store.tags.find((t) => t.id === data.tagId));
-	let watcheds = $derived(
-		store.watchedList.filter((w) =>
-			w.tags ? (w.tags.find((t) => t.id === data.tagId) ? true : false) : false,
-		),
-	);
+
+	let reqController: AbortController | undefined;
+
+	// TODO Support paginated version of this
+
+	async function getTag(id: number) {
+		try {
+			reqController = new AbortController();
+			return (
+				await axios.get<any>(`/tag/${id}`, {
+					signal: reqController.signal,
+				})
+			).data;
+		} catch (err) {
+			console.error(`getTag: Failed!`, id, err);
+			throw err;
+		}
+	}
+
+	onDestroy(() => {
+		reqController?.abort("page destroyed");
+	});
 </script>
 
 <svelte:head>
 	<title>{tag ? `${tag.name} - Tag` : "Tag"}</title>
 </svelte:head>
 
-{#if tag && watcheds}
+{#if tag}
 	<div class="content">
 		<div class="inner">
 			<div class="basic-ctr">
@@ -36,17 +56,21 @@
 		</div>
 	</div>
 
-	{#if watcheds?.length > 0}
-		<WatchedList list={watcheds} />
-	{:else}
-		<div class="content empty-tag">
-			<div class="inner">
-				<Icon i="ticket" wh={80} />
-				<h2 class="norm">This tag is empty!</h2>
-				<h4 class="norm">Add entries to this tag via it's page.</h4>
+	{#await getTag(tag.id) then dbtag}
+		{#if dbtag.watched?.length > 0}
+			<WatchedList list={dbtag.watched} />
+		{:else}
+			<div class="content empty-tag">
+				<div class="inner">
+					<Icon i="ticket" wh={80} />
+					<h2 class="norm">This tag is empty!</h2>
+					<h4 class="norm">Add entries to this tag via it's page.</h4>
+				</div>
 			</div>
-		</div>
-	{/if}
+		{/if}
+	{:catch err}
+		<Error pretty="Failed to load tag entries!" error={err} />
+	{/await}
 {:else}
 	<div class="content">
 		<div class="inner">

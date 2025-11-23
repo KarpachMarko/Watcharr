@@ -3,6 +3,9 @@
 dev:
 	./node_modules/.bin/vite dev
 
+dev_host:
+	./node_modules/.bin/vite dev --host
+
 # Don't judge me.
 version:
 	@$(eval VER := $(filter-out $@,$(MAKECMDGOALS)))
