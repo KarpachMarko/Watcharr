@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Error from "@/lib/Error.svelte";
 	import Icon from "@/lib/Icon.svelte";
+	import Spinner from "@/lib/Spinner.svelte";
 	import CreateTagModal from "@/lib/tag/CreateTagModal.svelte";
 	import Tag from "@/lib/tag/Tag.svelte";
 	import WatchedList from "@/lib/WatchedList.svelte";
@@ -56,7 +57,9 @@
 		</div>
 	</div>
 
-	{#await getTag(tag.id) then dbtag}
+	{#await getTag(tag.id)}
+		<Spinner />
+	{:then dbtag}
 		{#if dbtag.watched?.length > 0}
 			<WatchedList list={dbtag.watched} />
 		{:else}
