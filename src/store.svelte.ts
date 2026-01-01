@@ -75,11 +75,11 @@ const updateSortAndFiltersForQueryParams = () => {
 		if (store.activeFilters) {
 			const t = store.activeFilters?.type?.join(",");
 			if (t) {
-				qp["filter.type"] = t;
+				qp["type"] = t;
 			}
 			const s = store.activeFilters?.status?.join(",");
 			if (s) {
-				qp["filter.status"] = s;
+				qp["status"] = s;
 			}
 		}
 		_store.sortAndFiltersForQueryParams = qp;

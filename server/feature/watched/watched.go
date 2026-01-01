@@ -40,36 +40,6 @@ type WatchedRemoveResponse struct {
 	NewActivity entity.Activity `json:"newActivity"`
 }
 
-// Get watched page request extra (GET) options.
-type WatchedGetPageRequest struct {
-	// Sorting type.
-	Sort WatchedSort `form:"sort"`
-	// Sorting direction (asc or desc).
-	SortDir SortDirection `form:"sortDir,default=desc"`
-	// Filtering options.
-	Filter struct {
-		Type   util.SupportedMedia  `form:"filter.type"`
-		Status entity.WatchedStatus `form:"filter.status"`
-	}
-}
-
-type WatchedSort string
-
-const (
-	watchedSortDateAdded    WatchedSort = "DATEADDED"
-	watchedSortLastChanged  WatchedSort = "LASTCHANGED"
-	watchedSortLastFinished WatchedSort = "LASTFIN"
-	watchedSortRating       WatchedSort = "RATING"
-	watchedSortAlphabetical WatchedSort = "ALPHA"
-)
-
-type SortDirection string
-
-const (
-	sortAscending  SortDirection = "asc"
-	sortDescending SortDirection = "desc"
-)
-
 type ContentProvider interface {
 	GetOrCacheContent(contentType entity.ContentType, tmdbId int) (entity.Content, error)
 }
@@ -112,22 +82,28 @@ func (s *Service) getWatched(userId uint) ([]entity.Watched, error) {
 func (s *Service) getWatchedPage(
 	userId uint,
 	pp util.PaginationParams,
-	wr WatchedGetPageRequest,
+	wr domain.WatchedGetPageRequest,
 ) (util.PaginationResponse[entity.Watched], error) {
 	slog.Debug("getWatchedPage: A page was requested.", "user_id", userId, "pagination_params", pp, "wr", wr)
 	watched := new([]entity.Watched)
 	pRes := &util.PaginationResponse[entity.Watched]{}
-	res := s.db.
+	res := s.db.Debug().
 		Model(&entity.Watched{}).
 		Where(&entity.Watched{UserID: userId}).
-		Count(&pRes.TotalResults).
 		Joins("Content").
 		Joins("Game").
 		Preload("Game.Poster").
 		Preload("Tags").
+		// Refine our results first (filters, sort);
+		Scopes(
+			watchedRefine(wr),
+		).
+		// Then count results (after filter);
+		Count(&pRes.TotalResults).
+		// Now calculate pagination properties with a TotalResults
+		// that takes filtered out items into account.
 		Scopes(
 			util.Paginate(pp, pRes),
-			watchedRefine(wr),
 		).
 		Find(&watched)
 	if res.Error != nil {

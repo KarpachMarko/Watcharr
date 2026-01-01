@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/media/tmdb"
 	"github.com/sbondCo/Watcharr/router"
@@ -53,10 +54,10 @@ func (r *Router) GetWatchedList(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	if isPaginated {
 		pp := c.MustGet("paginationParams").(util.PaginationParams)
-		wp := WatchedGetPageRequest{
+		wp := domain.WatchedGetPageRequest{
 			// Defaults..
-			Sort:    watchedSortDateAdded,
-			SortDir: sortAscending,
+			Sort:    domain.WatchedSortDateAdded,
+			SortDir: domain.WatchedSortDirAsc,
 		}
 		if err := c.ShouldBind(&wp); err != nil {
 			c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get request parameters"})
