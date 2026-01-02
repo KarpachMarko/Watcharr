@@ -115,6 +115,13 @@ export const store = {
 	get activeFilters() {
 		return _store.activeFilters;
 	},
+	get hasActiveFilters(): boolean {
+		return (
+			this.activeFilters &&
+			(this.activeFilters.status?.length > 0 ||
+				this.activeFilters.type?.length > 0)
+		);
+	},
 	set activeFilters(v) {
 		_store.activeFilters = v;
 		localStorage.setItem("activeFilterReal", JSON.stringify(v));

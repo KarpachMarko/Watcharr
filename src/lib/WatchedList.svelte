@@ -63,54 +63,6 @@
 	function filt() {
 		console.debug("WatchedList: filt()");
 		try {
-			// Set watched to list and sort it.
-			watched = list
-				.sort((a, b) => {
-					if (sort[0] === "LASTFIN") {
-						const aLastFinishActivity = a.activity
-							?.sort(
-								(aa, bb) =>
-									Date.parse(bb.customDate ?? bb.updatedAt) -
-									Date.parse(aa.customDate ?? aa.updatedAt),
-							)
-							?.find(
-								(aa) =>
-									// PORT NOTE: ALSO `IMPORTED_WATCHED` & `IMPORTED_ADDED_WATCHED`
-									(aa.type === "STATUS_CHANGED" && aa.data === "FINISHED") ||
-									(aa.type === "ADDED_WATCHED" &&
-										aa.data?.includes("FINISHED")),
-							);
-						const bLastFinishActivity = b.activity
-							?.sort(
-								(aa, bb) =>
-									Date.parse(bb.customDate ?? bb.updatedAt) -
-									Date.parse(aa.customDate ?? aa.updatedAt),
-							)
-							?.find(
-								(aa) =>
-									(aa.type === "STATUS_CHANGED" && aa.data === "FINISHED") ||
-									(aa.type === "ADDED_WATCHED" &&
-										aa.data?.includes("FINISHED")),
-							);
-						if (!aLastFinishActivity) return 1;
-						if (!bLastFinishActivity) return -1;
-						const alfaDate =
-							aLastFinishActivity.customDate ?? aLastFinishActivity.updatedAt;
-						const blfaDate =
-							bLastFinishActivity.customDate ?? bLastFinishActivity.updatedAt;
-						if (sort[1] === "UP")
-							return Date.parse(alfaDate) - Date.parse(blfaDate);
-						else if (sort[1] === "DOWN")
-							return Date.parse(blfaDate) - Date.parse(alfaDate);
-					}
-					// default DATEADDED DOWN
-					return Date.parse(b.createdAt) - Date.parse(a.createdAt);
-				})
-				.sort((a, b) => {
-					if (a.pinned && !b.pinned) return -1;
-					if (!a.pinned && b.pinned) return 1;
-					return 0;
-				});
 			// Now apply filters to watch list.
 			if (filters.status.length > 0 && filters.type.length > 0) {
 				// If status and type filters applied, combine both.
@@ -225,28 +177,26 @@
 			{/if}
 		{/each}
 	{:else if !isLoading}
+		{@const hasFiltersActive = store.hasActiveFilters}
 		<div class="empty-list">
-			{#if list?.length > 0}
-				<!-- `watched` (filtered list) is empty, but `list` (unfiltered) isn't,
-          so we should let the user know why there is nothing to show. -->
-				<Icon i="filter-circle" wh={80} />
-				<h2 class="norm">Filters are hiding all results!</h2>
-				<h4 class="norm">Try changing or removing your active filters.</h4>
-				<button onclick={() => clearActiveFilters()}>Clear Filters</button>
+			<Icon i={hasFiltersActive ? "filter-circle" : "reel"} wh={80} />
+			{#if isPublicList}
+				<h2 class="norm">This list is empty!</h2>
+				<h4 class="norm">
+					Come back later to see if they have added anything.
+				</h4>
 			{:else}
-				<Icon i="reel" wh={80} />
-				{#if isPublicList}
-					<h2 class="norm">This watched list is empty!</h2>
-					<h4 class="norm">
-						Come back later to see if they have added anything.
-					</h4>
-				{:else}
-					<h2 class="norm">Your watched list is empty!</h2>
-					<h4 class="norm">
-						Try searching for something you would like to add.
-					</h4>
+				<h2 class="norm">Your list looks empty!</h2>
+				<h4 class="norm">
+					Try {`${hasFiltersActive ? "removing your active filters or" : ""}`} searching
+					for something you would like to add.
+				</h4>
+				{#if !hasFiltersActive}
 					<button onclick={() => goto("/import")}>Import</button>
 				{/if}
+			{/if}
+			{#if hasFiltersActive}
+				<button onclick={() => clearActiveFilters()}>Clear Filters</button>
 			{/if}
 		</div>
 	{/if}
@@ -264,6 +214,7 @@
 		flex-flow: column;
 		gap: 5px;
 		align-items: center;
+		max-width: 400px;
 
 		h2 {
 			margin-top: 10px;
@@ -271,6 +222,7 @@
 
 		h4 {
 			font-weight: normal;
+			text-align: center;
 		}
 
 		button {

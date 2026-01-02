@@ -121,7 +121,14 @@
 	{JSON.stringify(store.sortAndFiltersForQueryParams)}</span
 >
 
-<WatchedList {list} isLoading={listLoading} />
+{#if list.length >= 0 && !listLoadError}
+	<!-- Hide WatchedList if there is a load error and we have no
+	 	 items in our list array. WatchedList stays rendered if we
+		 do have items because we could get a load error loading
+		 the second page for example. -->
+	<WatchedList {list} isLoading={listLoading} />
+{/if}
+
 {#if listLoadError}
 	<div style="margin-bottom: 60px;">
 		<Error
