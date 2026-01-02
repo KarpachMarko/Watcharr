@@ -94,6 +94,8 @@ func (s *Service) getWatchedPage(
 		Joins("Game").
 		Preload("Game.Poster").
 		Preload("Tags").
+		Preload("WatchedSeasons").
+		Preload("WatchedEpisodes").
 		// Refine our results first (filters, sort);
 		Scopes(
 			watchedRefine(wr),
