@@ -46,13 +46,13 @@
 				},
 				signal: reqController.signal,
 			});
+			listPage = pl.data.page;
+			listPageMax = pl.data.totalPages;
 			if (pl.data.results.length <= 0) {
 				listLoading = false;
 				console.log("loadWatchedList: No results.");
 				return;
 			}
-			listPage = pl.data.page;
-			listPageMax = pl.data.totalPages;
 			list.push(...pl.data.results);
 			list = list;
 			scroll.dataLoaded();
