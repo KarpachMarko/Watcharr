@@ -140,10 +140,6 @@ export function getLatestWatchedInTv(
 }
 
 /**
- * Turn a watched status into understandable text
- * depending on if the status is for a game or not.
- */
-/**
  * Turns a WatchedStatus into readable and context aware text.
  * Watched statuses can be used normally for movies/tv, but
  * for games, we want to transform the status to make more sense.
