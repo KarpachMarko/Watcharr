@@ -87,7 +87,7 @@ func (s *Service) getWatchedPage(
 	slog.Debug("getWatchedPage: A page was requested.", "user_id", userId, "pagination_params", pp, "wr", wr)
 	watched := new([]entity.Watched)
 	pRes := &util.PaginationResponse[entity.Watched]{}
-	res := s.db.Debug().
+	res := s.db.
 		Model(&entity.Watched{}).
 		Where(&entity.Watched{UserID: userId}).
 		Joins("Content").
