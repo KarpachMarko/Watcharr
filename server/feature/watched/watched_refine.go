@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// Applies 'Type' filter.
 func refineFilterType(db *gorm.DB, ft []util.SupportedMedia) {
 	if len(ft) <= 0 {
 		return
@@ -36,6 +37,7 @@ func refineFilterType(db *gorm.DB, ft []util.SupportedMedia) {
 	db.Where(q, astr...)
 }
 
+// Applies 'Status' filter.
 func refineFilterStatus(db *gorm.DB, f []entity.WatchedStatus) {
 	if len(f) <= 0 {
 		return
@@ -47,6 +49,7 @@ func refineFilterStatus(db *gorm.DB, f []entity.WatchedStatus) {
 	db.Where("watcheds.status IN ?", f)
 }
 
+// Applies sorts to list.
 func refineSort(db *gorm.DB, sort domain.WatchedSort, dir domain.SortDirection) {
 	if sort == "" {
 		return
@@ -86,9 +89,17 @@ func refineSort(db *gorm.DB, sort domain.WatchedSort, dir domain.SortDirection) 
 		db.Order(obc("watcheds.rating"))
 	case domain.WatchedSortAlphabetical:
 		db.
-			Order(obc("Content__title")).
-			Order(obc("Game__name"))
+			Order(obc("Content.title")).
+			Order(obc("Game.name"))
 	}
+}
+
+// Keep pinned items to top.
+func refineSortPinned(db *gorm.DB) {
+	db.Order(clause.OrderByColumn{
+		Column: clause.Column{Name: "watcheds.pinned"},
+		Desc:   true,
+	})
 }
 
 // list data.
@@ -99,6 +110,7 @@ func watchedRefine(wr domain.WatchedGetPageRequest) func(db *gorm.DB) *gorm.DB {
 		refineFilterType(db, wr.FilterType)
 		refineFilterStatus(db, wr.FilterStatus)
 		// Apply sort
+		refineSortPinned(db)
 		refineSort(db, wr.Sort, wr.SortDir)
 		return db
 	}

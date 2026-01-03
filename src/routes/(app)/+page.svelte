@@ -113,11 +113,10 @@
 </svelte:head>
 
 <span style="position: fixed; top: 80px; background-color: white; z-index: 60;"
-	>listPage: {listPage} listPageMax: {listPageMax} listLoading: {listLoading}<br
-	/>
-	sort: {JSON.stringify(store.activeSort)} filter: {JSON.stringify(
-		store.activeFilters,
-	)}<br />
+	><b>listPage</b>: {listPage} listPageMax: {listPageMax} listLoading: {listLoading}
+	<b>sort:</b>
+	{JSON.stringify(store.activeSort)} <b>filter:</b>
+	{JSON.stringify(store.activeFilters)} <b>queryp:</b>
 	{JSON.stringify(store.sortAndFiltersForQueryParams)}</span
 >
 
