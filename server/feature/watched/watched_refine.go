@@ -54,21 +54,21 @@ func refineSort(db *gorm.DB, sort domain.WatchedSort, dir domain.SortDirection) 
 	if sort == "" {
 		return
 	}
-	obc := func(cn string) clause.OrderByColumn {
+	obc := func(c clause.Column) clause.OrderByColumn {
 		o := clause.OrderByColumn{}
 		if dir == domain.WatchedSortDirAsc {
 			o.Desc = false
 		} else {
 			o.Desc = true
 		}
-		o.Column = clause.Column{Name: cn}
+		o.Column = c
 		return o
 	}
 	switch sort {
 	case domain.WatchedSortDateAdded:
-		db.Order(obc("watcheds.created_at"))
+		db.Order(obc(clause.Column{Name: "watcheds.created_at"}))
 	case domain.WatchedSortLastChanged:
-		db.Order(obc("watcheds.updated_at"))
+		db.Order(obc(clause.Column{Name: "watcheds.updated_at"}))
 	case domain.WatchedSortLastFinished:
 		db.
 			// This join looks for the latest activity for each watched entry
@@ -84,13 +84,14 @@ func refineSort(db *gorm.DB, sort domain.WatchedSort, dir domain.SortDirection) 
 					WHERE data LIKE "%FINISHED%" AND deleted_at IS NULL
 					GROUP BY watched_id
 				) q ON q.a_watched_id = watcheds.id`).
-			Order(obc("q.a_sort_by_date"))
+			Order(obc(clause.Column{Name: "q.a_sort_by_date"}))
 	case domain.WatchedSortRating:
-		db.Order(obc("watcheds.rating"))
+		db.Order(obc(clause.Column{Name: "watcheds.rating"}))
 	case domain.WatchedSortAlphabetical:
-		db.
-			Order(obc("Content.title")).
-			Order(obc("Game.name"))
+		db.Order(obc(clause.Column{
+			Name: "COALESCE(`Content`.`title`, `Game`.`name`)",
+			Raw:  true,
+		}))
 	}
 }
 
