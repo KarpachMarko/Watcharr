@@ -4,19 +4,19 @@
 		TMDBShowSeason,
 		Watched,
 		WatchedSeason,
-		WatchedSeasonAddResponse,
 		WatchedStatus,
 	} from "@/types";
 	import axios from "axios";
-	import Spinner from "./Spinner.svelte";
-	import Error from "./Error.svelte";
+	import Spinner from "@/lib/Spinner.svelte";
+	import Error from "@/lib/Error.svelte";
 	import SeasonsListEpisode from "./SeasonsListEpisode.svelte";
-	import PosterStatus from "./poster/PosterStatus.svelte";
-	import { notify } from "./util/notify";
+	import PosterStatus from "@/lib/poster/PosterStatus.svelte";
+	import { notify } from "@/lib/util/notify";
 	import { store } from "@/store.svelte";
-	import PosterRating from "./poster/PosterRating.svelte";
-	import Icon from "./Icon.svelte";
-	import { watchedStatuses } from "./util/helpers";
+	import PosterRating from "@/lib/poster/PosterRating.svelte";
+	import Icon from "@/lib/Icon.svelte";
+	import { watchedStatuses } from "@/lib/util/helpers";
+	import { removeWatchedSeason, updateWatchedSeason } from "./api";
 
 	interface Props {
 		tvId: number;
@@ -67,51 +67,6 @@
 		return resp.data as TMDBSeasonDetails;
 	}
 
-	// Add/update watched season
-	function updateWatchedSeason(
-		seasonNumber: number,
-		status?: WatchedStatus,
-		rating?: number,
-	) {
-		if (!watchedItem) {
-			console.error("updateWatchedSeason: No watched item.");
-			return;
-		}
-		const nid = notify({ text: `Saving`, type: "loading" });
-		axios
-			.post<WatchedSeasonAddResponse>(`/watched/season`, {
-				watchedId: watchedItem.id,
-				seasonNumber: seasonNumber,
-				status,
-				rating,
-			})
-			.then((r) => {
-				// const wList = get(watchedList);
-				const wEntry = store.watchedList.find((w) => w.id === watchedItem.id);
-				if (!wEntry) {
-					notify({
-						id: nid,
-						text: `Request succeeded, but failed to find local data. Please refresh.`,
-						type: "error",
-					});
-					return;
-				}
-				if (r.status === 200) {
-					wEntry.watchedSeasons = r.data.watchedSeasons;
-					if (wEntry.activity?.length > 0) {
-						wEntry.activity.push(r.data.addedActivity);
-					} else {
-						wEntry.activity = [r.data.addedActivity];
-					}
-					notify({ id: nid, text: `Saved!`, type: "success" });
-				}
-			})
-			.catch((err) => {
-				console.error(err);
-				notify({ id: nid, text: "Failed To Update!", type: "error" });
-			});
-	}
-
 	function handleStatusClick(
 		type: WatchedStatus | "DELETE",
 		seasonNumber: number,
@@ -131,44 +86,18 @@
 				});
 				return;
 			}
-			const nid = notify({ text: `Saving`, type: "loading" });
-			axios
-				.delete(`/watched/season/${ws.id}`)
-				.then((r) => {
-					const wEntry = store.watchedList.find((w) => w.id === watchedItem.id);
-					if (!wEntry) {
-						notify({
-							id: nid,
-							text: `Request succeeded, but failed to find local data. Please refresh.`,
-							type: "error",
-						});
-						return;
-					}
-					if (r.status === 200) {
-						wEntry.watchedSeasons = wEntry.watchedSeasons?.filter(
-							(s) => s.id !== ws.id,
-						);
-						if (r.data) {
-							if (wEntry.activity?.length > 0) {
-								wEntry.activity.push(r.data);
-							} else {
-								wEntry.activity = [r.data];
-							}
-						}
-						notify({ id: nid, text: `Removed!`, type: "success" });
-					}
-				})
-				.catch((err) => {
-					console.error(err);
-					notify({ id: nid, text: "Failed To Remove!", type: "error" });
-				});
+			removeWatchedSeason(watchedItem, ws.id);
 			return;
 		}
-		updateWatchedSeason(seasonNumber, type);
+		updateWatchedSeason(watchedItem, seasonNumber, { status: type });
 	}
 
 	function handleStarClick(rating: number, seasonNumber: number) {
-		updateWatchedSeason(seasonNumber, undefined, rating);
+		if (!watchedItem) {
+			console.error("handleStarClick: No watchedItem!");
+			return;
+		}
+		updateWatchedSeason(watchedItem, seasonNumber, { rating });
 	}
 
 	function checkSeasonStatus(
@@ -201,9 +130,13 @@
 			>
 				<div>
 					<h1 class="season-name">{season.name}</h1>
-					{#if season.episode_count > 0}
-						<h2 class="season-episodes">{season.episode_count} Episodes</h2>
-					{/if}
+					<h2 class="season-episodes">
+						{#if season.episode_count > 0}
+							{season.episode_count} Episodes
+						{:else}
+							No Episodes Yet
+						{/if}
+					</h2>
 				</div>
 				<div>
 					{#if season.air_date}
@@ -269,7 +202,7 @@
 			{#if season?.episodes?.length > 0}
 				<ul>
 					{#each season.episodes as ep}
-						<SeasonsListEpisode {ep} {watchedItem} />
+						<SeasonsListEpisode {ep} bind:watchedItem />
 					{/each}
 				</ul>
 			{:else}

@@ -2,117 +2,23 @@
 	import type {
 		TMDBSeasonDetailsEpisode,
 		WatchedStatus,
-		WatchedEpisodeAddResponse,
 		Watched,
 	} from "@/types";
-	import Icon from "./Icon.svelte";
-	import PosterRating from "./poster/PosterRating.svelte";
-	import PosterStatus from "./poster/PosterStatus.svelte";
-	import axios from "axios";
-	import { notify } from "./util/notify";
-	import { get } from "svelte/store";
+	import Icon from "../Icon.svelte";
+	import PosterRating from "../poster/PosterRating.svelte";
+	import PosterStatus from "../poster/PosterStatus.svelte";
+	import { notify } from "../util/notify";
 	import { store } from "@/store.svelte";
-
-	// let settings = $derived($userSettings);
+	import { removeWatchedEpisode, updateWatchedEpisode } from "./api";
 
 	interface Props {
 		ep: TMDBSeasonDetailsEpisode;
 		watchedItem: Watched | undefined;
 	}
 
-	let { ep, watchedItem }: Props = $props();
+	let { ep, watchedItem = $bindable() }: Props = $props();
 
 	let isHidden: boolean = $state(!!store?.userSettings?.hideSpoilers);
-
-	function updateWatchedEpisode(status?: WatchedStatus, rating?: number) {
-		if (!watchedItem) {
-			console.error(
-				"SeasonListEpisode: updateWatchedEpisode: No watched item.",
-			);
-			return;
-		}
-		const nid = notify({ text: `Saving`, type: "loading" });
-		axios
-			.post<WatchedEpisodeAddResponse>(`/watched/episode`, {
-				watchedId: watchedItem.id,
-				seasonNumber: ep.season_number,
-				episodeNumber: ep.episode_number,
-				status,
-				rating,
-			})
-			.then((r) => {
-				const wEntry = store.watchedList.find((w) => w.id === watchedItem.id);
-				if (!wEntry) {
-					notify({
-						id: nid,
-						text: `Request succeeded, but failed to find local data. Please refresh.`,
-						type: "error",
-					});
-					return;
-				}
-				if (r.status === 200) {
-					wEntry.watchedEpisodes = r.data.watchedEpisodes;
-					if (wEntry.activity?.length > 0) {
-						wEntry.activity.push(r.data.addedActivity);
-					} else {
-						wEntry.activity = [r.data.addedActivity];
-					}
-					try {
-						const epHookResp = r?.data?.episodeStatusChangedHookResponse;
-						if (epHookResp && Object.keys(epHookResp).length > 0) {
-							if (epHookResp.errors && epHookResp.errors.length > 0) {
-								console.error(
-									"episodeStatusChangedHookResponse contained errors! All possible automations may not have been completed.",
-									epHookResp.errors,
-								);
-								notify({
-									type: "error",
-									text: "Some automations have failed, check console for more info.",
-								});
-							}
-							if (
-								epHookResp.addedActivities &&
-								epHookResp.addedActivities.length > 0
-							) {
-								wEntry.activity.push(...epHookResp.addedActivities);
-							}
-							if (epHookResp.watchedSeason) {
-								if (!wEntry.watchedSeasons) {
-									wEntry.watchedSeasons = [epHookResp.watchedSeason];
-								} else {
-									const watchedSeasonIdx = wEntry.watchedSeasons.findIndex(
-										(s) => s.id === epHookResp.watchedSeason?.id,
-									);
-									if (watchedSeasonIdx === -1) {
-										wEntry.watchedSeasons.push(epHookResp.watchedSeason);
-									} else {
-										wEntry.watchedSeasons[watchedSeasonIdx] =
-											epHookResp.watchedSeason;
-									}
-								}
-							}
-							if (epHookResp.newShowStatus) {
-								wEntry.status = epHookResp.newShowStatus;
-							}
-						}
-					} catch (err) {
-						console.error(
-							"Failed to process episodeStatusChangedHookResponse",
-							err,
-						);
-						notify({
-							type: "error",
-							text: "Failed to process automation response, check console for more info.",
-						});
-					}
-					notify({ id: nid, text: `Saved!`, type: "success" });
-				}
-			})
-			.catch((err) => {
-				console.error(err);
-				notify({ id: nid, text: "Failed To Update!", type: "error" });
-			});
-	}
 
 	function handleStatusClick(type: WatchedStatus | "DELETE") {
 		if (!watchedItem) {
@@ -132,44 +38,22 @@
 				});
 				return;
 			}
-			const nid = notify({ text: `Saving`, type: "loading" });
-			axios
-				.delete(`/watched/episode/${ws.id}`)
-				.then((r) => {
-					const wEntry = store.watchedList.find((w) => w.id === watchedItem.id);
-					if (!wEntry) {
-						notify({
-							id: nid,
-							text: `Request succeeded, but failed to find local data. Please refresh.`,
-							type: "error",
-						});
-						return;
-					}
-					if (r.status === 200) {
-						wEntry.watchedEpisodes = wEntry.watchedEpisodes?.filter(
-							(s) => s.id !== ws.id,
-						);
-						if (r.data) {
-							if (wEntry.activity?.length > 0) {
-								wEntry.activity.push(r.data);
-							} else {
-								wEntry.activity = [r.data];
-							}
-						}
-						notify({ id: nid, text: `Removed!`, type: "success" });
-					}
-				})
-				.catch((err) => {
-					console.error(err);
-					notify({ id: nid, text: "Failed To Remove!", type: "error" });
-				});
+			removeWatchedEpisode(watchedItem, ws.id);
 			return;
 		}
-		updateWatchedEpisode(type);
+		updateWatchedEpisode(watchedItem, ep.season_number, ep.episode_number, {
+			status: type,
+		});
 	}
 
 	function handleStarClick(rating: number) {
-		updateWatchedEpisode(undefined, rating);
+		if (!watchedItem) {
+			console.error("handleStarClick: No watchedItem!");
+			return;
+		}
+		updateWatchedEpisode(watchedItem, ep.season_number, ep.episode_number, {
+			rating,
+		});
 	}
 </script>
 

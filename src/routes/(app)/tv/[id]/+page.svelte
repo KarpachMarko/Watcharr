@@ -6,7 +6,7 @@
 	import PageError from "@/lib/PageError.svelte";
 	import PersonPoster from "@/lib/poster/PersonPoster.svelte";
 	import Rating from "@/lib/rating/Rating.svelte";
-	import SeasonsList from "@/lib/SeasonsList.svelte";
+	import SeasonsList from "@/lib/season/SeasonsList.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
 	import Status from "@/lib/Status.svelte";
 	import ProvidersList from "@/lib/content/ProvidersList.svelte";
@@ -325,7 +325,7 @@
 				<SeasonsList
 					tvId={data.tvId}
 					seasons={show.seasons}
-					watchedItem={show.watched}
+					bind:watchedItem={show.watched}
 				/>
 			{/if}
 		</div>
