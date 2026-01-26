@@ -79,17 +79,30 @@ func (s *Service) getWatched(userId uint) ([]entity.Watched, error) {
 }
 
 // Returns a page of users watched list.
-func (s *Service) getWatchedPage(
+func (s *Service) GetWatchedPage(
 	userId uint,
 	pp util.PaginationParams,
 	wr domain.WatchedGetPageRequest,
+	extraProps *domain.WatchedGetPageExtraProps,
 ) (util.PaginationResponse[entity.Watched], error) {
-	slog.Debug("getWatchedPage: A page was requested.", "user_id", userId, "pagination_params", pp, "wr", wr)
+	slog.Debug("GetWatchedPage: A page was requested.",
+		"user_id", userId,
+		"pagination_params", pp,
+		"wr", wr)
 	watched := new([]entity.Watched)
 	pRes := &util.PaginationResponse[entity.Watched]{}
 	res := s.db.
 		Model(&entity.Watched{}).
-		Where(&entity.Watched{UserID: userId}).
+		Where(&entity.Watched{UserID: userId})
+
+	if extraProps != nil {
+		// Process `WatchedIds` extra prop.
+		if len(extraProps.WatchedIds) > 0 {
+			res = res.Where("`watcheds`.`id` IN ?", extraProps.WatchedIds)
+		}
+	}
+
+	res = res.
 		Joins("Content").
 		Joins("Game").
 		Preload("Game.Poster").
@@ -109,7 +122,7 @@ func (s *Service) getWatchedPage(
 		).
 		Find(&watched)
 	if res.Error != nil {
-		slog.Error("getWatchedPage: Failed!", "error", res.Error)
+		slog.Error("GetWatchedPage: Failed!", "error", res.Error)
 		return util.PaginationResponse[entity.Watched]{}, res.Error
 	}
 	pRes.Results = *watched

@@ -9,6 +9,7 @@ import (
 	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/router"
+	"github.com/sbondCo/Watcharr/util"
 )
 
 type Router struct {
@@ -28,6 +29,7 @@ func (r *Router) AddRoutes() {
 
 	tag.GET("", r.GetTags)
 	tag.GET(":id", r.GetTag)
+	tag.GET(":id/watched", router.PaginatedRequest(true), r.GetTagWatched)
 	tag.POST("", r.CreateTag)
 	tag.PUT(":id", r.UpdateTag)
 	tag.DELETE(":id", r.DeleteTag)
@@ -45,13 +47,12 @@ func (r *Router) GetTags(c *gin.Context) {
 }
 
 // Get all items within one of our tags.
-// TODO Add pagination
 func (r *Router) GetTag(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		slog.Error("getTag route failed to convert id param to int", "error", err)
-		c.Status(http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "invalid id"})
 		return
 	}
 	tags, err := r.service.GetTag(userId, uint(id))
@@ -60,6 +61,32 @@ func (r *Router) GetTag(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, tags)
+}
+
+// Get watched items in a tag with pagination.
+func (r *Router) GetTagWatched(c *gin.Context) {
+	userId := c.MustGet("userId").(uint)
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		slog.Error("getTagWatched route failed to convert id param to int", "error", err)
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "invalid id"})
+		return
+	}
+	pp := c.MustGet("paginationParams").(util.PaginationParams)
+	wp := domain.WatchedGetPageRequest{
+		// Defaults..
+		Sort:    domain.WatchedSortDateAdded,
+		SortDir: domain.WatchedSortDirAsc,
+	}
+	if err := c.ShouldBind(&wp); err != nil {
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get request parameters"})
+		return
+	}
+	if wp, err := r.service.GetTagPage(userId, uint(id), pp, wp); err == nil {
+		c.JSON(http.StatusOK, wp)
+	} else {
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get page"})
+	}
 }
 
 // Create a tag.

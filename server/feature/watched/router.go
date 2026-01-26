@@ -63,7 +63,7 @@ func (r *Router) GetWatchedList(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get request parameters"})
 			return
 		}
-		if wp, err := r.s.getWatchedPage(userId, pp, wp); err == nil {
+		if wp, err := r.s.GetWatchedPage(userId, pp, wp, nil); err == nil {
 			c.JSON(http.StatusOK, wp)
 		} else {
 			c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get page"})

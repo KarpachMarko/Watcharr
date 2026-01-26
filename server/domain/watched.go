@@ -17,6 +17,11 @@ type WatchedGetPageRequest struct {
 	FilterStatus []entity.WatchedStatus `form:"status" collection_format:"csv"`
 }
 
+type WatchedGetPageExtraProps struct {
+	// Only get these watched ids.
+	WatchedIds []int
+}
+
 type WatchedSort string
 
 const (

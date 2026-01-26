@@ -7,19 +7,27 @@ import (
 	"github.com/sbondCo/Watcharr/database/dbmodel"
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
+	"github.com/sbondCo/Watcharr/util"
 	"gorm.io/gorm"
 )
 
 // I think tags will be private for the user.
 // If the user wants to make a public list, they should make a custom view.
+// Hi from 2026, the above sounds stupid, why dont you just combine custom view features into tags view..
 
-type Service struct {
-	db *gorm.DB
+type WatchedProvider interface {
+	GetWatchedPage(userId uint, pp util.PaginationParams, wr domain.WatchedGetPageRequest, extraProps *domain.WatchedGetPageExtraProps) (util.PaginationResponse[entity.Watched], error)
 }
 
-func NewService(db *gorm.DB) *Service {
+type Service struct {
+	db              *gorm.DB
+	watchedProvider WatchedProvider
+}
+
+func NewService(db *gorm.DB, watchedProvider WatchedProvider) *Service {
 	return &Service{
 		db,
+		watchedProvider,
 	}
 }
 
@@ -52,6 +60,56 @@ func (s *Service) GetTag(userId uint, tagId uint) (entity.Tag, error) {
 		return entity.Tag{}, errors.New("tag does not exist")
 	}
 	return *tag, nil
+}
+
+func (s *Service) GetTagPage(
+	userId uint,
+	tagId uint,
+	pp util.PaginationParams,
+	wr domain.WatchedGetPageRequest,
+) (util.PaginationResponse[entity.Watched], error) {
+	slog.Debug("GetTagPage: A page was requested.",
+		"user_id", userId,
+		"tagId", tagId,
+		"pagination_params", pp,
+		"wr", wr)
+
+	// Attempt to get the tag, verifying it exists and the user own it.
+	_, err := s.GetTag(userId, tagId)
+	if err != nil {
+		return util.PaginationResponse[entity.Watched]{}, err
+	}
+
+	// Get all watched ids for this tag.
+	// This isn't great, but it has to be done, since we can't eliminate
+	// any for sort/filters here.
+	wids := new([]int)
+	res := s.db.Debug().
+		Table("watched_tags").
+		Select("watched_id").
+		Where("tag_id = ?", tagId).
+		Find(&wids)
+	if res.Error != nil {
+		slog.Error("GetTagPage: Getting watched ids failed!", "error", err)
+		return util.PaginationResponse[entity.Watched]{}, err
+	}
+
+	// Now get a watched page, passing in our fetched watched ids
+	// so that only our watched items in this tag are retrieved.
+	wp, err := s.watchedProvider.GetWatchedPage(
+		userId,
+		pp,
+		wr,
+		&domain.WatchedGetPageExtraProps{
+			WatchedIds: *wids,
+		},
+	)
+	if err != nil {
+		slog.Error("GetTagPage: Getting watcheds failed!", "error", err)
+		return util.PaginationResponse[entity.Watched]{}, err
+	}
+
+	return wp, nil
 }
 
 // This method should only be used when we don't have the tagId

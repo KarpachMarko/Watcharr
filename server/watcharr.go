@@ -221,7 +221,7 @@ func main() {
 	featureService := feature.NewService(cfg)
 	profileService := profile.NewService(db)
 	followService := follow.NewService(db)
-	tagService := tag.NewService(db)
+	tagService := tag.NewService(db, watchedService)
 	importService := imprt.NewService(
 		db,
 		watchedService,
