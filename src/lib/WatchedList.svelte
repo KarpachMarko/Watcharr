@@ -6,7 +6,6 @@
 	import { store, clearActiveFilters } from "@/store.svelte";
 	import type { Watched } from "@/types";
 	import GamePoster from "./poster/GamePoster.svelte";
-	import { notify } from "./util/notify";
 	import Spinner from "./Spinner.svelte";
 
 	interface Props {
@@ -17,111 +16,10 @@
 
 	let { list, isPublicList = false, isLoading = false }: Props = $props();
 
-	let sort = $derived(store.activeSort);
-	let filters = $derived(store.activeFilters);
-	let settings = $derived(store.userSettings);
-	let watched: Watched[] = $state([]);
-
 	/**
-	 * Checks if content has been watched previously
-	 * by analyzing the watched entrys activity.
-	 */
-	function contentWatchedPreviously(w: Watched) {
-		let wp = false;
-		const relatedActivity = w.activity.filter(
-			(a) =>
-				a.type === "ADDED_WATCHED" ||
-				a.type === "IMPORTED_ADDED_WATCHED" ||
-				a.type === "IMPORTED_WATCHED" ||
-				a.type === "STATUS_CHANGED",
-		);
-		for (let i = 0; i < relatedActivity.length; i++) {
-			const ra = relatedActivity[i];
-			if (ra.type === "IMPORTED_ADDED_WATCHED") {
-				wp = true;
-				break;
-			} else if (
-				ra.type === "ADDED_WATCHED" ||
-				ra.type === "IMPORTED_WATCHED"
-			) {
-				const data = JSON.parse(ra.data);
-				if (data?.status == "FINISHED") {
-					wp = true;
-					break;
-				}
-			} else if (ra.type === "STATUS_CHANGED") {
-				if (ra.data === "FINISHED") {
-					wp = true;
-					break;
-				}
-			}
-		}
-		return wp;
-	}
-
-	// Monsterous code for filters. Soz.
-	function filt() {
-		console.debug("WatchedList: filt()");
-		try {
-			// Now apply filters to watch list.
-			if (filters.status.length > 0 && filters.type.length > 0) {
-				// If status and type filters applied, combine both.
-				if (
-					settings?.includePreviouslyWatched &&
-					filters.status.includes("finished")
-				) {
-					watched = watched.filter(
-						(w) =>
-							(filters.status.includes(w.status?.toLowerCase()) ||
-								contentWatchedPreviously(w)) &&
-							filters.type.includes(
-								w.content ? w.content.type : w.game ? "game" : "",
-							),
-					);
-				} else {
-					watched = watched.filter(
-						(w) =>
-							filters.status.includes(w.status?.toLowerCase()) &&
-							filters.type.includes(
-								w.content ? w.content.type : w.game ? "game" : "",
-							),
-					);
-				}
-			} else if (filters.type.length > 0) {
-				// Only filter type
-				watched = watched.filter((w) =>
-					filters.type.includes(
-						w.content ? w.content.type : w.game ? "game" : "",
-					),
-				);
-			} else if (filters.status.length > 0) {
-				// Only filter status
-				if (
-					settings?.includePreviouslyWatched &&
-					filters.status.includes("finished")
-				) {
-					watched = watched.filter(
-						(w) =>
-							filters.status.includes(w.status?.toLowerCase()) ||
-							contentWatchedPreviously(w),
-					);
-				} else {
-					watched = watched.filter((w) =>
-						filters.status.includes(w.status?.toLowerCase()),
-					);
-				}
-			}
-		} catch (err) {
-			console.error("filt: Failed to filter/sort current list!", err);
-			notify({
-				text: "Failed to filter/sort list!",
-				type: "error",
-				time: 6000,
-			});
-		}
-	}
-
-	/**
+	 * TODO Figure out if we need this still, don't think so, we are probably going
+	 * to not modify sort when items are changed to avoid having to reload the whole
+	 * list and stops items jumping around too which might be better for UX idk.
 	 * Callback for when a watched list item is updated through poster,
 	 * this allows us to run the filt() func again so the sorting is
 	 * updated.

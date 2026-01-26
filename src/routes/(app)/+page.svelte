@@ -1,89 +1,44 @@
 <script lang="ts">
 	import Error from "@/lib/Error.svelte";
-	import Spinner from "@/lib/Spinner.svelte";
 	import infScroll from "@/lib/util/infScroll";
+	import paginatedLoader from "@/lib/util/paginatedLoader.svelte";
 	import WatchedList from "@/lib/WatchedList.svelte";
 	import { store } from "@/store.svelte";
-	import type { PaginationResponse, Watched } from "@/types";
-	import axios from "axios";
-	import { onDestroy, onMount, untrack } from "svelte";
+	import type { Watched } from "@/types";
+	import axios, { type GenericAbortSignal } from "axios";
+	import { onDestroy, untrack } from "svelte";
 
 	const scroll = infScroll({ callback: onScrollToBottom });
+	const dataLoader = paginatedLoader<Watched>(load);
 
-	let reqController = new AbortController();
-	let list: Watched[] = $state([]);
-	// Current list page loaded
-	let listPage = $state(0);
-	// Max amount of pages for list
-	let listPageMax = $state(1);
-	let listLoading = $state(false);
-	let listLoadError: any = $state();
+	let nextLoadParams: {
+		p: number;
+		[x: string]: any;
+	} = $derived({
+		p: dataLoader.state.page + 1,
+		...store.sortAndFiltersForQueryParams,
+	});
 
-	/**
-	 * Fetches paginated watched list.
-	 */
-	async function loadWatchedList() {
-		const logStyle = "font-weight: bold; font-size: 18px;";
-		if (listLoading) {
-			console.warn("%cloadWatchedList: already running", logStyle);
+	async function load(signal: GenericAbortSignal) {
+		console.debug("load: loadParams:", nextLoadParams);
+		if (nextLoadParams.p === dataLoader.state.page) {
+			console.warn("load: Already on this page, not loading it again!");
 			return;
 		}
-		if (listPage >= listPageMax) {
-			console.warn("%cloadWatchedList: max page reached", logStyle);
-			return;
-		}
-		console.debug(
-			`%cloadWatchedList: Page=${listPage} Max=${listPageMax}`,
-			logStyle,
-		);
-		listLoading = true;
-		reqController = new AbortController();
-		try {
-			const pl = await axios.get<PaginationResponse<Watched>>(`/watched`, {
-				params: {
-					p: listPage + 1,
-					...store.sortAndFiltersForQueryParams,
-				},
-				signal: reqController.signal,
-			});
-			listPage = pl.data.page;
-			listPageMax = pl.data.totalPages;
-			if (pl.data.results.length <= 0) {
-				listLoading = false;
-				console.log("loadWatchedList: No results.");
-				return;
-			}
-			list.push(...pl.data.results);
-			list = list;
-			scroll.dataLoaded();
-		} catch (err: any) {
-			if (err?.code === "ERR_CANCELED") {
-				console.warn("loadWatchedList: Cancelled, not showing error.");
-			} else {
-				console.error("loadWatchedList: failed!", err);
-				listLoadError = err;
-			}
-		}
-		listLoading = false;
+		const r = await axios.get(`/watched`, {
+			params: nextLoadParams,
+			signal,
+		});
+		scroll.dataLoaded();
+		return r;
 	}
 
 	async function onScrollToBottom() {
 		// If an error is being shown, no more infinite scroll.
-		if (listLoadError) {
+		if (dataLoader.state.reqLoadError) {
 			return;
 		}
-		loadWatchedList();
-	}
-
-	/**
-	 * Resets our loaded watched list data, page data, etc.
-	 */
-	function resetWatchedList() {
-		list = [];
-		listPage = 0;
-		listPageMax = 1;
-		listLoading = false;
-		listLoadError = undefined;
+		dataLoader.runFn();
 	}
 
 	$effect(() => {
@@ -95,8 +50,8 @@
 			untrack(() => {
 				// We don't want to trigger another re-run of this
 				// effect when state inside these funcs changes.
-				resetWatchedList();
-				loadWatchedList();
+				dataLoader.reset();
+				dataLoader.runFn();
 			});
 		}
 	});
@@ -104,7 +59,7 @@
 	onDestroy(() => {
 		console.log("MAIN PAGE DESTROYED");
 		scroll.destroy();
-		reqController.abort("page destroyed");
+		dataLoader.abortReq("page destroyed");
 	});
 </script>
 
@@ -113,29 +68,34 @@
 </svelte:head>
 
 <span style="position: fixed; top: 80px; background-color: white; z-index: 60;"
-	><b>listPage</b>: {listPage} listPageMax: {listPageMax} listLoading: {listLoading}
+	><b>listPage</b>: {dataLoader.state.page} listPageMax: {dataLoader.state
+		.pageMax} listLoading:
+	{dataLoader.state.reqLoading}
 	<b>sort:</b>
 	{JSON.stringify(store.activeSort)} <b>filter:</b>
 	{JSON.stringify(store.activeFilters)} <b>queryp:</b>
 	{JSON.stringify(store.sortAndFiltersForQueryParams)}</span
 >
 
-{#if list.length >= 0 && !listLoadError}
+{#if dataLoader.state.data.length >= 0 && !dataLoader.state.reqLoadError}
 	<!-- Hide WatchedList if there is a load error and we have no
 	 	 items in our list array. WatchedList stays rendered if we
 		 do have items because we could get a load error loading
 		 the second page for example. -->
-	<WatchedList {list} isLoading={listLoading} />
+	<WatchedList
+		list={dataLoader.state.data}
+		isLoading={dataLoader.state.reqLoading}
+	/>
 {/if}
 
-{#if listLoadError}
+{#if dataLoader.state.reqLoadError}
 	<div style="margin-bottom: 60px;">
 		<Error
 			pretty="Failed to load results!"
-			error={listLoadError}
+			error={dataLoader.state.reqLoadError}
 			onRetry={() => {
-				listLoadError = undefined;
-				loadWatchedList();
+				dataLoader.state.reqLoadError = undefined;
+				dataLoader.runFn();
 			}}
 		/>
 	</div>

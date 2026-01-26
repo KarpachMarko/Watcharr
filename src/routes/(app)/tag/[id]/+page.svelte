@@ -17,14 +17,16 @@
 
 	let reqController: AbortController | undefined;
 
-	// TODO Support paginated version of this
-
 	async function getTag(id: number) {
 		try {
 			reqController = new AbortController();
 			return (
-				await axios.get<any>(`/tag/${id}`, {
+				await axios.get<any>(`/tag/${id}/watched`, {
 					signal: reqController.signal,
+					params: {
+						p: 0 + 1,
+						...store.sortAndFiltersForQueryParams,
+					},
 				})
 			).data;
 		} catch (err) {
@@ -61,13 +63,13 @@
 		<Spinner />
 	{:then dbtag}
 		{#if dbtag.watched?.length > 0}
-			<WatchedList list={dbtag.watched} />
+			<WatchedList list={dbtag.watched} isLoading={false} />
 		{:else}
 			<div class="content empty-tag">
 				<div class="inner">
 					<Icon i="ticket" wh={80} />
 					<h2 class="norm">This tag is empty!</h2>
-					<h4 class="norm">Add entries to this tag via it's page.</h4>
+					<h4 class="norm">Add entries to this tag via its page.</h4>
 				</div>
 			</div>
 		{/if}
