@@ -304,10 +304,15 @@ func (s *Service) getPublicWatched(userId uint, username string) ([]entity.Watch
 	}
 	// Now we know the user is public, return their list
 	watched := new([]entity.Watched)
-	res = s.db.Model(&entity.Watched{}).Preload("Content").Preload("Game").Preload("Game.Poster").Preload("Activity").Where("user_id = ?", userId).Find(&watched)
+	res = s.db.Model(&entity.Watched{}).
+		Preload("Content").
+		Preload("Game").
+		Preload("Game.Poster").
+		Preload("Activity").
+		Where("user_id = ?", userId).
+		Find(&watched)
 	if res.Error != nil {
-		// TODO WHATS WRONG WITH YOU WHY ARE WE PANICKING HERE???? (change this to return an error you bimbo)
-		panic(res.Error)
+		return []entity.Watched{}, errors.New("failed fetching the list")
 	}
 	return *watched, nil
 }
