@@ -39,6 +39,9 @@ type Content struct {
 // NOTE: Can return empty string, so use only when we know that a valid option
 // will be returned or we are okay with that.
 func (c *Content) GetTypeSupportedMedia() util.SupportedMedia {
+	if c == nil {
+		return ""
+	}
 	switch c.Type {
 	case MOVIE:
 		return util.SupportedMediaMovie
