@@ -67,21 +67,26 @@
 	let containerEl: HTMLDivElement | undefined = $state();
 	let bhCanvas: HTMLCanvasElement | undefined = $state();
 
-	const title = `${media.name}`;
-	const poster = media.poster?.path
-		? `${baseURL}/${media.poster.path}`
-		: `https://images.igdb.com/igdb/image/upload/t_cover_big/${media.coverId}.jpg`;
-	const link = media.id ? `/game/${media.id}` : undefined;
-	const dateStr = media.firstReleaseDate;
-	const year = dateStr ? new Date(dateStr).getFullYear() : undefined;
+	const title = $derived(media.name);
+	const poster = $derived(
+		media.poster?.path
+			? `${baseURL}/${media.poster.path}`
+			: `https://images.igdb.com/igdb/image/upload/t_cover_big/${media.coverId}.jpg`,
+	);
+	const link = $derived(media.id ? `/game/${media.id}` : undefined);
+	const dateStr = $derived(media.firstReleaseDate);
+	const year = $derived(dateStr ? new Date(dateStr).getFullYear() : undefined);
 
 	function handleStarClick(r: number) {
 		if (r == watched?.rating) return;
-		updatePlayed(watched, { igdbId: media.id, rating: r }).then(() => {
+		updatePlayed(watched, { igdbId: media.id, rating: r }).then((w) => {
 			if (typeof onUpdated === "function") {
 				onUpdated();
 				runPosterMouseLeaveIfNeeded();
 			}
+			// If watched was just added, we need to assign
+			// it to our `watched` var to get the update.
+			watched = w;
 		});
 	}
 
@@ -94,15 +99,22 @@
 				});
 				return;
 			}
-			removeWatched(watched.id);
+			removeWatched(watched.id).then((removed) => {
+				if (removed) {
+					watched = undefined;
+				}
+			});
 			return;
 		}
 		if (type == watched?.status) return;
-		updatePlayed(watched, { igdbId: media.id, status: type }).then(() => {
+		updatePlayed(watched, { igdbId: media.id, status: type }).then((w) => {
 			if (typeof onUpdated === "function") {
 				onUpdated();
 				runPosterMouseLeaveIfNeeded();
 			}
+			// If watched was just added, we need to assign
+			// it to our `watched` var to get the update.
+			watched = w;
 		});
 	}
 
@@ -121,15 +133,15 @@
 		}
 	}
 
-	function formatDate(e: number) {
-		if (!e) {
-			return "Unknown";
-		}
-		const d = new Date(e);
-		return `${d.getDate()}${getOrdinalSuffix(d.getDate())} ${monthsShort[d.getMonth()]} '${String(
-			d.getFullYear(),
-		).substring(2, 4)}`;
-	}
+	// function formatDate(e: number) {
+	// 	if (!e) {
+	// 		return "Unknown";
+	// 	}
+	// 	const d = new Date(e);
+	// 	return `${d.getDate()}${getOrdinalSuffix(d.getDate())} ${monthsShort[d.getMonth()]} '${String(
+	// 		d.getFullYear(),
+	// 	).substring(2, 4)}`;
+	// }
 
 	run(() => {
 		if (media.poster?.path && media.poster?.blurHash && bhCanvas) {

@@ -4,17 +4,23 @@ import (
 	"log/slog"
 
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/util"
 	"gorm.io/gorm"
 )
 
 type Addable interface {
 	GetId() int
-	GetMediaType() entity.ContentType
+	GetMediaType() util.SupportedMedia
+}
+
+type IdToTypePair struct {
+	Id   int
+	Type util.SupportedMedia
 }
 
 type WatchedProvider interface {
-	GetWatchedItemsByTmdbIds(userId uint, c [][]any) ([]entity.Watched, error)
-	GetWatchedItemByTmdbId(userId uint, tmdbId uint, contentType entity.ContentType) (entity.Watched, error)
+	GetWatchedItemBySupportedMediaId(userId uint, id uint, t util.SupportedMedia) (entity.Watched, error)
+	GetWatchedItemsBySupportedMediaIds(userId uint, c []IdToTypePair) ([]entity.Watched, error)
 }
 
 type AddListCall[S Addable] struct {
@@ -42,17 +48,21 @@ func AddList[S Addable](
 		slog.Debug("AddList: 's' is empty.")
 		return nil
 	}
-	contentIdAndTypePairs := [][]any{}
+	contentIdAndTypePairs := []IdToTypePair{}
 	for _, v := range s {
-		contentIdAndTypePairs = append(contentIdAndTypePairs, []any{
+		contentIdAndTypePairs = append(contentIdAndTypePairs, IdToTypePair{
 			v.GetId(),
 			v.GetMediaType(),
 		})
 	}
-	if ws, err := wp.GetWatchedItemsByTmdbIds(userId, contentIdAndTypePairs); err == nil {
+	if ws, err := wp.GetWatchedItemsBySupportedMediaIds(userId, contentIdAndTypePairs); err == nil {
 		for _, v := range ws {
 			for i, vv := range s {
-				if vv.GetId() == v.Content.TmdbID && vv.GetMediaType() == v.Content.Type {
+				if
+				// IF is content
+				(vv.GetMediaType() == v.Content.GetTypeSupportedMedia() && vv.GetId() == v.Content.TmdbID) ||
+					// If is game
+					vv.GetMediaType() == util.SupportedMediaGame && vv.GetId() == v.Game.ID {
 					addCb(i, &v)
 				}
 			}
@@ -70,7 +80,7 @@ func Add[S Addable](
 	s S,
 	addCb func(w *entity.Watched),
 ) error {
-	watchedEntry, err := wp.GetWatchedItemByTmdbId(
+	watchedEntry, err := wp.GetWatchedItemBySupportedMediaId(
 		userId,
 		uint(s.GetId()),
 		s.GetMediaType(),

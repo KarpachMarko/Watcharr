@@ -553,6 +553,7 @@
 									summary: w.summary,
 									firstReleaseDate: w.first_release_date,
 								}}
+								bind:watched={searchResults[i].watched}
 								fluidSize
 							/>
 						{:else if searchResults[i].media_type === "movie" || searchResults[i].media_type === "tv"}

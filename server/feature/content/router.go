@@ -19,8 +19,8 @@ import (
 
 type WatchedProvider interface {
 	UpdateWatchedLastViewedSeason(userId uint, id uint, seasonNum int) error
-	GetWatchedItemsByTmdbIds(userId uint, c [][]any) ([]entity.Watched, error)
-	GetWatchedItemByTmdbId(userId uint, tmdbId uint, contentType entity.ContentType) (entity.Watched, error)
+	GetWatchedItemBySupportedMediaId(userId uint, id uint, t util.SupportedMedia) (entity.Watched, error)
+	GetWatchedItemsBySupportedMediaIds(userId uint, c []addedtocontent.IdToTypePair) ([]entity.Watched, error)
 }
 
 type Router struct {

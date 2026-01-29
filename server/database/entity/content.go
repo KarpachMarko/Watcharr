@@ -2,6 +2,8 @@ package entity
 
 import (
 	"time"
+
+	"github.com/sbondCo/Watcharr/util"
 )
 
 type ContentType string
@@ -32,4 +34,16 @@ type Content struct {
 	Runtime          uint32      `json:"runtime"`
 	NumberOfEpisodes uint32      `json:"numberOfEpisodes"`
 	NumberOfSeasons  uint32      `json:"numberOfSeasons"`
+}
+
+// NOTE: Can return empty string, so use only when we know that a valid option
+// will be returned or we are okay with that.
+func (c *Content) GetTypeSupportedMedia() util.SupportedMedia {
+	switch c.Type {
+	case MOVIE:
+		return util.SupportedMediaMovie
+	case SHOW:
+		return util.SupportedMediaShow
+	}
+	return ""
 }

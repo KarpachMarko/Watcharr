@@ -28,6 +28,7 @@ import (
 	"github.com/sbondCo/Watcharr/feature/content"
 	"github.com/sbondCo/Watcharr/feature/feature"
 	"github.com/sbondCo/Watcharr/feature/follow"
+	"github.com/sbondCo/Watcharr/feature/game"
 	"github.com/sbondCo/Watcharr/feature/imprt"
 	"github.com/sbondCo/Watcharr/feature/jellyfin"
 	"github.com/sbondCo/Watcharr/feature/job"
@@ -184,7 +185,6 @@ func main() {
 	} else {
 		slog.Error("Failed to check if any users exist.. not registering setup routes", "error", uresp.Error)
 	}
-	// br.AddGameRoutes()
 
 	t := tmdb.NewTMDB(cfg.TMDB_KEY)
 
@@ -231,10 +231,10 @@ func main() {
 		activityService,
 		tagService)
 	importTraktService := imprt.NewTraktService(importService)
+	gameService := game.NewService(activityService)
 
 	auth.NewRouter(br, authService, authTrustedHeaderService).AddRoutes()
 	content.NewRouter(br, contentService, watchedService).AddRoutes()
-	// br.AddGameRoutes()
 	watched.NewRouter(br, t, watchedService).AddRoutes()
 	season.NewRouter(br, watchedSeasonService).AddRoutes()
 	episode.NewRouter(br, watchedEpisodeService).AddRoutes()
@@ -251,6 +251,7 @@ func main() {
 	job.NewRouter(br).AddRoutes()
 	task.NewRouter(br).AddRoutes()
 	tag.NewRouter(br, tagService).AddRoutes()
+	game.NewRouter(br, gameService, watchedService).AddRoutes()
 
 	api.Static("/img", path.Join(config.DataPath, "img"))
 

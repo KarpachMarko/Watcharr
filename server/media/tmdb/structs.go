@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/util"
 )
 
 // Separated from `TMDBSearchResponse` so we can embed it for
@@ -73,8 +74,8 @@ func (t TMDBSearchMultiResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBSearchMultiResult) GetMediaType() entity.ContentType {
-	return entity.ContentType(t.MediaType)
+func (t TMDBSearchMultiResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMedia(t.MediaType)
 }
 
 type TMDBSearchMultiResponseWithWatched struct {
@@ -115,8 +116,8 @@ func (t TMDBSearchMovieResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBSearchMovieResult) GetMediaType() entity.ContentType {
-	return entity.MOVIE
+func (t TMDBSearchMovieResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaMovie
 }
 
 type TMDBSearchMoviesResponseWithWatched struct {
@@ -157,8 +158,8 @@ func (t TMDBSearchShowsResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBSearchShowsResult) GetMediaType() entity.ContentType {
-	return entity.SHOW
+func (t TMDBSearchShowsResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaShow
 }
 
 type TMDBSearchShowsResponseWithWatched struct {
@@ -292,8 +293,8 @@ func (t TMDBMovieDetailsBase) GetId() int {
 	return t.ID
 }
 
-func (t TMDBMovieDetailsBase) GetMediaType() entity.ContentType {
-	return entity.MOVIE
+func (t TMDBMovieDetailsBase) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaMovie
 }
 
 type TMDBMovieDetailsWithWatched struct {
@@ -331,8 +332,8 @@ func (t TMDBMovieSimilarResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBMovieSimilarResult) GetMediaType() entity.ContentType {
-	return entity.MOVIE
+func (t TMDBMovieSimilarResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaMovie
 }
 
 type TMDBMovieSimilarWithWatched struct {
@@ -413,8 +414,8 @@ func (t TMDBShowDetailsBase) GetId() int {
 	return t.ID
 }
 
-func (t TMDBShowDetailsBase) GetMediaType() entity.ContentType {
-	return entity.SHOW
+func (t TMDBShowDetailsBase) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaShow
 }
 
 type TMDBShowDetailsWithWatched struct {
@@ -524,8 +525,8 @@ func (t TMDBShowSimilarResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBShowSimilarResult) GetMediaType() entity.ContentType {
-	return entity.SHOW
+func (t TMDBShowSimilarResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaShow
 }
 
 type TMDBShowSimilarWithWatched struct {
@@ -602,8 +603,8 @@ func (t TMDBPersonCombinedCreditsCast) GetId() int {
 	return t.ID
 }
 
-func (t TMDBPersonCombinedCreditsCast) GetMediaType() entity.ContentType {
-	return entity.ContentType(t.MediaType)
+func (t TMDBPersonCombinedCreditsCast) GetMediaType() util.SupportedMedia {
+	return util.SupportedMedia(t.MediaType)
 }
 
 type TMDBPersonCombinedCreditsCastWithWatched struct {
@@ -675,8 +676,8 @@ func (t TMDBDiscoverMoviesResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBDiscoverMoviesResult) GetMediaType() entity.ContentType {
-	return entity.MOVIE
+func (t TMDBDiscoverMoviesResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaMovie
 }
 
 type TMDBDiscoverMoviesWithWatched struct {
@@ -716,8 +717,8 @@ func (t TMDBDiscoverShowsResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBDiscoverShowsResult) GetMediaType() entity.ContentType {
-	return entity.SHOW
+func (t TMDBDiscoverShowsResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaShow
 }
 
 type TMDBDiscoverShowsWithWatched struct {
@@ -763,8 +764,8 @@ func (t TMDBTrendingAllResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBTrendingAllResult) GetMediaType() entity.ContentType {
-	return entity.ContentType(t.MediaType)
+func (t TMDBTrendingAllResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMedia(t.MediaType)
 }
 
 type TMDBTrendingAllWithWatched struct {
@@ -809,8 +810,8 @@ func (t TMDBUpcomingMoviesResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBUpcomingMoviesResult) GetMediaType() entity.ContentType {
-	return entity.MOVIE
+func (t TMDBUpcomingMoviesResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaMovie
 }
 
 type TMDBUpcomingMoviesWithWatched struct {
@@ -850,8 +851,8 @@ func (t TMDBUpcomingShowsResult) GetId() int {
 	return t.ID
 }
 
-func (t TMDBUpcomingShowsResult) GetMediaType() entity.ContentType {
-	return entity.SHOW
+func (t TMDBUpcomingShowsResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaShow
 }
 
 type TMDBUpcomingShowsWithWatched struct {

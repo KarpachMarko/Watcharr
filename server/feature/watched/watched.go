@@ -9,6 +9,7 @@ import (
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
+	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
 	"github.com/sbondCo/Watcharr/util"
 	"gorm.io/gorm"
 )
@@ -190,22 +191,21 @@ func (s *Service) GetWatchedItemsByTmdbIds(userId uint, c [][]any) ([]entity.Wat
 }
 
 // Get a watched list item by game (igdb) id (must be for `userId`).
-// TODO update var names soon
-func (s *Service) GetWatchedItemByIgdbId(userId uint, tmdbId uint) (entity.Watched, error) {
-	slog.Debug("getWatchedItemByIgdbId: Running.", "userId", userId, "tmdbId", tmdbId)
+func (s *Service) GetWatchedItemByIgdbId(userId uint, igdbId uint) (entity.Watched, error) {
+	slog.Debug("getWatchedItemByIgdbId: Running.", "userId", userId, "igdbId", igdbId)
 	watched := new(entity.Watched)
 	res := s.db.Model(&entity.Watched{}).
 		Joins("Game").
 		Preload("Game.Poster").
 		Preload("Activity").
 		Preload("Tags").
-		Where("user_id = ? AND Game.igdb_id = ?", userId, tmdbId).
+		Where("user_id = ? AND Game.igdb_id = ?", userId, igdbId).
 		Take(&watched)
 	if res.Error != nil {
 		slog.Error("getWatchedItemByIgdbId: Failed!", "error", res.Error)
 		return entity.Watched{}, res.Error
 	}
-	slog.Debug("getWatchedItemByIgdbId: Done.", "userId", userId, "tmdbId", tmdbId, "watched_item", watched)
+	slog.Debug("getWatchedItemByIgdbId: Done.", "userId", userId, "igdbId", igdbId, "watched_item", watched)
 	return *watched, nil
 }
 
@@ -235,6 +235,56 @@ func (s *Service) GetWatchedItemsByIgdbIds(userId uint, c []int) ([]entity.Watch
 	return *watched, nil
 }
 
+// Get watched item by an id and SupportedMedia type.
+func (s *Service) GetWatchedItemBySupportedMediaId(userId uint, id uint, t util.SupportedMedia) (entity.Watched, error) {
+	switch t {
+	case util.SupportedMediaGame:
+		return s.GetWatchedItemByIgdbId(userId, id)
+	case util.SupportedMediaMovie:
+		return s.GetWatchedItemByTmdbId(userId, id, entity.MOVIE)
+	case util.SupportedMediaShow:
+		return s.GetWatchedItemByTmdbId(userId, id, entity.SHOW)
+	}
+	return entity.Watched{}, errors.New("unsupported supportedmedia type")
+}
+
+// Get a list of watched items by a slice of ids and SupportedMedia types.
+func (s *Service) GetWatchedItemsBySupportedMediaIds(userId uint, c []addedtocontent.IdToTypePair) ([]entity.Watched, error) {
+	slog.Debug("GetWatchedItemsBySupportedMediaIds: Running.", "userId", userId, "c", c)
+	// First we want to separate `c` into slices we can pass to the respective functions.
+	tmdbIds := [][]any{}
+	igdbIds := []int{}
+	for _, v := range c {
+		switch v.Type {
+		case util.SupportedMediaMovie:
+			tmdbIds = append(tmdbIds, []any{v.Id, entity.MOVIE})
+		case util.SupportedMediaShow:
+			tmdbIds = append(tmdbIds, []any{v.Id, entity.SHOW})
+		case util.SupportedMediaGame:
+			igdbIds = append(igdbIds, v.Id)
+		}
+	}
+	// Now call each function relating to an overarching type.
+	watcheds := []entity.Watched{}
+	if len(tmdbIds) > 0 {
+		if w, err := s.GetWatchedItemsByTmdbIds(userId, tmdbIds); err == nil {
+			watcheds = append(watcheds, w...)
+		} else {
+			slog.Error("GetWatchedItemsBySupportedMediaIds: Failed to get items by tmdb ids.", "error", err)
+			return []entity.Watched{}, err
+		}
+	}
+	if len(igdbIds) > 0 {
+		if w, err := s.GetWatchedItemsByIgdbIds(userId, igdbIds); err == nil {
+			watcheds = append(watcheds, w...)
+		} else {
+			slog.Error("GetWatchedItemsBySupportedMediaIds: Failed to get items by igdb ids.", "error", err)
+			return []entity.Watched{}, err
+		}
+	}
+	return watcheds, nil
+}
+
 // Get another users **public** watchlist.
 func (s *Service) getPublicWatched(userId uint, username string) ([]entity.Watched, error) {
 	slog.Debug("getPublicWatched running", "user_id", userId, "username", username)
@@ -256,6 +306,7 @@ func (s *Service) getPublicWatched(userId uint, username string) ([]entity.Watch
 	watched := new([]entity.Watched)
 	res = s.db.Model(&entity.Watched{}).Preload("Content").Preload("Game").Preload("Game.Poster").Preload("Activity").Where("user_id = ?", userId).Find(&watched)
 	if res.Error != nil {
+		// TODO WHATS WRONG WITH YOU WHY ARE WE PANICKING HERE???? (change this to return an error you bimbo)
 		panic(res.Error)
 	}
 	return *watched, nil

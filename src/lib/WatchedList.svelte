@@ -35,9 +35,7 @@
 		{#each list as w, i (w.id)}
 			{#if w.game}
 				<GamePoster
-					id={w.id}
-					rating={w.rating}
-					status={w.status}
+					bind:watched={list[i]}
 					media={{
 						id: w.game.igdbId,
 						coverId: w.game.coverId,
@@ -47,10 +45,6 @@
 						poster: w.game.poster,
 					}}
 					disableInteraction={isPublicList}
-					extraDetails={{
-						dateAdded: w.createdAt,
-						dateModified: w.updatedAt,
-					}}
 					fluidSize={true}
 					pinned={w.pinned}
 					onUpdated={itemUpdated}

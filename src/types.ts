@@ -906,7 +906,7 @@ export interface GameSearch {
 	name: string;
 	summary?: string;
 	version_title?: string;
-	// watched?: Watched; TODO
+	watched?: Watched;
 }
 
 export enum ImportResponseType {

@@ -3,6 +3,9 @@ package igdb
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/util"
 )
 
 type TwitchTokenResponse struct {
@@ -28,6 +31,8 @@ func (u *UnixTime) UnmarshalJSON(b []byte) error {
 
 // Only the fields we request included in each struct
 
+// Search
+
 type GameSearchResponse []struct {
 	ID    int `json:"id"`
 	Cover struct {
@@ -40,6 +45,8 @@ type GameSearchResponse []struct {
 	VersionTitle     string   `json:"version_title,omitempty"`
 }
 
+// Similar
+
 type GameSimilar struct {
 	ID               int      `json:"id"`
 	Name             string   `json:"name"`
@@ -50,6 +57,21 @@ type GameSimilar struct {
 		ImageID string `json:"image_id"`
 	} `json:"cover"`
 }
+
+func (t GameSimilar) GetId() int {
+	return t.ID
+}
+
+func (t GameSimilar) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaGame
+}
+
+type GameSimilarWithWatched struct {
+	GameSimilar
+	Watched *entity.Watched `json:"watched,omitempty"`
+}
+
+// Details
 
 type GameDetailsResponseBase struct {
 	ID       int `json:"id"`
@@ -119,6 +141,22 @@ type GameDetailsResponse struct {
 	GameDetailsResponseBase
 	SimilarGame []GameSimilar `json:"similar_games"`
 }
+
+func (t GameDetailsResponseBase) GetId() int {
+	return t.ID
+}
+
+func (t GameDetailsResponseBase) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaGame
+}
+
+type GameDetailsResponseWithWatched struct {
+	GameDetailsResponseBase
+	SimilarGame []GameSimilarWithWatched `json:"similar_games"`
+	Watched     *entity.Watched          `json:"watched,omitempty"`
+}
+
+// Basic Details
 
 type GameDetailsBasicResponse struct {
 	ID       int `json:"id"`
