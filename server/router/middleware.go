@@ -45,7 +45,8 @@ func WhereaboutsRequired(cfg *config.ServerConfig) gin.HandlerFunc {
 // assume pagination is disabled when query params not present.
 func PaginatedRequest(force bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		pageStr := c.Query("p")
+		// Determine the wanted page.
+		pageStr := c.Query("page")
 		page := 0
 		if pageStr == "" && force {
 			page = 1
@@ -58,26 +59,28 @@ func PaginatedRequest(force bool) gin.HandlerFunc {
 		} else {
 			num, err := strconv.Atoi(pageStr)
 			if err != nil {
-				slog.Error("PossiblyPaginated: Query paramater 'p' was not parseable as an int", "err", err)
-				c.JSON(http.StatusBadRequest, ErrorResponse{Error: "query param 'p' must be a number"})
+				slog.Error("PossiblyPaginated: Query paramater 'page' was not parseable as an int", "err", err)
+				c.JSON(http.StatusBadRequest, ErrorResponse{Error: "query param 'page' must be a number"})
 				return
 			}
 			page = num
 		}
-		limitStr := c.Query("l")
+		// Determine the (page) limit
+		limitStr := c.Query("limit")
 		limit := 40
 		if limitStr != "" {
 			num, err := strconv.Atoi(limitStr)
 			if err != nil {
-				slog.Error("PossiblyPaginated: Query paramater 'l' was not parseable as an int", "err", err)
-				c.JSON(http.StatusBadRequest, ErrorResponse{Error: "query param 'l' must be a number"})
+				slog.Error("PossiblyPaginated: Query paramater 'limit' was not parseable as an int", "err", err)
+				c.JSON(http.StatusBadRequest, ErrorResponse{Error: "query param 'limit' must be a number"})
 				return
 			}
 			limit = num
 		} else {
 			slog.Debug("PossiblyPaginated: Using default limit.")
 		}
-		slog.Debug("PossiblyPaginated: middleware hit", "page", page, "page_limit", limit)
+		slog.Debug("PossiblyPaginated: middleware hit", "page", page, "limit", limit)
+		// Set request context vars and continue.
 		c.Set("paginationEnabled", true)
 		c.Set("paginationParams", util.PaginationParams{
 			Page:  page,

@@ -12,16 +12,16 @@
 	const dataLoader = paginatedLoader<Watched>(load);
 
 	let nextLoadParams: {
-		p: number;
+		page: number;
 		[x: string]: any;
 	} = $derived({
-		p: dataLoader.state.page + 1,
+		page: dataLoader.state.page + 1,
 		...store.sortAndFiltersForQueryParams,
 	});
 
 	async function load(signal: GenericAbortSignal) {
 		console.debug("load: loadParams:", nextLoadParams);
-		if (nextLoadParams.p === dataLoader.state.page) {
+		if (nextLoadParams.page === dataLoader.state.page) {
 			console.warn("load: Already on this page, not loading it again!");
 			return;
 		}
