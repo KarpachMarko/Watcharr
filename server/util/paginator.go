@@ -20,7 +20,9 @@ type PaginationParams struct {
 type PaginationResponse[T interface{}] struct {
 	PaginationParams
 	// Max amount of pages we can produce from total_results
-	TotalPages   int   `json:"totalPages"`
+	TotalPages int `json:"totalPages"`
+	// Specifically an `int64` so we can use it
+	// directly in gorms Count function.
 	TotalResults int64 `json:"totalResults"`
 	Results      []T   `json:"results"`
 }

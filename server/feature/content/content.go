@@ -305,6 +305,7 @@ func (s *Service) transformProviders(c *interface{}, country string) {
 	}
 }
 
+// TMDB Multi Search.
 func (s *Service) SearchContent(query string, pageNum int) (tmdb.TMDBSearchMultiResponse, error) {
 	resp := new(tmdb.TMDBSearchMultiResponse)
 	if pageNum == 0 {

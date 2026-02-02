@@ -33,7 +33,7 @@ func (u *UnixTime) UnmarshalJSON(b []byte) error {
 
 // Search
 
-type GameSearchResponse []struct {
+type GameSearchResponseResult struct {
 	ID    int `json:"id"`
 	Cover struct {
 		ID      int    `json:"id"`
@@ -44,6 +44,16 @@ type GameSearchResponse []struct {
 	Summary          string   `json:"summary,omitempty"`
 	VersionTitle     string   `json:"version_title,omitempty"`
 }
+
+func (t GameSearchResponseResult) GetId() int {
+	return t.ID
+}
+
+func (t GameSearchResponseResult) GetMediaType() util.SupportedMedia {
+	return util.SupportedMediaGame
+}
+
+type GameSearchResponse []GameSearchResponseResult
 
 // Similar
 

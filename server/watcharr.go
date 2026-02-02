@@ -34,6 +34,7 @@ import (
 	"github.com/sbondCo/Watcharr/feature/job"
 	"github.com/sbondCo/Watcharr/feature/plex"
 	"github.com/sbondCo/Watcharr/feature/profile"
+	"github.com/sbondCo/Watcharr/feature/search"
 	"github.com/sbondCo/Watcharr/feature/server"
 	"github.com/sbondCo/Watcharr/feature/setup"
 	"github.com/sbondCo/Watcharr/feature/tag"
@@ -232,6 +233,7 @@ func main() {
 		tagService)
 	importTraktService := imprt.NewTraktService(importService)
 	gameService := game.NewService(activityService)
+	searchService := search.NewService(db, br.Cfg, contentService)
 
 	auth.NewRouter(br, authService, authTrustedHeaderService).AddRoutes()
 	content.NewRouter(br, contentService, watchedService).AddRoutes()
@@ -252,6 +254,7 @@ func main() {
 	task.NewRouter(br).AddRoutes()
 	tag.NewRouter(br, tagService).AddRoutes()
 	game.NewRouter(br, gameService, watchedService).AddRoutes()
+	search.NewRouter(br, searchService).AddRoutes()
 
 	api.Static("/img", path.Join(config.DataPath, "img"))
 
