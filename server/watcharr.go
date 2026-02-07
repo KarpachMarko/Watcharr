@@ -18,10 +18,13 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/sbondCo/Watcharr/config"
 	"github.com/sbondCo/Watcharr/database"
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/activity"
 	"github.com/sbondCo/Watcharr/feature/arr"
 	"github.com/sbondCo/Watcharr/feature/auth"
@@ -140,6 +143,11 @@ func main() {
 	}
 	gin.DefaultWriter = multiw
 	gine := gin.Default()
+
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterValidation("validsearchtype", domain.ValidSearchType)
+	}
+
 	gine.Use(cors.New(cors.Config{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -254,7 +262,7 @@ func main() {
 	task.NewRouter(br).AddRoutes()
 	tag.NewRouter(br, tagService).AddRoutes()
 	game.NewRouter(br, gameService, watchedService).AddRoutes()
-	search.NewRouter(br, searchService).AddRoutes()
+	search.NewRouter(br, searchService, watchedService).AddRoutes()
 
 	api.Static("/img", path.Join(config.DataPath, "img"))
 

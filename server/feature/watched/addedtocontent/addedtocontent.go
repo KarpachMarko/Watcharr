@@ -60,9 +60,9 @@ func AddList[S Addable](
 			for i, vv := range s {
 				if
 				// IF is content
-				(vv.GetMediaType() == v.Content.GetTypeSupportedMedia() && vv.GetId() == v.Content.TmdbID) ||
+				(vv.GetMediaType() == v.Content.GetTypeSupportedMedia() && v.Content != nil && vv.GetId() == v.Content.TmdbID) ||
 					// If is game
-					vv.GetMediaType() == util.SupportedMediaGame && vv.GetId() == v.Game.ID {
+					(vv.GetMediaType() == util.SupportedMediaGame && v.Game != nil && vv.GetId() == v.Game.IgdbID) {
 					addCb(i, &v)
 				}
 			}

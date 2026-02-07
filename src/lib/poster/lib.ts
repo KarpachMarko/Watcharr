@@ -13,7 +13,7 @@ export type PosterExtraDetails = {
 };
 
 export function buildExtraDetails(
-	t: SupportedMedia,
+	t: SupportedMedia | undefined,
 	w: Watched,
 ): PosterExtraDetails {
 	const obj = {

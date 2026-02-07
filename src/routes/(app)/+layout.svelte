@@ -70,26 +70,30 @@
 				const target = ev.target as HTMLInputElement;
 				const query = target?.value.trim();
 				if (!query) return;
-				if (query) {
-					// Enable autofocus before running `goto` because on chromium
-					// the .focus() call won't work, even after a timeout.
-					// Using autofocus seems to work. Disables after goto runs.
-					// https://github.com/sbondCo/Watcharr/issues/169
-					target.autofocus = true;
-					goto(`/search?q=${encodeURIComponent(query)}`).then(() => {
-						// Use mainSearchEl if nav not split, otherwise use ev target.
-						if (
-							!document.body.classList.contains("split-nav") &&
-							mainSearchEl
-						) {
-							mainSearchEl.focus();
-							mainSearchEl.autofocus = false;
-						} else {
-							target?.focus();
-						}
-						target.autofocus = false;
-					});
+				const currentSearchType = page.url.searchParams.get("type");
+				const searchParams = new URLSearchParams({
+					query: encodeURIComponent(query),
+				});
+				if (page.route?.id === "/(app)/search" && currentSearchType) {
+					// If we are already on the search page, we can attempt
+					// to keep any existing type filter on the next query.
+					searchParams.set("type", currentSearchType);
 				}
+				// Enable autofocus before running `goto` because on chromium
+				// the .focus() call won't work, even after a timeout.
+				// Using autofocus seems to work. Disables after goto runs.
+				// https://github.com/sbondCo/Watcharr/issues/169
+				target.autofocus = true;
+				goto(`/search?${searchParams.toString()}`).then(() => {
+					// Use mainSearchEl if nav not split, otherwise use ev target.
+					if (!document.body.classList.contains("split-nav") && mainSearchEl) {
+						mainSearchEl.focus();
+						mainSearchEl.autofocus = false;
+					} else {
+						target?.focus();
+					}
+					target.autofocus = false;
+				});
 			},
 			isTouch() ? 800 : 400,
 		);

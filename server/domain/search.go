@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
+	"github.com/go-playground/validator/v10"
 	"github.com/sbondCo/Watcharr/util"
 )
 
@@ -20,31 +20,29 @@ const (
 	SearchTypeGame = "game"
 )
 
-type SearchResultType string
-
-const (
-	SearchResultTypeTMDB = "tmdb"
-	SearchResultTypeIGDB = "igdb"
-)
-
 type SearchRequest struct {
 	// The type of content we are searching for.
 	// SearchTypeMulti encompasses all types of media in the results.
-	Type SearchType `form:"type"`
+	Type SearchType `form:"type" binding:"validsearchtype"`
 	// The search term.
 	Query string `form:"query"`
 }
 
-type SearchResult struct {
-	// The type of result.
-	// Since there are cases where multiple data types can be returned
-	// from different external apis, each result will be wrapped in an
-	// identifiable type so the client knows what to expect in each result.
-	Type SearchResultType `json:"type"`
-	// The actual result.
-	Data addedtocontent.Addable `json:"data"`
+type SearchResponse struct {
+	util.PaginationResponse[Media]
 }
 
-type SearchResponse struct {
-	util.PaginationResponse[SearchResult]
+var ValidSearchType validator.Func = func(fl validator.FieldLevel) bool {
+	st, ok := fl.Field().Interface().(SearchType)
+	if ok {
+		switch st {
+		case SearchTypeMulti,
+			SearchTypeMovie,
+			SearchTypeShow,
+			SearchTypePerson,
+			SearchTypeGame:
+			return true
+		}
+	}
+	return false
 }

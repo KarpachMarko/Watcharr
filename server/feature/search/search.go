@@ -18,6 +18,8 @@ import (
 type ContentProvider interface {
 	SearchContent(query string, pageNum int) (tmdb.TMDBSearchMultiResponse, error)
 	SearchMovies(query string, pageNum int) (tmdb.TMDBSearchMoviesResponse, error)
+	SearchTv(query string, pageNum int) (tmdb.TMDBSearchShowsResponse, error)
+	SearchPeople(query string, pageNum int) (tmdb.TMDBSearchPeopleResponse, error)
 }
 
 type Service struct {
@@ -56,6 +58,18 @@ func (s *Service) Search(
 		if err := s.searchMovie(r.Query, pp.Page, &resp); err != nil {
 			return resp, errors.New("movie search failed")
 		}
+	case domain.SearchTypeShow:
+		if err := s.searchTv(r.Query, pp.Page, &resp); err != nil {
+			return resp, errors.New("tv search failed")
+		}
+	case domain.SearchTypePerson:
+		if err := s.searchPeople(r.Query, pp.Page, &resp); err != nil {
+			return resp, errors.New("person search failed")
+		}
+	case domain.SearchTypeGame:
+		if err := s.searchGame(r.Query, pp.Page, &resp); err != nil {
+			return resp, errors.New("game search failed")
+		}
 	}
 	return resp, nil
 }
@@ -78,10 +92,7 @@ func (s *Service) searchMulti(
 	for _, v := range tmdbRes.Results {
 		resp.Results = append(
 			resp.Results,
-			domain.SearchResult{
-				Type: domain.SearchResultTypeTMDB,
-				Data: v,
-			},
+			v.AsMedia(),
 		)
 	}
 	// IGDB
@@ -93,10 +104,7 @@ func (s *Service) searchMulti(
 	for _, v := range igdbRes {
 		resp.Results = append(
 			resp.Results,
-			domain.SearchResult{
-				Type: domain.SearchResultTypeIGDB,
-				Data: v,
-			},
+			v.AsMedia(),
 		)
 	}
 	resp.Page = tmdbRes.Page
@@ -110,7 +118,6 @@ func (s *Service) searchMovie(
 	page int,
 	resp *domain.SearchResponse,
 ) error {
-	// TMDB
 	tmdbRes, err := s.contentProvider.SearchMovies(query, page)
 	if err != nil {
 		slog.Error("SearchMovie: Failed to search tmdb!", "error", err)
@@ -119,14 +126,77 @@ func (s *Service) searchMovie(
 	for _, v := range tmdbRes.Results {
 		resp.Results = append(
 			resp.Results,
-			domain.SearchResult{
-				Type: domain.SearchResultTypeTMDB,
-				Data: v,
-			},
+			v.AsMedia(),
 		)
 	}
 	resp.Page = tmdbRes.Page
 	resp.TotalPages = tmdbRes.TotalPages
 	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}
+
+func (s *Service) searchTv(
+	query string,
+	page int,
+	resp *domain.SearchResponse,
+) error {
+	tmdbRes, err := s.contentProvider.SearchTv(query, page)
+	if err != nil {
+		slog.Error("SearchMovie: Failed to search tmdb!", "error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range tmdbRes.Results {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = tmdbRes.Page
+	resp.TotalPages = tmdbRes.TotalPages
+	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}
+
+func (s *Service) searchPeople(
+	query string,
+	page int,
+	resp *domain.SearchResponse,
+) error {
+	tmdbRes, err := s.contentProvider.SearchPeople(query, page)
+	if err != nil {
+		slog.Error("SearchMovie: Failed to search tmdb!", "error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range tmdbRes.Results {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = tmdbRes.Page
+	resp.TotalPages = tmdbRes.TotalPages
+	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}
+
+func (s *Service) searchGame(
+	query string,
+	page int,
+	resp *domain.SearchResponse,
+) error {
+	igdbRes, err := s.cfg.TWITCH.Search(query)
+	if err != nil {
+		slog.Error("SearchMulti: Failed to search tmdb!", "error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range igdbRes {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = 1
+	resp.TotalPages = 1
+	resp.TotalResults = int64(len(igdbRes))
 	return nil
 }

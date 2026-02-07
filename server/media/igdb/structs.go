@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/util"
 )
 
@@ -51,6 +52,19 @@ func (t GameSearchResponseResult) GetId() int {
 
 func (t GameSearchResponseResult) GetMediaType() util.SupportedMedia {
 	return util.SupportedMediaGame
+}
+
+func (t *GameSearchResponseResult) AsMedia() domain.Media {
+	m := domain.Media{
+		Type: domain.MediaTypeIGDBGame,
+		IDs: domain.MediaIDs{
+			IGDB: t.ID,
+		},
+		Name:          t.Name,
+		Summary:       t.Summary,
+		ExtPosterPath: t.Cover.ImageID,
+	}
+	return m
 }
 
 type GameSearchResponse []GameSearchResponseResult

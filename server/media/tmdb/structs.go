@@ -1,9 +1,11 @@
 package tmdb
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/util"
 )
 
@@ -21,14 +23,47 @@ type TMDBSearchResponse[R any] struct {
 }
 
 // A common "base" type for search results.
+// Some properties are used commonly for all types except Person, but
+// are still embedded in person for ease of use right now.
 type TMDBSearchResult struct {
 	// TMDB ID
 	ID int `json:"id"`
-	// Media Type (movie, show, person)
+	// Media Type (movie, tv, person)
 	// **Some requests won't return this value
 	// (namely any request other than a multi
 	// type search), but we add it in manually.**
 	MediaType string `json:"media_type"`
+	// Summary (only for content)
+	Overview string `json:"overview"`
+	// Poster path (only for content)
+	PosterPath string `json:"poster_path"`
+	// Rating (only for content)
+	VoteAverage float32 `json:"vote_average"`
+	// Amount of votes for rating (only for content)
+	VoteCount uint32 `json:"vote_count"`
+}
+
+// Adds the base items to a Media struct, which can be used in the
+// structs that embed TMDBSearchResult to simplify and reduce duplication.
+func (t *TMDBSearchResult) AsMedia() domain.Media {
+	m := domain.Media{
+		IDs: domain.MediaIDs{
+			TMDB: t.ID,
+		},
+		Summary:       t.Overview,
+		ExtPosterPath: t.PosterPath,
+		Rating:        uint(t.VoteAverage),
+		RatingCount:   uint(t.VoteCount),
+	}
+	switch t.MediaType {
+	case "movie":
+		m.Type = domain.MediaTypeTMDBMovie
+	case "tv":
+		m.Type = domain.MediaTypeTMDBShow
+	case "person":
+		m.Type = domain.MediaTypeTMDBPerson
+	}
+	return m
 }
 
 //
@@ -46,15 +81,11 @@ type TMDBSearchMultiResult struct {
 	Title            string   `json:"title,omitempty"`
 	OriginalLanguage string   `json:"original_language"`
 	OriginalTitle    string   `json:"original_title,omitempty"`
-	Overview         string   `json:"overview"`
-	PosterPath       string   `json:"poster_path"`
 	ProfilePath      string   `json:"profile_path"`
 	GenreIds         []int64  `json:"genre_ids"`
 	Popularity       float32  `json:"popularity"`
 	ReleaseDate      string   `json:"release_date,omitempty"`
 	Video            bool     `json:"video,omitempty"`
-	VoteAverage      float32  `json:"vote_average"`
-	VoteCount        uint32   `json:"vote_count"`
 	Name             string   `json:"name,omitempty"`
 	OriginalName     string   `json:"original_name,omitempty"`
 	FirstAirDate     string   `json:"first_air_date,omitempty"`
@@ -76,6 +107,29 @@ func (t TMDBSearchMultiResult) GetId() int {
 
 func (t TMDBSearchMultiResult) GetMediaType() util.SupportedMedia {
 	return util.SupportedMedia(t.MediaType)
+}
+
+func (t *TMDBSearchMultiResult) AsMedia() domain.Media {
+	m := t.TMDBSearchResult.AsMedia()
+
+	m.Name = t.Title
+	if t.Name != "" {
+		m.Name = t.Name
+	}
+
+	var tmdbReleaseDate string
+	switch t.MediaType {
+	case "movie":
+		tmdbReleaseDate = t.ReleaseDate
+	case "tv":
+		tmdbReleaseDate = t.FirstAirDate
+	}
+	if releaseDate, err := time.Parse("2006-01-02", tmdbReleaseDate); err == nil {
+		m.ReleaseDate = releaseDate
+	} else {
+		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+	}
+	return m
 }
 
 type TMDBSearchMultiResponseWithWatched struct {
@@ -102,14 +156,10 @@ type TMDBSearchMovieResult struct {
 	GenreIds         []int   `json:"genre_ids"`
 	OriginalLanguage string  `json:"original_language"`
 	OriginalTitle    string  `json:"original_title"`
-	Overview         string  `json:"overview"`
 	Popularity       float64 `json:"popularity"`
-	PosterPath       string  `json:"poster_path"`
 	ReleaseDate      string  `json:"release_date"`
 	Title            string  `json:"title"`
 	Video            bool    `json:"video"`
-	VoteAverage      float64 `json:"vote_average"`
-	VoteCount        int     `json:"vote_count"`
 }
 
 func (t TMDBSearchMovieResult) GetId() int {
@@ -118,6 +168,17 @@ func (t TMDBSearchMovieResult) GetId() int {
 
 func (t TMDBSearchMovieResult) GetMediaType() util.SupportedMedia {
 	return util.SupportedMediaMovie
+}
+
+func (t *TMDBSearchMovieResult) AsMedia() domain.Media {
+	m := t.TMDBSearchResult.AsMedia()
+	m.Name = t.Title
+	if releaseDate, err := time.Parse("2006-01-02", t.ReleaseDate); err == nil {
+		m.ReleaseDate = releaseDate
+	} else {
+		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+	}
+	return m
 }
 
 type TMDBSearchMoviesResponseWithWatched struct {
@@ -145,13 +206,9 @@ type TMDBSearchShowsResult struct {
 	OriginCountry    []string `json:"origin_country"`
 	OriginalLanguage string   `json:"original_language"`
 	OriginalName     string   `json:"original_name"`
-	Overview         string   `json:"overview"`
 	Popularity       float64  `json:"popularity"`
-	PosterPath       string   `json:"poster_path"`
 	FirstAirDate     string   `json:"first_air_date"`
 	Name             string   `json:"name"`
-	VoteAverage      float64  `json:"vote_average"`
-	VoteCount        int      `json:"vote_count"`
 }
 
 func (t TMDBSearchShowsResult) GetId() int {
@@ -160,6 +217,17 @@ func (t TMDBSearchShowsResult) GetId() int {
 
 func (t TMDBSearchShowsResult) GetMediaType() util.SupportedMedia {
 	return util.SupportedMediaShow
+}
+
+func (t *TMDBSearchShowsResult) AsMedia() domain.Media {
+	m := t.TMDBSearchResult.AsMedia()
+	m.Name = t.Name
+	if releaseDate, err := time.Parse("2006-01-02", t.FirstAirDate); err == nil {
+		m.ReleaseDate = releaseDate
+	} else {
+		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+	}
+	return m
 }
 
 type TMDBSearchShowsResponseWithWatched struct {
@@ -201,6 +269,12 @@ type TMDBSearchPeopleResult struct {
 		VoteAverage      float64 `json:"vote_average"`
 		VoteCount        int     `json:"vote_count"`
 	} `json:"known_for"`
+}
+
+func (t *TMDBSearchPeopleResult) AsMedia() domain.Media {
+	m := t.TMDBSearchResult.AsMedia()
+	m.Name = t.Name
+	return m
 }
 
 type TMDBSearchPeopleResponse struct {

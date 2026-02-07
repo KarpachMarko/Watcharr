@@ -1,24 +1,35 @@
 package search
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/copier"
+	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
+	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
 	"github.com/sbondCo/Watcharr/router"
 	"github.com/sbondCo/Watcharr/util"
 )
 
-type Router struct {
-	br      *router.BaseRouter
-	service *Service
+type WatchedProvider interface {
+	GetWatchedItemBySupportedMediaId(userId uint, id uint, t util.SupportedMedia) (entity.Watched, error)
+	GetWatchedItemsBySupportedMediaIds(userId uint, c []addedtocontent.IdToTypePair) ([]entity.Watched, error)
 }
 
-func NewRouter(br *router.BaseRouter, service *Service) *Router {
+type Router struct {
+	br              *router.BaseRouter
+	service         *Service
+	watchedProvider WatchedProvider
+}
+
+func NewRouter(br *router.BaseRouter, service *Service, watchedProvider WatchedProvider) *Router {
 	return &Router{
 		br,
 		service,
+		watchedProvider,
 	}
 }
 
@@ -37,20 +48,50 @@ func (r *Router) AddRoutes() {
 // We are doing to to explicitly not let that case happen.
 
 func (r *Router) GetSearch(c *gin.Context) {
-	// userId := c.MustGet("userId").(uint)
+	userId := c.MustGet("userId").(uint)
 	pp := c.MustGet("paginationParams").(util.PaginationParams)
 	req := domain.SearchRequest{
 		// Defaults...
 		Type: domain.SearchTypeMulti,
 	}
 	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get request parameters"})
+		slog.Error("GetSearch: ShouldBind for request params failed!", "error", err)
+		c.JSON(
+			http.StatusBadRequest,
+			router.ErrorResponse{
+				Error: "failed to get request parameters or they are invalid",
+			},
+		)
 		return
 	}
-	results, err := r.service.Search(req, pp)
+	resp, err := r.service.Search(req, pp)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, results)
+	ww := domain.SearchResponse{}
+	if err := copier.Copy(&ww, &resp); err != nil {
+		slog.Error("GetSearch: Failed to copy content to with watched struct", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to prepare response"},
+		)
+		return
+	}
+	if err := addedtocontent.AddList(
+		r.watchedProvider,
+		userId,
+		ww.Results,
+		func(i int, w *entity.Watched) {
+			ww.Results[i].Watched = w
+		},
+	); err != nil {
+		slog.Error("GetSearch: Failed to add watched to content!", "error", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			router.ErrorResponse{Error: "failed to add watched data to response"},
+		)
+		return
+	}
+	c.JSON(http.StatusOK, ww)
 }

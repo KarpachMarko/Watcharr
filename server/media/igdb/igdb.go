@@ -173,7 +173,7 @@ func (i *IGDB) Search(q string) (GameSearchResponse, error) {
 		igdbHost,
 		"/games",
 		map[string]string{},
-		"fields name, cover.image_id, version_title, summary, first_release_date; search \""+q+"\";",
+		"fields name, cover.image_id, version_title, summary, first_release_date; search \""+q+"\"; limit 20;",
 		&resp,
 	)
 	if err != nil {

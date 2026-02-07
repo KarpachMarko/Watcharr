@@ -94,7 +94,7 @@ export interface PaginationResponse<T> {
 	page: number;
 	totalPages: number;
 	totalResults: number;
-	results: T[];
+	results: T[] | null;
 }
 
 export interface Content {
@@ -294,6 +294,54 @@ export interface TokenClaims {
 	userId: number;
 	username: string;
 	type: number;
+}
+
+export interface MediaIDs {
+	tmdb?: number;
+	imdb?: number;
+	igdb?: number;
+}
+
+export enum MediaTypeE {
+	tmdbMovie = "tmdb_movie",
+	tmdbShow = "tmdb_tv",
+	tmdbPerson = "tmdb_person",
+	igdbGame = "igdb_game",
+}
+
+export interface Media {
+	type?: MediaTypeE;
+	ids: MediaIDs;
+	name?: string;
+	summary?: string;
+	extPosterPath?: string;
+	rating?: number;
+	ratingCount?: number;
+	watched?: Watched;
+	similar?: Media[];
+	releaseDate?: string;
+	extBackdropPath?: string;
+	homepage?: string;
+	trailer?: string;
+	runtime?: number;
+}
+
+interface PaginationParams {
+	limit?: number;
+	page?: number;
+}
+
+export enum SearchType {
+	multi = "multi",
+	movie = "movie",
+	show = "show",
+	person = "person",
+	game = "game",
+}
+
+export interface SearchRequest extends PaginationParams {
+	type?: SearchType;
+	query: string;
 }
 
 export interface TMDBContentDetails {

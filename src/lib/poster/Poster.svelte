@@ -1,5 +1,11 @@
 <script lang="ts">
-	import type { WatchedStatus, Watched, ContentType } from "@/types";
+	import {
+		type WatchedStatus,
+		type Watched,
+		type Media,
+		MediaTypeE,
+		type MediaType,
+	} from "@/types";
 	import {
 		addClassToParent,
 		calculateTransformOrigin,
@@ -21,16 +27,7 @@
 		 * the entry should be provided in full.
 		 */
 		watched?: Watched;
-		media: {
-			poster_path?: string;
-			title?: string;
-			name?: string;
-			overview?: string;
-			id: number; // tmdb id
-			media_type: ContentType;
-			release_date?: string;
-			first_air_date?: string;
-		};
+		media: Media;
 		small?: boolean;
 		disableInteraction?: boolean;
 		hideButtons?: boolean;
@@ -77,26 +74,34 @@
 
 	let containerEl: HTMLDivElement | undefined = $state();
 
-	let title = $derived(media.title || media.name);
 	// For now, if the content is on watched list, we can assume we have a local
 	// cached image. Could be improved, since we could have a cached image for
 	// show not on someone elses watched list.
 	let poster = $derived(
 		watched
-			? `${baseURL}/img${media.poster_path}`
-			: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
+			? `${baseURL}/img${media.extPosterPath}`
+			: `https://image.tmdb.org/t/p/w500${media.extPosterPath}`,
 	);
+	let mediaTypeTMDB: MediaType | undefined = $derived.by(() => {
+		switch (media.type) {
+			case MediaTypeE.tmdbMovie:
+				return "movie";
+			case MediaTypeE.tmdbShow:
+				return "tv";
+		}
+	});
 	let link = $derived(
-		media.id ? `/${media.media_type}/${media.id}` : undefined,
+		media?.ids?.tmdb ? `/${mediaTypeTMDB}/${media.ids.tmdb}` : undefined,
 	);
-	let dateStr = $derived(media.release_date || media.first_air_date);
-	let year = $derived(dateStr ? new Date(dateStr).getFullYear() : undefined);
+	let year = $derived(
+		media.releaseDate ? new Date(media.releaseDate).getFullYear() : undefined,
+	);
 
 	function handleStarClick(r: number) {
-		if (r == watched?.rating) return;
+		if (r == watched?.rating || !media.ids.tmdb || !mediaTypeTMDB) return;
 		updateWatched(watched, {
-			contentId: media.id,
-			contentType: media.media_type,
+			contentId: media.ids.tmdb,
+			contentType: mediaTypeTMDB,
 			rating: r,
 		}).then((w) => {
 			if (typeof onUpdated === "function") {
@@ -125,10 +130,10 @@
 			});
 			return;
 		}
-		if (type == watched?.status) return;
+		if (type == watched?.status || !media.ids.tmdb || !mediaTypeTMDB) return;
 		updateWatched(watched, {
-			contentId: media.id,
-			contentType: media.media_type,
+			contentId: media.ids.tmdb,
+			contentType: mediaTypeTMDB,
 			status: type,
 		}).then((w) => {
 			if (typeof onUpdated === "function") {
@@ -237,10 +242,10 @@
 	class={`${posterActive ? "active " : ""}${pinned ? "pinned " : ""}${hideIfNotOnList && !watched ? "hidden " : ""}`}
 >
 	<div
-		class={`container${!poster || !media.poster_path ? " details-shown" : ""}`}
+		class={`container${!poster || !media.extPosterPath ? " details-shown" : ""}`}
 		bind:this={containerEl}
 	>
-		{#if poster && media.poster_path}
+		{#if poster && media.extPosterPath}
 			<div class="img-loader"></div>
 			<img
 				loading="lazy"
@@ -256,7 +261,7 @@
 		{/if}
 		{#if watched && !posterActive}
 			<!-- Must be on watched list, and poster not hovered -->
-			<ExtraDetails {...buildExtraDetails(media.media_type, watched)} />
+			<ExtraDetails {...buildExtraDetails(mediaTypeTMDB, watched)} />
 		{/if}
 		<div
 			onclick={(e) => {
@@ -276,12 +281,12 @@
 		>
 			<a data-sveltekit-preload-data="tap" href={link} class="small-scrollbar">
 				<h2>
-					{title}
+					{media.name}
 					{#if year}
 						<time>{year}</time>
 					{/if}
 				</h2>
-				<span>{media.overview}</span>
+				<span>{media.summary}</span>
 			</a>
 
 			{#if !hideButtons}

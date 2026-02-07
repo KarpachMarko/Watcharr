@@ -17,7 +17,7 @@ type PaginationParams struct {
 }
 
 // Pagination response struct.
-type PaginationResponse[T interface{}] struct {
+type PaginationResponse[T any] struct {
 	PaginationParams
 	// Max amount of pages we can produce from total_results
 	TotalPages int `json:"totalPages"`
