@@ -30,9 +30,13 @@
 	const scroll = infScroll({ callback: onScrollToBottom });
 	const dataLoader = paginatedLoader<Media>(load);
 
-	let searchType: SearchType | undefined = $state(
-		data.type ? (data.type as SearchType) : SearchType.multi,
-	);
+	let searchType: SearchType | undefined = $derived.by(() => {
+		const t = page.url.searchParams.get("type");
+		if (t) {
+			return t as SearchType;
+		}
+		return SearchType.multi;
+	});
 	let nextLoadParams: SearchRequest = $derived({
 		page: dataLoader.state.page + 1,
 		query: store.searchQuery,
@@ -61,23 +65,17 @@
 		dataLoader.runFn();
 	}
 
-	function setActiveSearchFilterQueryParam(to: SearchType | undefined) {
-		console.debug("setActiveSearchFilterQueryParam: to:", to);
+	function setActiveSearchFilter(to: SearchType | undefined) {
+		console.debug("setActiveSearchFilter: to:", to);
 		const curLocation = new URL(page.url);
 		if (!to || searchType === to) {
 			curLocation.searchParams.delete("type");
-			searchType = undefined;
 		} else {
 			curLocation.searchParams.set("type", to);
-			searchType = to;
 		}
+		// Running the goto will cause afterNavigate hook to be called,
+		// which will run a fresh search, so nothing else to do here.
 		goto(`?${curLocation.searchParams.toString()}`);
-	}
-
-	function setActiveSearchFilter(to: SearchType | undefined) {
-		console.debug("setActiveSearchFilter: to:", to);
-		setActiveSearchFilterQueryParam(to);
-		dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
 	}
 
 	async function searchUsers(query: string) {
@@ -106,11 +104,10 @@
 			// `/search` route already.
 			return;
 		}
-		// After navigate ensure searchType is kept up to date (eg back
-		// btn pressed in browser).
-		searchType = data.type ? (data.type as SearchType) : SearchType.multi;
 		console.log(
-			"Query changed (or just loaded first query), performing search",
+			"afterNavigate: Query changed, performing search.",
+			"searchParams:",
+			page.url.searchParams,
 		);
 		dataLoader.abortReq("navigated away");
 		dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
