@@ -236,7 +236,7 @@ func (s *Service) searchGame(
 ) error {
 	igdbRes, err := s.cfg.TWITCH.Search(query)
 	if err != nil {
-		slog.Error("searchGame: Failed to search tmdb!", "error", err)
+		slog.Error("searchGame: Failed to search igdb!", "error", err)
 		return errors.New("content request failed")
 	}
 	for _, v := range igdbRes {
@@ -257,7 +257,7 @@ func (s *Service) searchGameById(
 ) error {
 	igdbRes, err := s.cfg.TWITCH.SearchById(id)
 	if err != nil {
-		slog.Error("searchGameById: Failed to search tmdb!", "error", err)
+		slog.Error("searchGameById: Failed to search igdb!", "error", err)
 		return errors.New("content request failed")
 	}
 	for _, v := range igdbRes {
@@ -278,7 +278,7 @@ func (s *Service) searchGameBySlug(
 ) error {
 	igdbRes, err := s.cfg.TWITCH.SearchBySlug(slug)
 	if err != nil {
-		slog.Error("searchGameBySlug: Failed to search tmdb!", "error", err)
+		slog.Error("searchGameBySlug: Failed to search igdb!", "error", err)
 		return errors.New("content request failed")
 	}
 	for _, v := range igdbRes {
