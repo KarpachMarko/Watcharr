@@ -251,6 +251,48 @@ func (s *Service) searchGame(
 	return nil
 }
 
+func (s *Service) searchGameById(
+	id string,
+	resp *domain.SearchResponse,
+) error {
+	igdbRes, err := s.cfg.TWITCH.SearchById(id)
+	if err != nil {
+		slog.Error("searchGameById: Failed to search tmdb!", "error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range igdbRes {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = 1
+	resp.TotalPages = 1
+	resp.TotalResults = int64(len(igdbRes))
+	return nil
+}
+
+func (s *Service) searchGameBySlug(
+	slug string,
+	resp *domain.SearchResponse,
+) error {
+	igdbRes, err := s.cfg.TWITCH.SearchBySlug(slug)
+	if err != nil {
+		slog.Error("searchGameBySlug: Failed to search tmdb!", "error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range igdbRes {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = 1
+	resp.TotalPages = 1
+	resp.TotalResults = int64(len(igdbRes))
+	return nil
+}
+
 // Perform "special"  direct search if possible using search query.
 // Eg: Search term is in provider:id format or is a supported url.
 func (s *Service) searchExtProviderById(
@@ -279,7 +321,13 @@ func (s *Service) searchExtProviderById(
 			return true
 		}
 	case "igdb":
-		// TODO
+		if err := s.searchGameById(providerID, resp); err == nil {
+			return true
+		}
+	case "igdb-slug":
+		if err := s.searchGameBySlug(providerID, resp); err == nil {
+			return true
+		}
 	default:
 		// By default, if provider name isn't caught in above cases, just send
 		// it to tmdb external id search.
@@ -381,11 +429,11 @@ func (s *Service) getExtProviderFromURL(maybeaurl string) (string, string) {
 
 	// Using HasSuffix so for ex: www.imdb.com AND imdb.com will match.
 	if strings.HasSuffix(hostLower, "imdb.com") {
-		if id := s.getExtProviderIDFromIMDBURL(u); id != "" {
-			return "imdb", id
-		}
+		return s.getExtProviderIDFromIMDBURL(u)
 	} else if strings.HasSuffix(hostLower, "themoviedb.org") {
 		return s.getExtProviderIDFromTMDBURL(u)
+	} else if strings.HasSuffix(hostLower, "igdb.com") {
+		return s.getExtProviderIDFromIGDBURL(u)
 	}
 
 	return "", " "
@@ -393,7 +441,7 @@ func (s *Service) getExtProviderFromURL(maybeaurl string) (string, string) {
 
 // Extract id from IMDB url.
 // Returns (Provider, ProviderID).
-func (s *Service) getExtProviderIDFromIMDBURL(u *url.URL) string {
+func (s *Service) getExtProviderIDFromIMDBURL(u *url.URL) (string, string) {
 	segments := strings.Split(
 		// Trim start/end '/' to avoid empty items at start/end
 		// of final slice.
@@ -409,10 +457,10 @@ func (s *Service) getExtProviderIDFromIMDBURL(u *url.URL) string {
 		segments[0] != "title" ||
 		!strings.HasPrefix(segments[1], "tt") {
 		slog.Debug("getExtProviderIDFromIMDBURL: path provided not supported.")
-		return ""
+		return "", ""
 	}
 
-	return segments[1]
+	return "imdb", segments[1]
 }
 
 // Extract id from TMDB url.
@@ -448,4 +496,27 @@ func (s *Service) getExtProviderIDFromTMDBURL(u *url.URL) (string, string) {
 	}
 
 	return segments[0], segs2[0]
+}
+
+// Extract slug from IGDB url.
+// Returns (Provider, ProviderID).
+func (s *Service) getExtProviderIDFromIGDBURL(u *url.URL) (string, string) {
+	segments := strings.Split(
+		// Trim start/end '/' to avoid empty items at start/end
+		// of final slice.
+		strings.Trim(u.Path, "/"),
+		"/",
+	)
+	segmentsLen := len(segments)
+	slog.Debug("getExtProviderIDFromIMDBURL: Parsing path.",
+		"segments", segments,
+		"segments_len", segmentsLen)
+
+	if segmentsLen < 2 ||
+		segments[0] != "games" {
+		slog.Debug("getExtProviderIDFromIMDBURL: path provided not supported.")
+		return "", ""
+	}
+
+	return "igdb-slug", segments[1]
 }

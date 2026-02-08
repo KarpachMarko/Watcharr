@@ -166,6 +166,8 @@ func (i *IGDB) Init() error {
 	return nil
 }
 
+// TODO add caching to these function similar to how we have done so for Content package
+
 func (i *IGDB) Search(q string) (GameSearchResponse, error) {
 	slog.Debug("IGDB Search called", "query", q)
 	var resp GameSearchResponse
@@ -196,6 +198,24 @@ func (i *IGDB) SearchById(id string) (GameSearchResponse, error) {
 	)
 	if err != nil {
 		slog.Error("IGDB Search request failed!", "error", err)
+		return GameSearchResponse{}, errors.New("request failed")
+	}
+	return resp, nil
+}
+
+// Should return same details as `Search`, both are for search page only minimal details required.
+func (i *IGDB) SearchBySlug(slug string) (GameSearchResponse, error) {
+	slog.Debug("SearchBySlug: Will search.", "slug", slug)
+	var resp GameSearchResponse
+	err := i.req(
+		igdbHost,
+		"/games",
+		map[string]string{},
+		"fields name, cover.image_id, version_title, summary, first_release_date; where slug = \""+slug+"\";",
+		&resp,
+	)
+	if err != nil {
+		slog.Error("SearchBySlug: Request failed!", "error", err)
 		return GameSearchResponse{}, errors.New("request failed")
 	}
 	return resp, nil

@@ -63,6 +63,7 @@ func (t *GameSearchResponseResult) AsMedia() domain.Media {
 		Name:          t.Name,
 		Summary:       t.Summary,
 		ExtPosterPath: t.Cover.ImageID,
+		ReleaseDate:   t.FirstReleaseDate.Time,
 	}
 	return m
 }
