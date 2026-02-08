@@ -335,6 +335,21 @@ type TMDBContentDetails struct {
 	} `json:"spoken_languages"`
 }
 
+// Adds the base items to a Media struct, which can be used in the
+// structs that embed TMDBSearchResult to simplify and reduce duplication.
+func (t *TMDBContentDetails) AsMedia() domain.Media {
+	m := domain.Media{
+		IDs: domain.MediaIDs{
+			TMDB: t.ID,
+		},
+		Summary:       t.Overview,
+		ExtPosterPath: t.PosterPath,
+		Rating:        uint(t.VoteAverage),
+		RatingCount:   uint(t.VoteCount),
+	}
+	return m
+}
+
 //
 // Movie Details
 //
@@ -369,6 +384,18 @@ func (t TMDBMovieDetailsBase) GetId() int {
 
 func (t TMDBMovieDetailsBase) GetMediaType() util.SupportedMedia {
 	return util.SupportedMediaMovie
+}
+
+func (t *TMDBMovieDetailsBase) AsMedia() domain.Media {
+	m := t.TMDBContentDetails.AsMedia()
+	m.Type = domain.MediaTypeTMDBMovie
+	m.Name = t.Title
+	if releaseDate, err := time.Parse("2006-01-02", t.ReleaseDate); err == nil {
+		m.ReleaseDate = releaseDate
+	} else {
+		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+	}
+	return m
 }
 
 type TMDBMovieDetailsWithWatched struct {
@@ -490,6 +517,18 @@ func (t TMDBShowDetailsBase) GetId() int {
 
 func (t TMDBShowDetailsBase) GetMediaType() util.SupportedMedia {
 	return util.SupportedMediaShow
+}
+
+func (t *TMDBShowDetailsBase) AsMedia() domain.Media {
+	m := t.TMDBContentDetails.AsMedia()
+	m.Type = domain.MediaTypeTMDBShow
+	m.Name = t.Name
+	if releaseDate, err := time.Parse("2006-01-02", t.FirstAirDate); err == nil {
+		m.ReleaseDate = releaseDate
+	} else {
+		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+	}
+	return m
 }
 
 type TMDBShowDetailsWithWatched struct {

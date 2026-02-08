@@ -44,7 +44,7 @@
 	});
 
 	async function load(signal: GenericAbortSignal) {
-		console.debug("load: loadParams:", nextLoadParams, "page params:", data);
+		console.debug("load: loadParams:", nextLoadParams);
 		if (nextLoadParams.page === dataLoader.state.page) {
 			console.warn("load: Already on this page, not loading it again!");
 			return;

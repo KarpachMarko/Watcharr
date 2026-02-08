@@ -7,6 +7,8 @@ package search
 import (
 	"errors"
 	"log/slog"
+	"net/url"
+	"strings"
 
 	"github.com/sbondCo/Watcharr/config"
 	"github.com/sbondCo/Watcharr/domain"
@@ -20,6 +22,9 @@ type ContentProvider interface {
 	SearchMovies(query string, pageNum int) (tmdb.TMDBSearchMoviesResponse, error)
 	SearchTv(query string, pageNum int) (tmdb.TMDBSearchShowsResponse, error)
 	SearchPeople(query string, pageNum int) (tmdb.TMDBSearchPeopleResponse, error)
+	SearchByExternalId(id string, source string) (tmdb.TMDBSearchMultiResponse, error)
+	MovieDetails(id string, country string, rParams map[string]string) (tmdb.TMDBMovieDetails, error)
+	TvDetails(id string, country string, rParams map[string]string) (tmdb.TMDBShowDetails, error)
 }
 
 type Service struct {
@@ -46,9 +51,16 @@ func (s *Service) Search(
 	pp util.PaginationParams,
 ) (domain.SearchResponse, error) {
 	resp := domain.SearchResponse{}
+
 	if r.Query == "" {
 		return resp, errors.New("a query is required")
 	}
+
+	if s.searchExtProviderById(r.Query, &resp) {
+		slog.Debug("Search: External provider id search worked.")
+		return resp, nil
+	}
+
 	switch r.Type {
 	case domain.SearchTypeMulti:
 		if err := s.searchMulti(r.Query, pp.Page, &resp); err != nil {
@@ -135,6 +147,25 @@ func (s *Service) searchMovie(
 	return nil
 }
 
+func (s *Service) searchMovieById(
+	id string,
+	resp *domain.SearchResponse,
+) error {
+	details, err := s.contentProvider.MovieDetails(id, "", map[string]string{})
+	if err != nil {
+		slog.Error("searchMovieById: Failed to search tmdb!", "error", err)
+		return errors.New("content request failed")
+	}
+	resp.Results = append(
+		resp.Results,
+		details.AsMedia(),
+	)
+	resp.Page = 1
+	resp.TotalPages = 1
+	resp.TotalResults = int64(len(resp.Results))
+	return nil
+}
+
 func (s *Service) searchTv(
 	query string,
 	page int,
@@ -142,7 +173,7 @@ func (s *Service) searchTv(
 ) error {
 	tmdbRes, err := s.contentProvider.SearchTv(query, page)
 	if err != nil {
-		slog.Error("SearchMovie: Failed to search tmdb!", "error", err)
+		slog.Error("searchTv: Failed to search tmdb!", "error", err)
 		return errors.New("content request failed")
 	}
 	for _, v := range tmdbRes.Results {
@@ -157,6 +188,25 @@ func (s *Service) searchTv(
 	return nil
 }
 
+func (s *Service) searchTvById(
+	id string,
+	resp *domain.SearchResponse,
+) error {
+	details, err := s.contentProvider.TvDetails(id, "", map[string]string{})
+	if err != nil {
+		slog.Error("searchTvById: Failed to search tmdb!", "error", err)
+		return errors.New("content request failed")
+	}
+	resp.Results = append(
+		resp.Results,
+		details.AsMedia(),
+	)
+	resp.Page = 1
+	resp.TotalPages = 1
+	resp.TotalResults = int64(len(resp.Results))
+	return nil
+}
+
 func (s *Service) searchPeople(
 	query string,
 	page int,
@@ -164,7 +214,7 @@ func (s *Service) searchPeople(
 ) error {
 	tmdbRes, err := s.contentProvider.SearchPeople(query, page)
 	if err != nil {
-		slog.Error("SearchMovie: Failed to search tmdb!", "error", err)
+		slog.Error("searchPeople: Failed to search tmdb!", "error", err)
 		return errors.New("content request failed")
 	}
 	for _, v := range tmdbRes.Results {
@@ -186,7 +236,7 @@ func (s *Service) searchGame(
 ) error {
 	igdbRes, err := s.cfg.TWITCH.Search(query)
 	if err != nil {
-		slog.Error("SearchMulti: Failed to search tmdb!", "error", err)
+		slog.Error("searchGame: Failed to search tmdb!", "error", err)
 		return errors.New("content request failed")
 	}
 	for _, v := range igdbRes {
@@ -199,4 +249,203 @@ func (s *Service) searchGame(
 	resp.TotalPages = 1
 	resp.TotalResults = int64(len(igdbRes))
 	return nil
+}
+
+// Perform "special"  direct search if possible using search query.
+// Eg: Search term is in provider:id format or is a supported url.
+func (s *Service) searchExtProviderById(
+	query string,
+	resp *domain.SearchResponse,
+) bool {
+	queryLower := strings.ToLower(query)
+
+	provider, providerID := s.getExtProviderFromQuery(queryLower)
+
+	if provider == "" || providerID == "" {
+		return false
+	}
+
+	slog.Debug("searchExtProviderById: Processing.",
+		"provider", provider,
+		"provider_id", providerID)
+
+	switch provider {
+	case "movie":
+		if err := s.searchMovieById(providerID, resp); err == nil {
+			return true
+		}
+	case "tv":
+		if err := s.searchTvById(providerID, resp); err == nil {
+			return true
+		}
+	case "igdb":
+		// TODO
+	default:
+		// By default, if provider name isn't caught in above cases, just send
+		// it to tmdb external id search.
+		tmdbRes, err := s.contentProvider.SearchByExternalId(
+			providerID,
+			provider,
+		)
+		if err != nil {
+			slog.Error("searchExtProviderById: Failed to search tmdb!", "error", err)
+			return false
+		}
+		resLen := len(tmdbRes.Results)
+		if resLen <= 0 {
+			return false
+		}
+		for _, v := range tmdbRes.Results {
+			resp.Results = append(
+				resp.Results,
+				v.AsMedia(),
+			)
+		}
+		resp.Page = 1
+		resp.TotalPages = 1
+		resp.TotalResults = int64(resLen)
+		return true
+	}
+
+	return false
+}
+
+// Takes in query and returns (Provider, ProviderID) if found.
+func (s *Service) getExtProviderFromQuery(queryLower string) (string, string) {
+	var provider string
+
+	// Before checking for provider:providerid format, check if query is
+	// a supported url.
+	if p, i := s.getExtProviderFromURL(queryLower); p != "" && i != "" {
+		slog.Debug("getExtProviderFromQuery: Returning from parsed url.")
+		return p, i
+	}
+
+	querySplit := strings.Split(queryLower, ":")
+
+	if len(querySplit) != 2 {
+		slog.Debug("")
+		return "", ""
+	}
+
+	switch querySplit[0] {
+	case "movie", // TMDB ID target
+		"tv",   // TMDB ID target
+		"igdb", // IGDB ID target
+		// The rest below are sent as is to tmdbs find by (external) id api.
+		"imdb",
+		"tvdb",
+		"youtube",
+		"wikidata",
+		"facebook",
+		"instagram",
+		"twitter",
+		"tiktok":
+		provider = querySplit[0]
+		// Any aliases we want to support
+	case "i":
+	case "imd":
+		provider = "imdb"
+	case "wd":
+	case "wdt":
+		provider = "wikidata"
+	case "yt":
+		provider = "youtube"
+	case "thetvdb":
+		provider = "tvdb"
+	case "game":
+		provider = "igdb"
+	case "series":
+		provider = "tv"
+	default:
+		slog.Debug("getExtProviderFromQuery: No provider found.")
+		return "", ""
+	}
+
+	return provider, querySplit[1]
+}
+
+// Takes in what may be a url. If it is and is a supported url
+// Returns (Provider, ProviderID).
+func (s *Service) getExtProviderFromURL(maybeaurl string) (string, string) {
+	u, err := url.Parse(maybeaurl)
+	if err != nil || u.Host == "" {
+		slog.Debug("getExtProviderFromURL: Doesn't look like a url.")
+		return "", ""
+	}
+
+	hostLower := strings.ToLower(u.Host)
+	slog.Debug("getExtProviderFromURL: Looks like a url.",
+		"host", hostLower,
+		"path", u.Path)
+
+	// Using HasSuffix so for ex: www.imdb.com AND imdb.com will match.
+	if strings.HasSuffix(hostLower, "imdb.com") {
+		if id := s.getExtProviderIDFromIMDBURL(u); id != "" {
+			return "imdb", id
+		}
+	} else if strings.HasSuffix(hostLower, "themoviedb.org") {
+		return s.getExtProviderIDFromTMDBURL(u)
+	}
+
+	return "", " "
+}
+
+// Extract id from IMDB url.
+// Returns (Provider, ProviderID).
+func (s *Service) getExtProviderIDFromIMDBURL(u *url.URL) string {
+	segments := strings.Split(
+		// Trim start/end '/' to avoid empty items at start/end
+		// of final slice.
+		strings.Trim(u.Path, "/"),
+		"/",
+	)
+	segmentsLen := len(segments)
+	slog.Debug("getExtProviderIDFromIMDBURL: Parsing path.",
+		"segments", segments,
+		"segments_len", segmentsLen)
+
+	if segmentsLen < 2 ||
+		segments[0] != "title" ||
+		!strings.HasPrefix(segments[1], "tt") {
+		slog.Debug("getExtProviderIDFromIMDBURL: path provided not supported.")
+		return ""
+	}
+
+	return segments[1]
+}
+
+// Extract id from TMDB url.
+// Returns (Provider, ProviderID).
+func (s *Service) getExtProviderIDFromTMDBURL(u *url.URL) (string, string) {
+	// Split path by '/'
+	segments := strings.Split(
+		// Trim start/end '/' to avoid empty items at start/end
+		// of final slice.
+		strings.Trim(u.Path, "/"),
+		"/",
+	)
+	segmentsLen := len(segments)
+	slog.Debug("getExtProviderIDFromTMDBURL: Parsing path.",
+		"segments", segments,
+		"segments_len", segmentsLen)
+
+	// Check if segments of the path are valid as a tv/movie page.
+	if segmentsLen < 2 ||
+		(segments[0] != "tv" && segments[0] != "movie") ||
+		segments[1] == "" {
+		slog.Debug("getExtProviderIDFromTMDBURL: path provided not supported.")
+		return "", ""
+	}
+
+	// Extract id from second segment.
+	segs2 := strings.SplitN(segments[1], "-", 2)
+	slog.Debug("getExtProviderIDFromTMDBURL: Parsing media path segment.",
+		"segments", segs2)
+	if len(segs2) != 2 {
+		slog.Warn("getExtProviderIDFromTMDBURL: segs2 doesn't have len of 2.")
+		return "", ""
+	}
+
+	return segments[0], segs2[0]
 }
