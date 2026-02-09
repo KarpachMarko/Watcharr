@@ -320,6 +320,7 @@
 				display: flex;
 				flex-flow: column;
 				gap: 5px;
+				width: 100%;
 
 				.quick-info {
 					display: flex;

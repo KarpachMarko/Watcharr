@@ -174,10 +174,6 @@
 						</div>
 					</span>
 
-					<!-- <span>{movie.tagline}</span> -->
-
-					<!-- {movie.status} -->
-
 					<span style="font-weight: bold; font-size: 14px;">Overview</span>
 					<p>{movie.overview}</p>
 
@@ -374,6 +370,7 @@
 				display: flex;
 				flex-flow: column;
 				gap: 5px;
+				width: 100%;
 
 				.quick-info {
 					display: flex;
