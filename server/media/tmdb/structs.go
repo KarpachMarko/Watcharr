@@ -33,13 +33,13 @@ type TMDBSearchResult struct {
 	// (namely any request other than a multi
 	// type search), but we add it in manually.**
 	MediaType string `json:"media_type"`
-	// Summary (only for content)
+	// Summary (only for movie/tv)
 	Overview string `json:"overview"`
-	// Poster path (only for content)
+	// Poster path (only for movie/tv)
 	PosterPath string `json:"poster_path"`
-	// Rating (only for content)
+	// Rating (only for movie/tv)
 	VoteAverage float32 `json:"vote_average"`
-	// Amount of votes for rating (only for content)
+	// Amount of votes for rating (only for movie/tv)
 	VoteCount uint32 `json:"vote_count"`
 }
 
@@ -123,6 +123,8 @@ func (t *TMDBSearchMultiResult) AsMedia() domain.Media {
 		tmdbReleaseDate = t.ReleaseDate
 	case "tv":
 		tmdbReleaseDate = t.FirstAirDate
+	case "person":
+		m.ExtPosterPath = t.ProfilePath
 	}
 	if releaseDate, err := time.Parse("2006-01-02", tmdbReleaseDate); err == nil {
 		m.ReleaseDate = releaseDate
@@ -274,6 +276,7 @@ type TMDBSearchPeopleResult struct {
 func (t *TMDBSearchPeopleResult) AsMedia() domain.Media {
 	m := t.TMDBSearchResult.AsMedia()
 	m.Name = t.Name
+	m.ExtPosterPath = t.ProfilePath
 	return m
 }
 
