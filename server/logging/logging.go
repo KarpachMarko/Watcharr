@@ -4,6 +4,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -22,7 +23,22 @@ func Setup(logfp string) io.Writer {
 		Compress:   false,
 	}, os.Stdout)
 	slog.SetDefault(slog.New(
-		slog.NewTextHandler(multiw, &slog.HandlerOptions{Level: logLevel}),
+		slog.NewTextHandler(multiw, &slog.HandlerOptions{
+			Level:     logLevel,
+			AddSource: true,
+			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+				// `AddSource=true` adds source code location to each log,
+				// this replaces the entire file path added with just it's
+				// last dirname and filename.
+				if a.Key == slog.SourceKey {
+					s := a.Value.Any().(*slog.Source)
+					s.File = filepath.Base(filepath.Dir(s.File)) +
+						"/" + filepath.Base(s.File)
+					return slog.Any(a.Key, s)
+				}
+				return a
+			},
+		}),
 	))
 	return multiw
 }
