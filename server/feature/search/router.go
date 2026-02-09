@@ -71,7 +71,7 @@ func (r *Router) GetSearch(c *gin.Context) {
 	}
 	ww := domain.SearchResponse{}
 	if err := copier.Copy(&ww, &resp); err != nil {
-		slog.Error("GetSearch: Failed to copy content to with watched struct", "error", err)
+		slog.Error("GetSearch: Failed to copy", "error", err)
 		c.JSON(
 			http.StatusInternalServerError,
 			router.ErrorResponse{Error: "failed to prepare response"},
