@@ -22,7 +22,9 @@
 		{:else}
 			<span class="t">{title}</span>
 		{/if}
-		<span class="year">{releaseYear}</span>
+		{#if releaseYear}
+			<span class="year">{releaseYear}</span>
+		{/if}
 	</span>
 	<span
 		class="rating"
