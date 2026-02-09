@@ -110,7 +110,7 @@ func (s *Service) searchMulti(
 	// IGDB
 	igdbRes, err := s.cfg.TWITCH.Search(query)
 	if err != nil {
-		slog.Error("SearchMulti: Failed to search tmdb!", "error", err)
+		slog.Error("SearchMulti: Failed to search igdb!", "error", err)
 		return errors.New("content request failed")
 	}
 	for _, v := range igdbRes {
@@ -372,7 +372,7 @@ func (s *Service) getExtProviderFromQuery(queryLower string) (string, string) {
 	querySplit := strings.Split(queryLower, ":")
 
 	if len(querySplit) != 2 {
-		slog.Debug("")
+		slog.Debug("getExtProviderFromQuery: querySplit len != 2")
 		return "", ""
 	}
 
