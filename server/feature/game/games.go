@@ -141,7 +141,7 @@ func (s *Service) addPlayed(db *gorm.DB, igdb *igdb.IGDB, userId uint, ar Played
 
 		resp, err := igdb.GameDetailsBasic(strconv.Itoa(ar.IgdbID))
 		if err != nil {
-			slog.Error("addPlayed content tmdb api request failed", "error", err)
+			slog.Error("addPlayed content api request failed", "error", err)
 			return entity.Watched{}, errors.New("failed to find requested games")
 		}
 

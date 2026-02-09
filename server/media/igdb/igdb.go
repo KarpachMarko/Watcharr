@@ -10,7 +10,14 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	gocache "github.com/robfig/go-cache"
+
+	"github.com/sbondCo/Watcharr/cache"
 )
+
+// inmemory content cache
+var GameStore = gocache.New(time.Hour*24, time.Minute)
 
 const (
 	igdbHost       = "https://api.igdb.com/v4"
@@ -166,11 +173,14 @@ func (i *IGDB) Init() error {
 	return nil
 }
 
-// TODO add caching to these function similar to how we have done so for Content package
-
 func (i *IGDB) Search(q string) (GameSearchResponse, error) {
-	slog.Debug("IGDB Search called", "query", q)
+	slog.Debug("Search:", "query", q)
 	var resp GameSearchResponse
+	cacheKey := cache.CreateCacheKey("Search", q)
+	if cache.GetCache(GameStore, cacheKey, &resp) {
+		slog.Debug("Search: Returning cache.")
+		return resp, nil
+	}
 	err := i.req(
 		igdbHost,
 		"/games",
@@ -179,16 +189,22 @@ func (i *IGDB) Search(q string) (GameSearchResponse, error) {
 		&resp,
 	)
 	if err != nil {
-		slog.Error("IGDB Search request failed!", "error", err)
+		slog.Error("Search: request failed!", "error", err)
 		return GameSearchResponse{}, errors.New("request failed")
 	}
+	GameStore.Set(cacheKey, resp, time.Hour*24)
 	return resp, nil
 }
 
 // Should return same details as `Search`, we both are for search page only minimal details required.
 func (i *IGDB) SearchById(id string) (GameSearchResponse, error) {
-	slog.Debug("IGDB Search called", "id", id)
+	slog.Debug("SearchById:", "id", id)
 	var resp GameSearchResponse
+	cacheKey := cache.CreateCacheKey("SearchById", id)
+	if cache.GetCache(GameStore, cacheKey, &resp) {
+		slog.Debug("SearchById: Returning cache.")
+		return resp, nil
+	}
 	err := i.req(
 		igdbHost,
 		"/games",
@@ -197,9 +213,10 @@ func (i *IGDB) SearchById(id string) (GameSearchResponse, error) {
 		&resp,
 	)
 	if err != nil {
-		slog.Error("IGDB Search request failed!", "error", err)
+		slog.Error("SearchById: request failed!", "error", err)
 		return GameSearchResponse{}, errors.New("request failed")
 	}
+	GameStore.Set(cacheKey, resp, time.Hour*24)
 	return resp, nil
 }
 
@@ -207,6 +224,11 @@ func (i *IGDB) SearchById(id string) (GameSearchResponse, error) {
 func (i *IGDB) SearchBySlug(slug string) (GameSearchResponse, error) {
 	slog.Debug("SearchBySlug: Will search.", "slug", slug)
 	var resp GameSearchResponse
+	cacheKey := cache.CreateCacheKey("SearchBySlug", slug)
+	if cache.GetCache(GameStore, cacheKey, &resp) {
+		slog.Debug("SearchBySlug: Returning cache.")
+		return resp, nil
+	}
 	err := i.req(
 		igdbHost,
 		"/games",
@@ -218,12 +240,21 @@ func (i *IGDB) SearchBySlug(slug string) (GameSearchResponse, error) {
 		slog.Error("SearchBySlug: Request failed!", "error", err)
 		return GameSearchResponse{}, errors.New("request failed")
 	}
+	GameStore.Set(cacheKey, resp, time.Hour*24)
 	return resp, nil
 }
 
 func (i *IGDB) GameDetails(id string) (GameDetailsResponse, error) {
-	slog.Debug("IGDB GameDetails called", "id", id)
+	slog.Debug("GameDetails:", "id", id)
 	var resp []GameDetailsResponse
+	cacheKey := cache.CreateCacheKey("GameDetails", id)
+	if cache.GetCache(GameStore, cacheKey, &resp) {
+		slog.Debug("GameDetails: Returning cache.")
+		if len(resp) > 0 {
+			return resp[0], nil
+		}
+		return GameDetailsResponse{}, errors.New("no game details recieved")
+	}
 	err := i.req(
 		igdbHost,
 		"/games",
@@ -271,9 +302,10 @@ func (i *IGDB) GameDetails(id string) (GameDetailsResponse, error) {
 		&resp,
 	)
 	if err != nil {
-		slog.Error("IGDB GameDetails request failed!", "error", err)
+		slog.Error("GameDetails: Request failed!", "error", err)
 		return GameDetailsResponse{}, errors.New("request failed")
 	}
+	GameStore.Set(cacheKey, resp, time.Hour*24)
 	if len(resp) > 0 {
 		return resp[0], nil
 	}
@@ -283,8 +315,16 @@ func (i *IGDB) GameDetails(id string) (GameDetailsResponse, error) {
 // Basic game details for when we are using them only to update our cache.
 // In these cases, it's a waste to ask for everything, when we don't need it.
 func (i *IGDB) GameDetailsBasic(id string) (GameDetailsBasicResponse, error) {
-	slog.Debug("IGDB GameDetails called", "id", id)
+	slog.Debug("GameDetailsBasic:", "id", id)
 	var resp []GameDetailsBasicResponse
+	cacheKey := cache.CreateCacheKey("GameDetailsBasic", id)
+	if cache.GetCache(GameStore, cacheKey, &resp) {
+		slog.Debug("GameDetailsBasic: Returning cache.")
+		if len(resp) > 0 {
+			return resp[0], nil
+		}
+		return GameDetailsBasicResponse{}, errors.New("no game details recieved")
+	}
 	err := i.req(
 		igdbHost,
 		"/games",
@@ -309,6 +349,7 @@ func (i *IGDB) GameDetailsBasic(id string) (GameDetailsBasicResponse, error) {
 		slog.Error("IGDB GameDetails request failed!", "error", err)
 		return GameDetailsBasicResponse{}, errors.New("request failed")
 	}
+	GameStore.Set(cacheKey, resp, time.Hour*24)
 	if len(resp) > 0 {
 		return resp[0], nil
 	}
