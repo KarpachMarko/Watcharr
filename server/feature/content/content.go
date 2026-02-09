@@ -374,6 +374,11 @@ func (s *Service) SearchPeople(query string, pageNum int) (tmdb.TMDBSearchPeople
 	if pageNum == 0 {
 		pageNum = 1
 	}
+	cacheKey := cache.CreateCacheKey("SearchPeople", query, pageNum)
+	if cache.GetCache(ContentStore, cacheKey, &resp) {
+		slog.Debug("SearchPeople: Returning cache.")
+		return *resp, nil
+	}
 	err := s.tmdb.Request("/search/person", map[string]string{
 		"query": query,
 		"page":  strconv.Itoa(pageNum),
@@ -385,6 +390,7 @@ func (s *Service) SearchPeople(query string, pageNum int) (tmdb.TMDBSearchPeople
 	for i := range resp.Results {
 		resp.Results[i].MediaType = "person"
 	}
+	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil
 }
 
