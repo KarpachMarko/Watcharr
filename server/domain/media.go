@@ -43,7 +43,7 @@ type Media struct {
 	// Similar media.
 	Similar []Media `json:"similar,omitempty"`
 	// Release date / first air date.
-	ReleaseDate time.Time `json:"releaseDate,omitempty"`
+	ReleaseDate time.Time `json:"releaseDate,omitzero"`
 
 	//
 	// Properties that are less important (not used for all responses).
@@ -120,4 +120,48 @@ type MediaGenre struct {
 type MediaWatchProvider struct {
 	// Name of the provider.
 	Name string `json:"name,omitempty"`
+
+// Converter for Content (tv/movie) entity to Media
+func NewMediaFromContent(c *entity.Content) Media {
+	m := Media{
+		IDs: MediaIDs{
+			TMDB: c.TmdbID,
+		},
+		Name:          c.Title,
+		Summary:       c.Overview,
+		ExtPosterPath: c.PosterPath,
+		Rating:        uint(c.VoteAverage),
+		RatingCount:   uint(c.VoteCount),
+		Runtime:       uint(c.Runtime),
+	}
+	switch c.Type {
+	case entity.MOVIE:
+		m.Type = MediaTypeTMDBMovie
+	case entity.SHOW:
+		m.Type = MediaTypeTMDBShow
+	}
+	if c.ReleaseDate != nil {
+		m.ReleaseDate = *c.ReleaseDate
+	}
+	return m
+}
+
+// Converter for Game entity to Media
+func NewMediaFromGame(c *entity.Game) Media {
+	m := Media{
+		IDs: MediaIDs{
+			IGDB: c.IgdbID,
+		},
+		Type:          MediaTypeIGDBGame,
+		Name:          c.Name,
+		Summary:       c.Summary,
+		Poster:        c.Poster,
+		ExtPosterPath: c.CoverID,
+		Rating:        uint(c.Rating),
+		RatingCount:   uint(c.RatingCount),
+	}
+	if c.ReleaseDate != nil {
+		m.ReleaseDate = *c.ReleaseDate
+	}
+	return m
 }

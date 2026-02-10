@@ -1,8 +1,27 @@
 package domain
 
 import (
+	"time"
+
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/util"
+)
+
+type WatchedSort string
+
+const (
+	WatchedSortDateAdded    WatchedSort = "DATEADDED"
+	WatchedSortLastChanged  WatchedSort = "LASTCHANGED"
+	WatchedSortLastFinished WatchedSort = "LASTFIN"
+	WatchedSortRating       WatchedSort = "RATING"
+	WatchedSortAlphabetical WatchedSort = "ALPHA"
+)
+
+type SortDirection string
+
+const (
+	WatchedSortDirAsc  SortDirection = "asc"
+	WatchedSortDirDesc SortDirection = "desc"
 )
 
 // Get watched page request extra (GET) options.
@@ -22,19 +41,39 @@ type WatchedGetPageExtraProps struct {
 	WatchedIds []int
 }
 
-type WatchedSort string
+type WatchedGetPageResponseResult struct {
+	ID        uint                 `json:"id"`
+	CreatedAt time.Time            `json:"createdAt"`
+	UpdatedAt time.Time            `json:"updatedAt"`
+	Status    entity.WatchedStatus `json:"status"`
+	Rating    float64              `json:"rating"`
+	Pinned    bool                 `json:"pinned"`
+	Media     Media                `json:"media"`
+}
 
-const (
-	WatchedSortDateAdded    WatchedSort = "DATEADDED"
-	WatchedSortLastChanged  WatchedSort = "LASTCHANGED"
-	WatchedSortLastFinished WatchedSort = "LASTFIN"
-	WatchedSortRating       WatchedSort = "RATING"
-	WatchedSortAlphabetical WatchedSort = "ALPHA"
-)
+func NewWatchedGetPageResponseResult(w *entity.Watched) WatchedGetPageResponseResult {
+	r := WatchedGetPageResponseResult{
+		ID:        w.ID,
+		CreatedAt: w.CreatedAt,
+		UpdatedAt: w.UpdatedAt,
+		Status:    w.Status,
+		Rating:    w.Rating,
+		Pinned:    w.Pinned,
+	}
+	if w.Content != nil {
+		r.Media = NewMediaFromContent(w.Content)
+	} else if w.Game != nil {
+		r.Media = NewMediaFromGame(w.Game)
+	}
+	return r
+}
 
-type SortDirection string
+type WatchedGetPageResponse []WatchedGetPageResponseResult
 
-const (
-	WatchedSortDirAsc  SortDirection = "asc"
-	WatchedSortDirDesc SortDirection = "desc"
-)
+func NewWatchedGetPageResponse(w []entity.Watched) WatchedGetPageResponse {
+	r := WatchedGetPageResponse{}
+	for _, v := range w {
+		r = append(r, NewWatchedGetPageResponseResult(&v))
+	}
+	return r
+}

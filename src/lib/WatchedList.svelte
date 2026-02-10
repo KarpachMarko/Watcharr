@@ -4,7 +4,7 @@
 	import Poster from "@/lib/poster/Poster.svelte";
 	import PosterList from "@/lib/poster/PosterList.svelte";
 	import { store, clearActiveFilters } from "@/store.svelte";
-	import type { Watched } from "@/types";
+	import { MediaTypeE, type Watched } from "@/types";
 	import GamePoster from "./poster/GamePoster.svelte";
 	import Spinner from "./Spinner.svelte";
 
@@ -33,34 +33,25 @@
 <PosterList>
 	{#if list?.length > 0}
 		{#each list as w, i (w.id)}
-			{#if w.game}
+			{#if w.media.type == MediaTypeE.igdbGame}
 				<GamePoster
 					bind:watched={list[i]}
 					media={{
-						id: w.game.igdbId,
-						coverId: w.game.coverId,
-						name: w.game.name,
-						summary: w.game.summary,
-						firstReleaseDate: w.game.releaseDate,
-						poster: w.game.poster,
+						id: w.media.ids.igdb,
+						coverId: w.media.extPosterPath,
+						name: w.media.name || "",
+						summary: w.media.summary,
+						firstReleaseDate: w.media.releaseDate,
 					}}
 					disableInteraction={isPublicList}
 					fluidSize={true}
 					pinned={w.pinned}
 					onUpdated={itemUpdated}
 				/>
-			{:else if w.content}
+			{:else if w.media.type == MediaTypeE.tmdbMovie || w.media.type == MediaTypeE.tmdbShow}
 				<Poster
 					bind:watched={list[i]}
-					media={{
-						id: w.content.tmdbId,
-						poster_path: w.content.poster_path,
-						title: w.content.title,
-						overview: w.content.overview,
-						media_type: w.content.type,
-						release_date: w.content.release_date,
-						first_air_date: w.content.first_air_date,
-					}}
+					media={w.media}
 					disableInteraction={isPublicList}
 					fluidSize={true}
 					pinned={w.pinned}

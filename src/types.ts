@@ -135,8 +135,9 @@ export interface WatchedEpisode {
 export interface Watched extends dbModel {
 	watched: boolean;
 	rating?: number;
-	content?: Content;
-	game?: Game;
+	// content?: Content;
+	// game?: Game;
+	media: Media;
 	activity: Activity[];
 	status: WatchedStatus;
 	thoughts: string;

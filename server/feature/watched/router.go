@@ -54,23 +54,31 @@ func (r *Router) GetWatchedList(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	if isPaginated {
 		pp := c.MustGet("paginationParams").(util.PaginationParams)
-		wp := domain.WatchedGetPageRequest{
+		wpr := domain.WatchedGetPageRequest{
 			// Defaults..
 			Sort:    domain.WatchedSortDateAdded,
 			SortDir: domain.WatchedSortDirAsc,
 		}
-		if err := c.ShouldBind(&wp); err != nil {
+		if err := c.ShouldBind(&wpr); err != nil {
 			c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get request parameters"})
 			return
 		}
-		if wp, err := r.s.GetWatchedPage(userId, pp, wp, nil); err == nil {
-			c.JSON(http.StatusOK, wp)
-		} else {
+		wp, err := r.s.GetWatchedPage(userId, pp, wpr, nil)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get page"})
 		}
+		dto := util.PaginationResponse[domain.WatchedGetPageResponseResult]{
+			PaginationParams: wp.PaginationParams,
+			TotalPages:       wp.TotalPages,
+			TotalResults:     wp.TotalResults,
+			Results:          domain.NewWatchedGetPageResponse(wp.Results),
+		}
+		c.JSON(http.StatusOK, dto)
 		return
 	}
-	// Non paginated response (doesn't support sorting/filtering atm)
+	// Non paginated response (doesn't support sorting/filtering)
+	// This just exists for backwards compatibility or for
+	// downloading the entire list unmodified.
 	if w, err := r.s.getWatched(userId); err == nil {
 		c.JSON(http.StatusOK, w)
 	} else {
