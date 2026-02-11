@@ -317,8 +317,15 @@ func (s *Service) getPublicWatched(userId uint, username string) ([]entity.Watch
 	return *watched, nil
 }
 
-func (s *Service) AddWatched(userId uint, ar WatchedAddRequest, at entity.ActivityType) (entity.Watched, error) {
-	slog.Debug("Adding watched item", "userId", userId, "contentType", ar.ContentType, "contentId", ar.ContentID)
+func (s *Service) AddWatched(
+	userId uint,
+	ar WatchedAddRequest,
+	at entity.ActivityType,
+) (entity.Watched, error) {
+	slog.Debug("Adding watched item",
+		"user_id", userId,
+		"add_request", ar)
+
 	// Get content cache (or cache it if we don't have it locally)
 	content, err := s.cp.GetOrCacheContent(ar.ContentType, ar.ContentID)
 	if err != nil {
@@ -328,64 +335,120 @@ func (s *Service) AddWatched(userId uint, ar WatchedAddRequest, at entity.Activi
 	if content.ID == 0 {
 		return entity.Watched{}, errors.New("failed to find content id")
 	}
-	// Create watched entry in db
+
+	// Set default status for when content is added by
+	// rating it instead of giving status first.
 	if ar.Status == "" {
-		// Set default status for when content is added by
-		// rating it instead of giving status first.
 		if ar.ContentType == "movie" {
 			ar.Status = entity.FINISHED
 		} else {
 			ar.Status = entity.WATCHING
 		}
 	}
-	watched := entity.Watched{Status: ar.Status, Rating: ar.Rating, UserID: userId, ContentID: &content.ID}
-	if ar.Thoughts != "" {
-		watched.Thoughts = ar.Thoughts
+
+	// Create watched entry in db
+	watched := entity.Watched{
+		UserID:    userId,
+		Status:    ar.Status,
+		Rating:    ar.Rating,
+		Thoughts:  ar.Thoughts,
+		ContentID: &content.ID,
 	}
 	// If custom WatchedDate passed, set CreatedAt and UpdatedAt fields to it.
 	if !ar.WatchedDate.IsZero() {
-		slog.Debug("Adding watched item: The provided WatchedDate is valid.", "watched_date", ar.WatchedDate, "userId", userId, "contentType", ar.ContentType, "contentId", ar.ContentID)
+		slog.Debug("Adding watched item: The provided WatchedDate is valid.",
+			"watched_date", ar.WatchedDate,
+			"userId", userId,
+			"contentType", ar.ContentType,
+			"contentId", ar.ContentID)
 		watched.CreatedAt = ar.WatchedDate
 		watched.UpdatedAt = ar.WatchedDate
 	}
 	res := s.db.Create(&watched)
 	if res.Error != nil {
 		if res.Error == gorm.ErrDuplicatedKey {
-			res = s.db.Model(&entity.Watched{}).Unscoped().Preload("Activity").Where("user_id = ? AND content_id = ?", userId, watched.ContentID).Take(&watched)
-			if res.Error != nil {
-				return entity.Watched{}, errors.New("content already on watched list. errored checking for soft deleted record")
-			}
-			if watched.DeletedAt.Time.IsZero() {
-				return watched, errors.New("content already on watched list")
-			} else {
-				slog.Info("addWatched: Watched list item for this content exists as soft deleted record.. attempting to restore")
-				res = s.db.Model(&entity.Watched{}).Unscoped().Where("user_id = ? AND content_id = ?", userId, watched.ContentID).Updates(map[string]interface{}{"status": ar.Status, "rating": ar.Rating, "deleted_at": nil})
-				watched.Status = ar.Status
-				watched.Rating = ar.Rating
-				watched.Thoughts = ar.Thoughts
-				if res.Error != nil {
-					slog.Error("addWatched: Failed to restore soft deleted watch list item", "error", res.Error)
-					return entity.Watched{}, errors.New("content already on watched list. errored removing soft delete timestamp")
-				}
+			if err := s.restoreWatched(userId, *watched.ContentID, ar, &watched); err != nil {
+				slog.Error("AddWatched: Failed to restore existing watched entry.")
+				return entity.Watched{}, errors.New("failed when restoring existing entry")
 			}
 		} else {
-			slog.Error("Error adding watched content to database", "error", res.Error.Error())
-			return entity.Watched{}, errors.New("failed adding content to database")
+			slog.Error("AddWatched: Error adding watched to database", "error", res.Error.Error())
+			return entity.Watched{}, errors.New("failed adding watched entry to database")
 		}
 	}
-	slog.Debug("Added watched list item", "item", watched)
+	slog.Debug("AddWatched: Added watched list item", "item", watched)
 
-	var act entity.Activity
-	activityJson, err := json.Marshal(map[string]interface{}{"status": ar.Status, "rating": ar.Rating})
-	if err != nil {
-		slog.Error("Failed to marshal json for data in ADD_WATCHED activity request, adding without data", "error", err.Error())
-		act, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at})
-	} else {
-		act, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: watched.ID, Type: at, Data: string(activityJson)})
+	activityAddReq := domain.ActivityAddRequest{
+		WatchedID: watched.ID,
+		Type:      at,
 	}
+	if activityJson, err := json.Marshal(map[string]any{
+		"status": ar.Status,
+		"rating": ar.Rating,
+	}); err != nil {
+		slog.Error("AddWatched: Failed to marshal json for data in ADD_WATCHED activity request, adding without data",
+			"error", err)
+	} else {
+		activityAddReq.Data = string(activityJson)
+	}
+	act, _ := s.activityProvider.AddActivity(
+		userId,
+		activityAddReq,
+	)
 	watched.Activity = append(watched.Activity, act)
-	watched.Content = &content
+
 	return watched, nil
+}
+
+// Restore a watched entry that was soft deleted.
+// Currently used for AddWatched, when it realizes the entry may exist already
+// as a soft deleted record.
+func (s *Service) restoreWatched(
+	userId uint,
+	contentId int,
+	ar WatchedAddRequest,
+	watchedOut *entity.Watched,
+) error {
+	slog.Info("restoreWatched: Attempting to restore.",
+		"user_id", userId,
+		"content_id", contentId)
+	// Try to restore and update the possibly existing row.
+	res := s.db.Model(&entity.Watched{}).
+		Unscoped().
+		Where("user_id = ? AND content_id = ? AND deleted_at IS NOT NULL",
+			userId, contentId).
+		Updates(map[string]any{
+			"status":     ar.Status,
+			"rating":     ar.Rating,
+			"thoughts":   ar.Thoughts,
+			"deleted_at": nil,
+		})
+	if res.Error != nil {
+		slog.Error("restoreWatched: Checking for record failed!",
+			"error", res.Error)
+		return errors.New("errored checking for soft deleted record")
+	}
+	if res.RowsAffected == 0 {
+		slog.Error("restoreWatched: Nothing was updated. The row may already exist un-deleted.")
+		return errors.New("didnt find an entry to restore")
+	}
+	slog.Info("restoreWatched: Restored record.",
+		"user_id", userId,
+		"content_id", contentId)
+
+	// Restore query above succeeded so now lets get all data needed and return.
+	res = s.db.Model(&entity.Watched{}).
+		Unscoped().
+		Preload("Activity").
+		Where("user_id = ? AND content_id = ?", userId, contentId).
+		Take(&watchedOut)
+	if res.Error != nil {
+		slog.Error("restoreWatched: Getting updated record failed!",
+			"error", res.Error)
+		return errors.New("errored while trying to get updated record")
+	}
+
+	return nil
 }
 
 // this method is too ugly to look at please make him look better, future irhm
