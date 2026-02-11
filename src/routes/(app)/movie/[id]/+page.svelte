@@ -108,7 +108,7 @@
 		}
 		movie.watched = await updateWatched(movie.watched, {
 			contentId: data.movieId,
-			contentType: "tv",
+			contentType: "movie",
 			status: newStatus,
 			rating: newRating,
 			thoughts: newThoughts,
