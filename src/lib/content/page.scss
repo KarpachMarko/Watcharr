@@ -1,0 +1,41 @@
+/* Shared styles for content pages. */
+
+/* Details container (the poster and details box) */
+.details-wrap {
+	/* We use a min-height to ensure the elements below this wrapper are
+	   not too far into the backdrop when the details-container is small. */
+	min-height: 450px;
+	display: flex;
+	align-items: center;
+
+	.details-container {
+		display: flex;
+		flex-flow: row;
+		gap: 35px;
+		max-width: 1100px;
+		padding: 40px 80px;
+		margin-left: auto;
+		margin-right: auto;
+
+		.details {
+			display: flex;
+			flex-flow: column;
+			gap: 5px;
+			width: 100%;
+
+			background-color: rgba(0, 0, 0, 0.6);
+			border-radius: 20px;
+			padding: 20px;
+			box-shadow: 0px 0px 14px -4px #000000;
+		}
+
+		@media screen and (max-width: 700px) {
+			padding: 40px;
+		}
+
+		@media screen and (max-width: 590px) {
+			flex-flow: column;
+			align-items: center;
+		}
+	}
+}

@@ -1,9 +1,7 @@
 <script lang="ts">
 	import PageError from "@/lib/PageError.svelte";
 	import PersonPoster from "@/lib/poster/PersonPoster.svelte";
-	import Rating from "@/lib/rating/Rating.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
-	import Status from "@/lib/Status.svelte";
 	import HorizontalList from "@/lib/HorizontalList.svelte";
 	import {
 		contentExistsOnJellyfin,
@@ -30,8 +28,10 @@
 	import FollowedThoughts from "@/lib/content/FollowedThoughts.svelte";
 	import ArrRequestButton from "@/lib/request/ArrRequestButton.svelte";
 	import tooltip from "@/lib/actions/tooltip.js";
-	import MyThoughts from "@/lib/content/MyThoughts.svelte";
 	import AddToTagButton from "@/lib/tag/AddToTagButton.svelte";
+	import PageBackdrop from "@/lib/generic/PageBackdrop.svelte";
+	import Poster from "@/lib/content/Poster.svelte";
+	import MyReview from "@/lib/content/MyReview.svelte";
 
 	let { data } = $props();
 
@@ -136,109 +136,116 @@
 {:else if !movie}
 	<Spinner />
 {:else if Object.keys(movie).length > 0}
+	{#if movie?.backdrop_path}
+		<PageBackdrop
+			src={"https://www.themoviedb.org/t/p/w1920_and_h800_multi_faces" +
+				movie.backdrop_path}
+		/>
+	{/if}
 	<div>
 		<div class="content">
-			{#if movie?.backdrop_path}
-				<img
-					class="backdrop"
-					src={"https://www.themoviedb.org/t/p/w1920_and_h800_multi_faces" +
-						movie.backdrop_path}
-					alt=""
-				/>
-			{/if}
-			<div class="vignette"></div>
+			<div class="details-wrap">
+				<div class="details-container">
+					<Poster src={"https://image.tmdb.org/t/p/w500" + movie.poster_path} />
 
-			<div class="details-container">
-				<img
-					class="poster"
-					src={"https://image.tmdb.org/t/p/w500" + movie.poster_path}
-					alt=""
-				/>
+					<div class="details">
+						<Title
+							title={movie.title}
+							homepage={movie.homepage}
+							releaseYear={new Date(
+								Date.parse(movie.release_date),
+							).getFullYear()}
+							voteAverage={movie.vote_average}
+							voteCount={movie.vote_count}
+						/>
 
-				<div class="details">
-					<Title
-						title={movie.title}
-						homepage={movie.homepage}
-						releaseYear={new Date(Date.parse(movie.release_date)).getFullYear()}
-						voteAverage={movie.vote_average}
-						voteCount={movie.vote_count}
-					/>
+						<span class="quick-info">
+							<span>{movie.runtime} min</span>
 
-					<span class="quick-info">
-						<span>{movie.runtime} min</span>
+							<div>
+								{#each movie.genres as g, i}
+									<span
+										>{g.name}{i !== movie.genres.length - 1 ? ", " : ""}</span
+									>
+								{/each}
+							</div>
+						</span>
 
-						<div>
-							{#each movie.genres as g, i}
-								<span>{g.name}{i !== movie.genres.length - 1 ? ", " : ""}</span>
-							{/each}
-						</div>
-					</span>
+						<p>{movie.overview}</p>
 
-					<span style="font-weight: bold; font-size: 14px;">Overview</span>
-					<p>{movie.overview}</p>
-
-					<div class="btns">
-						{#if trailer}
-							<button onclick={() => (trailerShown = !trailerShown)}
-								>View Trailer</button
-							>
-							{#if trailerShown}
-								<VideoEmbedModal
-									embed={trailer}
-									closed={() => (trailerShown = false)}
+						<div class="btns">
+							{#if trailer}
+								<button onclick={() => (trailerShown = !trailerShown)}
+									>View Trailer</button
+								>
+								{#if trailerShown}
+									<VideoEmbedModal
+										embed={trailer}
+										closed={() => (trailerShown = false)}
+									/>
+								{/if}
+							{/if}
+							{#if jellyfinUrl}
+								<a class="btn" href={jellyfinUrl} target="_blank">
+									{#if localStorage.getItem("useEmby")}
+										<Icon i="emby" wh={14} />Play On Emby
+									{:else}
+										<Icon i="jellyfin" wh={14} />Play On Jellyfin
+									{/if}
+								</a>
+							{/if}
+							{#if store.serverFeatures?.radarr && data.movieId}
+								<ArrRequestButton
+									type="movie"
+									tmdbId={data.movieId}
+									openRequestModal={() =>
+										(requestModalShown = !requestModalShown)}
+									bind:this={arrRequestButtonComp}
 								/>
 							{/if}
-						{/if}
-						{#if jellyfinUrl}
-							<a class="btn" href={jellyfinUrl} target="_blank">
-								{#if localStorage.getItem("useEmby")}
-									<Icon i="emby" wh={14} />Play On Emby
-								{:else}
-									<Icon i="jellyfin" wh={14} />Play On Jellyfin
-								{/if}
-							</a>
-						{/if}
-						{#if store.serverFeatures?.radarr && data.movieId}
-							<ArrRequestButton
-								type="movie"
-								tmdbId={data.movieId}
-								openRequestModal={() =>
-									(requestModalShown = !requestModalShown)}
-								bind:this={arrRequestButtonComp}
-							/>
-						{/if}
-						{#if movie.watched}
-							<div class="other-side">
-								<AddToTagButton watchedItem={movie.watched} />
-								<button
-									onclick={() => {
-										if (movie?.watched?.pinned) {
-											contentChanged(undefined, undefined, undefined, false);
-										} else {
-											contentChanged(undefined, undefined, undefined, true);
-										}
-									}}
-									use:tooltip={{
-										text: `${movie.watched?.pinned ? "Unpin from" : "Pin to"} top of list`,
-										pos: "bot",
-									}}
-								>
-									<Icon i={movie.watched?.pinned ? "unpin" : "pin"} wh={19} />
-								</button>
-								<button
-									class="delete-btn"
-									onclick={() => deleteWatched()}
-									use:tooltip={{ text: "Delete", pos: "bot" }}
-								>
-									<Icon i="trash" wh={19} />
-								</button>
-							</div>
-						{/if}
-					</div>
+							{#if movie.watched}
+								<div class="other-side">
+									<AddToTagButton watchedItem={movie.watched} />
+									<button
+										onclick={() => {
+											if (movie?.watched?.pinned) {
+												contentChanged(undefined, undefined, undefined, false);
+											} else {
+												contentChanged(undefined, undefined, undefined, true);
+											}
+										}}
+										use:tooltip={{
+											text: `${movie.watched?.pinned ? "Unpin from" : "Pin to"} top of list`,
+											pos: "bot",
+										}}
+									>
+										<Icon i={movie.watched?.pinned ? "unpin" : "pin"} wh={19} />
+									</button>
+									<button
+										class="delete-btn"
+										onclick={() => deleteWatched()}
+										use:tooltip={{ text: "Delete", pos: "bot" }}
+									>
+										<Icon i="trash" wh={19} />
+									</button>
+								</div>
+							{/if}
+						</div>
 
-					<ProvidersList providers={movie["watch/providers"]} />
+						<ProvidersList providers={movie["watch/providers"]} />
+					</div>
 				</div>
 			</div>
+
+			<MyReview
+				watched={movie.watched}
+				contentTitle={movie.title}
+				onRatingChanged={(n) => contentChanged(undefined, n)}
+				onStatusChanged={(n) => contentChanged(n)}
+				onThoughtsChanged={(newThoughts) => {
+					return contentChanged(undefined, undefined, newThoughts);
+				}}
+			/>
 		</div>
 
 		{#if requestModalShown}
@@ -254,27 +261,6 @@
 		{/if}
 
 		<div class="page">
-			<div class="review">
-				<!-- <span>What did you think?</span> -->
-				<Rating
-					rating={movie.watched?.rating}
-					onChange={(n) => contentChanged(undefined, n)}
-				/>
-				<Status
-					status={movie.watched?.status}
-					onChange={(n) => contentChanged(n)}
-				/>
-				{#if movie.watched}
-					<MyThoughts
-						contentTitle={movie.title}
-						thoughts={movie.watched?.thoughts}
-						onChange={(newThoughts) => {
-							return contentChanged(undefined, undefined, newThoughts);
-						}}
-					/>
-				{/if}
-			</div>
-
 			{#if data.movieId}
 				<FollowedThoughts mediaType="movie" mediaId={data.movieId} />
 			{/if}
@@ -322,119 +308,66 @@
 {/if}
 
 <style lang="scss">
+	@use "../../../../lib/content/page.scss";
+
 	.content {
 		position: relative;
 		color: white;
 
-		img.backdrop {
-			position: absolute;
-			left: 0;
-			top: 0;
-			z-index: -2;
-			width: 100%;
-			height: 100%;
-			object-fit: cover;
-			filter: $backdrop-filter;
-			mix-blend-mode: $backdrop-mix-blend-mode;
-			mask-image: $backdrop-mask-image;
-		}
-
-		.vignette {
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			background-color: rgba($color: #000000, $alpha: 0.7);
-			z-index: -1;
-			mask-image: $backdrop-mask-image;
-		}
-
-		.details-container {
-			display: flex;
-			flex-flow: row;
-			gap: 35px;
-			max-width: 1100px;
-			padding: 40px 80px;
-			margin-left: auto;
-			margin-right: auto;
-
-			img.poster {
-				width: 235px;
-				height: 100%;
-				box-shadow: 0px 0px 14px -4px #9c8080;
-				border-radius: 12px;
+		.details-container .details {
+			.quick-info {
+				display: flex;
+				gap: 10px;
+				margin-bottom: 8px;
 			}
 
-			.details {
+			p {
+				font-size: 16px;
+				margin-bottom: 18px;
+			}
+
+			.btns {
 				display: flex;
-				flex-flow: column;
-				gap: 5px;
-				width: 100%;
+				flex-flow: row;
+				flex-wrap: wrap;
+				gap: 8px;
+				margin-top: auto;
 
-				.quick-info {
-					display: flex;
-					gap: 10px;
-					margin-bottom: 8px;
-				}
-
-				p {
+				a.btn,
+				button {
+					max-width: fit-content;
+					overflow: hidden;
+					animation: 50ms cubic-bezier(0.86, 0, 0.07, 1) forwards otherbtn;
+					white-space: nowrap;
+					gap: 6px;
+					justify-content: flex-start;
 					font-size: 14px;
-					margin-bottom: 18px;
+
+					@keyframes otherbtn {
+						from {
+							width: 0px;
+						}
+						to {
+							width: 100%;
+						}
+					}
 				}
 
-				.btns {
+				.other-side {
 					display: flex;
 					flex-flow: row;
-					flex-wrap: wrap;
 					gap: 8px;
-					margin-top: auto;
 
-					a.btn,
-					button {
-						max-width: fit-content;
-						overflow: hidden;
-						animation: 50ms cubic-bezier(0.86, 0, 0.07, 1) forwards otherbtn;
-						white-space: nowrap;
-						gap: 6px;
-						justify-content: flex-start;
-						font-size: 14px;
-
-						@keyframes otherbtn {
-							from {
-								width: 0px;
-							}
-							to {
-								width: 100%;
-							}
-						}
-					}
-
-					.other-side {
-						display: flex;
-						flex-flow: row;
-						gap: 8px;
-
-						@media screen and (min-width: 900px) {
-							margin-left: auto;
-						}
-					}
-
-					.delete-btn {
-						&:hover {
-							color: $error;
-						}
+					@media screen and (min-width: 900px) {
+						margin-left: auto;
 					}
 				}
-			}
 
-			@media screen and (max-width: 700px) {
-				padding: 40px;
-			}
-
-			@media screen and (max-width: 590px) {
-				flex-flow: column;
-				align-items: center;
+				.delete-btn {
+					&:hover {
+						color: $error;
+					}
+				}
 			}
 		}
 	}
@@ -451,18 +384,6 @@
 
 		@media screen and (max-width: 500px) {
 			padding: 20px;
-		}
-	}
-
-	.review {
-		display: flex;
-		flex-flow: column;
-		gap: 10px;
-		width: 100%;
-		max-width: 380px;
-
-		@media screen and (max-width: 420px) {
-			max-width: 340px;
 		}
 	}
 

@@ -28,7 +28,7 @@
 	</span>
 	<span
 		class="rating"
-		title={`TMDB Rating: ${vote} out of 10 (based on ${voteCount} votes)`}
+		title={`Rating: ${vote} out of 10 (based on ${voteCount} votes)`}
 	>
 		<span>*</span>
 		{vote}
