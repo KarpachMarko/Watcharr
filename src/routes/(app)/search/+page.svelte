@@ -85,7 +85,7 @@
 
 	onMount(() => {
 		if (!store.searchQuery && data?.query) {
-			store.searchQuery = data?.query;
+			store.searchQuery = decodeURIComponent(data?.query);
 		}
 		dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
 	});
