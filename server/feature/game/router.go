@@ -3,7 +3,6 @@ package game
 import (
 	"log/slog"
 	"net/http"
-	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
@@ -52,10 +51,6 @@ func (r *Router) AddRoutes() {
 		slog.Error("GameRoutes: Twitch init failed!", "error", err)
 	}
 
-	// Search for games
-	gamer.GET("/search", r.GetSearch)
-	// Search for game by id (for search page, same minimal details as /search returned)
-	gamer.GET("/search/:id", r.GetSearchById)
 	// Game details for game page
 	gamer.GET("/:id", r.GetGameDetails)
 	// Add game to played(watched) list
@@ -66,38 +61,6 @@ func (r *Router) AddRoutes() {
 	{
 		gamer.POST("/config", r.UpdateConfig)
 	}
-}
-
-func (r *Router) GetSearch(c *gin.Context) {
-	query := c.Query("q")
-	if query == "" {
-		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "a query was not provided"})
-		return
-	}
-	decodedQuery, err := url.QueryUnescape(query)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "query parameter invalid"})
-		return
-	}
-	games, err := r.br.Cfg.TWITCH.Search(decodedQuery)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, games)
-}
-
-func (r *Router) GetSearchById(c *gin.Context) {
-	if c.Param("id") == "" {
-		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "an id was not provided"})
-		return
-	}
-	games, err := r.br.Cfg.TWITCH.SearchById(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, games)
 }
 
 func (r *Router) GetGameDetails(c *gin.Context) {
