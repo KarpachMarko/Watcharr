@@ -49,6 +49,10 @@
 			console.warn("load: Already on this page, not loading it again!");
 			return;
 		}
+		if (!nextLoadParams.query) {
+			console.warn("load: There is no search query!");
+			return;
+		}
 		const r = await axios.get(`/search`, {
 			params: nextLoadParams,
 			signal,
@@ -109,6 +113,8 @@
 			"searchParams:",
 			page.url.searchParams,
 		);
+		// Sync state (so back button updates search correctly)
+		store.searchQuery = data?.query ? decodeURIComponent(data?.query) : "";
 		dataLoader.abortReq("navigated away");
 		dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
 	});
