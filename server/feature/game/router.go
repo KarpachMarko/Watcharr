@@ -63,6 +63,13 @@ func (r *Router) AddRoutes() {
 	}
 }
 
+// NOTE: The handler functions use `copier` to copy values from the response
+// structs into a new one that includes the user "Watched" data.
+// This was done to avoid adding Watched data to the response structs, as they
+// are cached in our in-mem cache, which could cause references to pollute the cache
+// resulting in user data being leaked to others.
+// We are doing to to explicitly not let that case happen.
+
 func (r *Router) GetGameDetails(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	if c.Param("id") == "" {

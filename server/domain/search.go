@@ -9,15 +9,15 @@ type SearchType string
 
 const (
 	// Search for **all available media types**.
-	SearchTypeMulti = "multi"
+	SearchTypeMulti SearchType = "multi"
 	// Search for a **movie**.
-	SearchTypeMovie = "movie"
+	SearchTypeMovie SearchType = "movie"
 	// Search for a **show**.
-	SearchTypeShow = "show"
+	SearchTypeShow SearchType = "show"
 	// Search for a **person** (actor).
-	SearchTypePerson = "person"
+	SearchTypePerson SearchType = "person"
 	// Search for a **game**.
-	SearchTypeGame = "game"
+	SearchTypeGame SearchType = "game"
 )
 
 type SearchRequest struct {

@@ -29,6 +29,7 @@ import (
 	"github.com/sbondCo/Watcharr/feature/arr"
 	"github.com/sbondCo/Watcharr/feature/auth"
 	"github.com/sbondCo/Watcharr/feature/content"
+	"github.com/sbondCo/Watcharr/feature/discover"
 	"github.com/sbondCo/Watcharr/feature/feature"
 	"github.com/sbondCo/Watcharr/feature/follow"
 	"github.com/sbondCo/Watcharr/feature/game"
@@ -144,8 +145,10 @@ func main() {
 	gin.DefaultWriter = multiw
 	gine := gin.Default()
 
+	// Register our custom validators
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterValidation("validsearchtype", domain.ValidSearchType)
+		v.RegisterValidation("validdiscoverfilter", domain.ValidDiscoverFilter)
 	}
 
 	gine.Use(cors.New(cors.Config{
@@ -242,6 +245,7 @@ func main() {
 	importTraktService := imprt.NewTraktService(importService)
 	gameService := game.NewService(activityService)
 	searchService := search.NewService(db, br.Cfg, contentService)
+	discoverService := discover.NewService(db, br.Cfg, contentService)
 
 	auth.NewRouter(br, authService, authTrustedHeaderService).AddRoutes()
 	content.NewRouter(br, contentService, watchedService).AddRoutes()
@@ -263,6 +267,7 @@ func main() {
 	tag.NewRouter(br, tagService).AddRoutes()
 	game.NewRouter(br, gameService, watchedService).AddRoutes()
 	search.NewRouter(br, searchService, watchedService).AddRoutes()
+	discover.NewRouter(br, discoverService, watchedService).AddRoutes()
 
 	api.Static("/img", path.Join(config.DataPath, "img"))
 

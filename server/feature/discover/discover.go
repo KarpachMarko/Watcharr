@@ -1,0 +1,326 @@
+package discover
+
+import (
+	"errors"
+	"log/slog"
+	"time"
+
+	"github.com/sbondCo/Watcharr/config"
+	"github.com/sbondCo/Watcharr/domain"
+	"github.com/sbondCo/Watcharr/media/tmdb"
+	"gorm.io/gorm"
+)
+
+type ContentProvider interface {
+	Trending(t tmdb.TrendingType, pageNum int, region string) (tmdb.TMDBTrendingCombined, error)
+	DiscoverMovies(o tmdb.DiscoverOptions, pageNum int, region string) (tmdb.TMDBDiscoverMovies, error)
+	DiscoverTv(o tmdb.DiscoverOptions, pageNum int, region string) (tmdb.TMDBDiscoverShows, error)
+	PopularPeople(pageNum int) (tmdb.TMDBPopularPeople, error)
+}
+
+type Service struct {
+	db              *gorm.DB
+	cfg             *config.ServerConfig
+	contentProvider ContentProvider
+}
+
+func NewService(
+	db *gorm.DB,
+	cfg *config.ServerConfig,
+	contentProvider ContentProvider,
+) *Service {
+	return &Service{
+		db,
+		cfg,
+		contentProvider,
+	}
+}
+
+// `Limit` is not supported.
+func (s *Service) Discover(
+	// User request
+	r domain.DiscoverRequest,
+	// Extra data
+	meta domain.DiscoverRequestMeta,
+) (domain.DiscoverResponse, error) {
+	resp := domain.DiscoverResponse{}
+
+	switch r.Type {
+	case domain.SearchTypeMulti:
+		return s.DiscoverMulti(r, meta)
+	case domain.SearchTypeShow:
+		return s.DiscoverTv(r, meta)
+	case domain.SearchTypePerson:
+		return s.DiscoverPeople(r, meta)
+	case domain.SearchTypeMovie:
+		return s.DiscoverMovie(r, meta)
+	}
+	return resp, nil
+}
+
+func (s *Service) DiscoverMulti(
+	r domain.DiscoverRequest,
+	meta domain.DiscoverRequestMeta,
+) (domain.DiscoverResponse, error) {
+	resp := domain.DiscoverResponse{}
+	var err error
+	switch r.Filter {
+	case domain.DiscoverFilterTrending:
+		err = s.discoverMultiTrending(tmdb.TrendingTypeAll, meta, &resp)
+	case domain.DiscoverFilterInTheatres:
+		err = s.discoverMovieInTheatres(meta, &resp)
+	default:
+		slog.Error("DiscoverMulti: Unsupported filter.")
+		return resp, errors.New("unsupported filter")
+	}
+	return resp, err
+}
+
+func (s *Service) DiscoverMovie(
+	r domain.DiscoverRequest,
+	meta domain.DiscoverRequestMeta,
+) (domain.DiscoverResponse, error) {
+	resp := domain.DiscoverResponse{}
+	var err error
+	switch r.Filter {
+	case domain.DiscoverFilterTrending:
+		err = s.discoverMultiTrending(tmdb.TrendingTypeMovie, meta, &resp)
+	case domain.DiscoverFilterInTheatres:
+		err = s.discoverMovieInTheatres(meta, &resp)
+	case domain.DiscoverFilterUpcoming:
+		err = s.discoverMovieUpcoming(meta, &resp)
+	case domain.DiscoverFilterPopular:
+		err = s.discoverMoviePopular(meta, &resp)
+	default:
+		slog.Error("DiscoverMovie: Unsupported filter.")
+		return resp, errors.New("unsupported filter")
+	}
+	return resp, err
+}
+
+func (s *Service) DiscoverTv(
+	r domain.DiscoverRequest,
+	meta domain.DiscoverRequestMeta,
+) (domain.DiscoverResponse, error) {
+	resp := domain.DiscoverResponse{}
+	var err error
+	switch r.Filter {
+	case domain.DiscoverFilterTrending:
+		err = s.discoverMultiTrending(tmdb.TrendingTypeShow, meta, &resp)
+	case domain.DiscoverFilterUpcoming:
+		err = s.discoverTvUpcoming(meta, &resp)
+	case domain.DiscoverFilterPopular:
+		err = s.discoverTvPopular(meta, &resp)
+	default:
+		slog.Error("DiscoverMovie: Unsupported filter.")
+		return resp, errors.New("unsupported filter")
+	}
+	return resp, err
+}
+
+func (s *Service) DiscoverPeople(
+	r domain.DiscoverRequest,
+	meta domain.DiscoverRequestMeta,
+) (domain.DiscoverResponse, error) {
+	resp := domain.DiscoverResponse{}
+	var err error
+	switch r.Filter {
+	case domain.DiscoverFilterTrending:
+		err = s.discoverMultiTrending(tmdb.TrendingTypePerson, meta, &resp)
+	case domain.DiscoverFilterPopular:
+		err = s.discoverPeoplePopular(meta, &resp)
+	default:
+		slog.Error("DiscoverMulti: Unsupported filter.")
+		return resp, errors.New("unsupported filter")
+	}
+	return resp, err
+}
+
+// Discover anything that is trending on TMDB (including combined).
+func (s *Service) discoverMultiTrending(
+	t tmdb.TrendingType,
+	meta domain.DiscoverRequestMeta,
+	resp *domain.DiscoverResponse,
+) error {
+	tmdbRes, err := s.contentProvider.Trending(t, meta.PageParams.Page, meta.Region)
+	if err != nil {
+		slog.Error("discoverMulti: Failed to search tmdb!", "error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range tmdbRes.Results {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = tmdbRes.Page
+	resp.TotalPages = tmdbRes.TotalPages
+	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}
+
+func (s *Service) discoverMovieInTheatres(
+	meta domain.DiscoverRequestMeta,
+	resp *domain.DiscoverResponse,
+) error {
+	tmdbRes, err := s.contentProvider.DiscoverMovies(
+		tmdb.DiscoverOptions{
+			ReleaseDateMin:  time.Now().AddDate(0, 0, -40),
+			ReleaseDateMax:  time.Now().AddDate(0, 0, 2),
+			WithReleaseType: "2|3",
+		},
+		meta.PageParams.Page,
+		meta.Region,
+	)
+	if err != nil {
+		slog.Error("discoverMovieInTheatres: Failed to search tmdb!",
+			"error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range tmdbRes.Results {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = tmdbRes.Page
+	resp.TotalPages = tmdbRes.TotalPages
+	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}
+
+func (s *Service) discoverMovieUpcoming(
+	meta domain.DiscoverRequestMeta,
+	resp *domain.DiscoverResponse,
+) error {
+	tmdbRes, err := s.contentProvider.DiscoverMovies(
+		tmdb.DiscoverOptions{
+			ReleaseDateMin:  time.Now(),
+			ReleaseDateMax:  time.Now().AddDate(0, 1, 0),
+			WithReleaseType: "2|3",
+		},
+		meta.PageParams.Page,
+		meta.Region,
+	)
+	if err != nil {
+		slog.Error("discoverMovieUpcoming: Failed to search tmdb!",
+			"error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range tmdbRes.Results {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = tmdbRes.Page
+	resp.TotalPages = tmdbRes.TotalPages
+	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}
+
+func (s *Service) discoverMoviePopular(
+	meta domain.DiscoverRequestMeta,
+	resp *domain.DiscoverResponse,
+) error {
+	tmdbRes, err := s.contentProvider.DiscoverMovies(
+		tmdb.DiscoverOptions{},
+		meta.PageParams.Page,
+		meta.Region,
+	)
+	if err != nil {
+		slog.Error("discoverMoviePopular: Failed to search tmdb!",
+			"error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range tmdbRes.Results {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = tmdbRes.Page
+	resp.TotalPages = tmdbRes.TotalPages
+	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}
+
+func (s *Service) discoverTvUpcoming(
+	meta domain.DiscoverRequestMeta,
+	resp *domain.DiscoverResponse,
+) error {
+	tmdbRes, err := s.contentProvider.DiscoverTv(
+		tmdb.DiscoverOptions{
+			ReleaseDateMin:  time.Now(),
+			ReleaseDateMax:  time.Now().AddDate(0, 1, 0),
+			WithReleaseType: "2|3",
+		},
+		meta.PageParams.Page,
+		meta.Region,
+	)
+	if err != nil {
+		slog.Error("discoverTvUpcoming: Failed to search tmdb!",
+			"error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range tmdbRes.Results {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = tmdbRes.Page
+	resp.TotalPages = tmdbRes.TotalPages
+	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}
+
+func (s *Service) discoverTvPopular(
+	meta domain.DiscoverRequestMeta,
+	resp *domain.DiscoverResponse,
+) error {
+	tmdbRes, err := s.contentProvider.DiscoverTv(
+		tmdb.DiscoverOptions{},
+		meta.PageParams.Page,
+		meta.Region,
+	)
+	if err != nil {
+		slog.Error("discoverTvPopular: Failed to search tmdb!",
+			"error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range tmdbRes.Results {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = tmdbRes.Page
+	resp.TotalPages = tmdbRes.TotalPages
+	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}
+
+func (s *Service) discoverPeoplePopular(
+	meta domain.DiscoverRequestMeta,
+	resp *domain.DiscoverResponse,
+) error {
+	tmdbRes, err := s.contentProvider.PopularPeople(
+		meta.PageParams.Page,
+	)
+	if err != nil {
+		slog.Error("discoverPeoplePopular: Failed to search tmdb!",
+			"error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range tmdbRes.Results {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = tmdbRes.Page
+	resp.TotalPages = tmdbRes.TotalPages
+	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}

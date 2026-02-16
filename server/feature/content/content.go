@@ -533,91 +533,125 @@ func (s *Service) PersonCredits(id string) (tmdb.TMDBPersonCombinedCredits, erro
 	return *resp, nil
 }
 
-func (s *Service) DiscoverMovies() (tmdb.TMDBDiscoverMovies, error) {
-	cacheKey := cache.CreateCacheKey("DiscoverMovies")
+func (s *Service) Trending(t tmdb.TrendingType, pageNum int, region string) (tmdb.TMDBTrendingCombined, error) {
+	resp := new(tmdb.TMDBTrendingCombined)
+	if t != tmdb.TrendingTypeAll &&
+		t != tmdb.TrendingTypeMovie &&
+		t != tmdb.TrendingTypeShow &&
+		t != tmdb.TrendingTypePerson {
+		slog.Error("Trending: Invalid type provided", "provided_t", t)
+		return *resp, errors.New("invalid type")
+	}
+	if pageNum <= 0 {
+		pageNum = 1
+	}
+	cacheKey := cache.CreateCacheKey("Trending", string(t), region, pageNum)
+	if cache.GetCache(ContentStore, cacheKey, &resp) {
+		slog.Debug("Trending: Returning cache.")
+		return *resp, nil
+	}
+	err := s.tmdb.Request("/trending/"+string(t)+"/day", map[string]string{
+		"page":   strconv.Itoa(pageNum),
+		"region": region,
+	}, &resp)
+	if err != nil {
+		slog.Error("Failed to complete all trending request!", "error", err.Error())
+		return *resp, errors.New("failed to complete all trending request")
+	}
+	ContentStore.Set(cacheKey, resp, time.Hour*24)
+	return *resp, nil
+}
+
+func (s *Service) DiscoverMovies(
+	o tmdb.DiscoverOptions,
+	pageNum int,
+	region string,
+) (tmdb.TMDBDiscoverMovies, error) {
 	resp := new(tmdb.TMDBDiscoverMovies)
+	reqParams := map[string]string{
+		"page":   strconv.Itoa(pageNum),
+		"region": region,
+	}
+	s.applyDiscoverOptionsToMap(true, o, reqParams)
+	cacheKey := cache.CreateCacheKey("DiscoverMovies", pageNum, reqParams)
 	if cache.GetCache(ContentStore, cacheKey, &resp) {
 		slog.Debug("DiscoverMovies: Returning cache.")
 		return *resp, nil
 	}
-	err := s.tmdb.Request("/discover/movie", map[string]string{"page": "1"}, &resp)
+	err := s.tmdb.Request("/discover/movie", reqParams, &resp)
 	if err != nil {
-		slog.Error("Failed to complete discover movies request!", "error", err.Error())
+		slog.Error("DiscoverMovies: Failed to complete request!", "error", err.Error())
 		return tmdb.TMDBDiscoverMovies{}, errors.New("failed to complete discover movies request")
 	}
 	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil
 }
 
-func (s *Service) DiscoverTv() (tmdb.TMDBDiscoverShows, error) {
-	cacheKey := cache.CreateCacheKey("DiscoverTv")
+func (s *Service) DiscoverTv(
+	o tmdb.DiscoverOptions,
+	pageNum int,
+	region string,
+) (tmdb.TMDBDiscoverShows, error) {
 	resp := new(tmdb.TMDBDiscoverShows)
+	reqParams := map[string]string{
+		"page":   strconv.Itoa(pageNum),
+		"region": region,
+	}
+	s.applyDiscoverOptionsToMap(false, o, reqParams)
+	cacheKey := cache.CreateCacheKey("DiscoverTv", pageNum, reqParams)
 	if cache.GetCache(ContentStore, cacheKey, &resp) {
 		slog.Debug("DiscoverTv: Returning cache.")
 		return *resp, nil
 	}
-	err := s.tmdb.Request("/discover/tv", map[string]string{"page": "1"}, &resp)
+	err := s.tmdb.Request("/discover/tv", reqParams, &resp)
 	if err != nil {
-		slog.Error("Failed to complete discover tv request!", "error", err.Error())
+		slog.Error("DiscoverTv: Failed to complete request!", "error", err.Error())
 		return tmdb.TMDBDiscoverShows{}, errors.New("failed to complete discover tv request")
 	}
 	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil
 }
 
-func (s *Service) AllTrending() (tmdb.TMDBTrendingAll, error) {
-	cacheKey := cache.CreateCacheKey("AllTrending")
-	resp := new(tmdb.TMDBTrendingAll)
-	if cache.GetCache(ContentStore, cacheKey, &resp) {
-		slog.Debug("AllTrending: Returning cache.")
-		return *resp, nil
+func (s *Service) applyDiscoverOptionsToMap(
+	// Some properties are named differently for sorting the same thing as far
+	// as we care, so we need to differenciate to name them properly.
+	forMovie bool,
+	o tmdb.DiscoverOptions,
+	m map[string]string,
+) {
+	releaseDateMinKey := "release_date.gte"
+	releaseDateMaxKey := "release_date.lte"
+	withReleaseTypeKey := "with_release_type"
+	if !forMovie {
+		// Replace with names for equivalent tv filters
+		releaseDateMinKey = "first_air_date.gte"
+		releaseDateMaxKey = "first_air_date.lte"
+		withReleaseTypeKey = "with_type"
 	}
-	err := s.tmdb.Request("/trending/all/day", map[string]string{}, &resp)
-	if err != nil {
-		slog.Error("Failed to complete all trending request!", "error", err.Error())
-		return tmdb.TMDBTrendingAll{}, errors.New("failed to complete all trending request")
+	if !o.ReleaseDateMin.IsZero() {
+		m[releaseDateMinKey] = o.ReleaseDateMin.Format("2006-01-02")
 	}
-	ContentStore.Set(cacheKey, resp, time.Hour*24)
-	return *resp, nil
+	if !o.ReleaseDateMax.IsZero() {
+		m[releaseDateMaxKey] = o.ReleaseDateMax.Format("2006-01-02")
+	}
+	if o.WithReleaseType != "" {
+		m[withReleaseTypeKey] = o.WithReleaseType
+	}
 }
 
-func (s *Service) UpcomingMovies() (tmdb.TMDBUpcomingMovies, error) {
-	cacheKey := cache.CreateCacheKey("UpcomingMovies")
-	resp := new(tmdb.TMDBUpcomingMovies)
+func (s *Service) PopularPeople(pageNum int) (tmdb.TMDBPopularPeople, error) {
+	cacheKey := cache.CreateCacheKey("PopularPeople", pageNum)
+	resp := new(tmdb.TMDBPopularPeople)
 	if cache.GetCache(ContentStore, cacheKey, &resp) {
-		slog.Debug("upcomingMovies: Returning cache.")
+		slog.Debug("PopularPeople: Returning cache.")
 		return *resp, nil
 	}
-	err := s.tmdb.Request("/movie/upcoming", map[string]string{"page": "1"}, &resp)
+	err := s.tmdb.Request("/person/popular",
+		map[string]string{"page": strconv.Itoa(pageNum)},
+		&resp)
 	if err != nil {
-		slog.Error("Failed to complete upcoming movies request!", "error", err.Error())
-		return tmdb.TMDBUpcomingMovies{}, errors.New("failed to complete upcoming movies request")
-	}
-	ContentStore.Set(cacheKey, resp, time.Hour*24)
-	return *resp, nil
-}
-
-// Theres no upcoming endpoint for tv ;( - using discover with future dates
-func (s *Service) UpcomingTv() (tmdb.TMDBUpcomingShows, error) {
-	cacheKey := cache.CreateCacheKey("UpcomingTv")
-	resp := new(tmdb.TMDBUpcomingShows)
-	if cache.GetCache(ContentStore, cacheKey, &resp) {
-		slog.Debug("UpcomingTv: Returning cache.")
-		return *resp, nil
-	}
-	dFmt := "2006-01-02"
-	mind := time.Now().Format(dFmt)
-	maxd := time.Now().AddDate(0, 0, 15).Format(dFmt)
-	err := s.tmdb.Request("/discover/tv", map[string]string{
-		"page":               "1",
-		"first_air_date.gte": mind,
-		"first_air_date.lte": maxd,
-		"sort_by":            "popularity.desc",
-		"with_type":          "2|3",
-	}, &resp)
-	if err != nil {
-		slog.Error("Failed to complete upcoming tv request!", "error", err.Error())
-		return tmdb.TMDBUpcomingShows{}, errors.New("failed to complete upcoming tv request")
+		slog.Error("PopularPeople: Failed to complete request!", "error", err.Error())
+		return tmdb.TMDBPopularPeople{}, errors.New("failed to complete request")
 	}
 	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil

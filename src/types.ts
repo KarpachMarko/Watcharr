@@ -137,7 +137,8 @@ export interface Watched extends dbModel {
 	rating?: number;
 	// content?: Content;
 	// game?: Game;
-	media: Media;
+	media?: Media;
+
 	activity: Activity[];
 	status: WatchedStatus;
 	thoughts: string;
@@ -343,6 +344,21 @@ export enum SearchType {
 export interface SearchRequest extends PaginationParams {
 	type?: SearchType;
 	query: string;
+}
+
+export enum DiscoverFilter {
+	trending = "trending",
+	popular = "popular",
+	upcoming = "upcoming",
+	streaming = "streaming",
+	inTheatres = "intheatres",
+}
+
+export type DiscoverFilterOption = `${DiscoverFilter}`;
+
+export interface DiscoverRequest extends PaginationParams {
+	type?: SearchType;
+	filter?: DiscoverFilter;
 }
 
 export interface TMDBContentDetails {

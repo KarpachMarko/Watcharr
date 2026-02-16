@@ -62,6 +62,9 @@ func AuthRequired(db *gorm.DB, cfg *config.ServerConfig) gin.HandlerFunc {
 				c.Set("userThirdPartyAuth", dbUser.ThirdPartyAuth)
 				c.Set("username", dbUser.Username)
 				c.Set("userPermissions", dbUser.Permissions)
+				if dbUser.Country != nil {
+					c.Set("userCountry", *dbUser.Country)
+				}
 			}
 			c.Next()
 		} else {

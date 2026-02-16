@@ -15,26 +15,38 @@ import (
 // Location middleware
 func WhereaboutsRequired(cfg *config.ServerConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Respect region query param over all.
 		region := c.Query("region")
-		slog.Debug("WhereaboutsRequired: middleware hit", "region", region)
-		if region == "" {
-			// If no region is passed, default to server region.
-			if cfg.DEFAULT_COUNTRY != "" {
-				slog.Debug(
-					"WhereaboutsRequired: Using server default country.",
-					"default_country", cfg.DEFAULT_COUNTRY,
-				)
-				c.Set("userCountry", cfg.DEFAULT_COUNTRY)
-				c.Next()
-				return
-			}
-			// If no server region set, default to US.
-			slog.Debug("WhereaboutsRequired: Using hard coded default (US).")
-			c.Set("userCountry", "US")
+		if region != "" {
+			slog.Debug("WhereaboutsRequired: Using query param value",
+				"region", region)
+			c.Set("userCountry", region)
 			c.Next()
 			return
 		}
-		c.Set("userCountry", region)
+
+		// Then respect existing userCountry that was filled out by our
+		// AuthRequired middleware if it found one.
+		if v, exists := c.Get("userCountry"); exists {
+			// If userCountry is already defined
+			slog.Debug("WhereaboutsRequired: Using user setting.",
+				"user_country", v)
+			c.Next()
+			return
+		}
+
+		// Then use default value from config if set.
+		if cfg.DEFAULT_COUNTRY != "" {
+			slog.Debug("WhereaboutsRequired: Using server default country.",
+				"default_country", cfg.DEFAULT_COUNTRY)
+			c.Set("userCountry", cfg.DEFAULT_COUNTRY)
+			c.Next()
+			return
+		}
+
+		// Finally, failsafe on hardcoded US value.
+		slog.Debug("WhereaboutsRequired: Using hard coded default (US).")
+		c.Set("userCountry", "US")
 		c.Next()
 	}
 }

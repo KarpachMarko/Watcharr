@@ -54,6 +54,7 @@ type UserSettings struct {
 	// Also if user wants to show in watched stats.
 	IncludePreviouslyWatched *bool `gorm:"default:false" json:"includePreviouslyWatched"`
 	// User's country to get correct content streaming providers.
+	// TODO Enforce iso_3166_1 validity (same as tmdb)
 	Country *string `gorm:"default:'US'" json:"country"`
 	// Does the user want show, season and episode automations enabled.
 	AutomateShowStatuses *bool `gorm:"default:true" json:"automateShowStatuses"`

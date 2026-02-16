@@ -19,11 +19,12 @@
 	import { onDestroy, onMount } from "svelte";
 	import Error from "@/lib/Error.svelte";
 	import GamePoster from "@/lib/poster/GamePoster.svelte";
-	import Icon from "@/lib/Icon.svelte";
 	import infScroll from "@/lib/util/infScroll.js";
 	import paginatedLoader, {
 		PaginatedLoaderRunFnAction,
 	} from "@/lib/util/paginatedLoader.svelte.js";
+	import PageTitle from "@/lib/generic/PageTitle.svelte";
+	import MediaTypeFilter from "@/lib/search/MediaTypeFilter.svelte";
 
 	let { data } = $props();
 
@@ -149,43 +150,16 @@
 				<PageError pretty="Failed to load users!" error={err} />
 			{/await}
 
-			<div
-				class={`results-filters-header${dataLoader.state.reqLoading ? " search-running" : ""}`}
-			>
-				<h2>Results</h2>
-				<div>
-					<button
-						class="plain"
-						data-active={searchType === SearchType.movie}
-						onclick={() => setActiveSearchFilter(SearchType.movie)}
-					>
-						<Icon i="film" wh={20} /> Movies
-					</button>
-					<button
-						class="plain"
-						data-active={searchType === SearchType.show}
-						onclick={() => setActiveSearchFilter(SearchType.show)}
-					>
-						<Icon i="tv" wh={20} /> TV Shows
-					</button>
-					{#if store.serverFeatures?.games}
-						<button
-							class="plain"
-							data-active={searchType === SearchType.game}
-							onclick={() => setActiveSearchFilter(SearchType.game)}
-						>
-							<Icon i="gamepad" wh={20} /> Games
-						</button>
-					{/if}
-					<button
-						class="plain"
-						data-active={searchType === SearchType.person}
-						onclick={() => setActiveSearchFilter(SearchType.person)}
-					>
-						<Icon i="people-nocircle" wh={20} /> People
-					</button>
-				</div>
-			</div>
+			<PageTitle title="Results">
+				<MediaTypeFilter
+					active={searchType}
+					disabled={dataLoader.state.reqLoading}
+					onChange={(nowActive) => {
+						setActiveSearchFilter(nowActive as SearchType | undefined);
+					}}
+				/>
+			</PageTitle>
+
 			<PosterList>
 				{#if dataLoader.state.data?.length > 0}
 					{#each dataLoader.state.data as w, i (`${i}-${w.type}`)}
@@ -250,67 +224,6 @@
 </div>
 
 <style lang="scss">
-	.results-filters-header {
-		display: flex;
-		flex-flow: row;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 10px;
-
-		div {
-			display: flex;
-			flex-flow: row;
-			flex-wrap: wrap;
-			gap: 10px;
-			margin: 0 15px;
-
-			button {
-				display: flex;
-				flex-flow: row;
-				flex-wrap: wrap;
-				gap: 8px;
-				align-items: center;
-				height: fit-content;
-				padding: 8px 12px;
-				border-radius: 8px;
-				font-size: 14px;
-				color: $text-color;
-				fill: $text-color;
-				transition:
-					background-color 150ms ease,
-					color 150ms ease,
-					outline 150ms ease;
-
-				&:hover,
-				&[data-active="true"] {
-					color: $bg-color;
-					fill: $bg-color;
-					background-color: $accent-color-hover;
-				}
-
-				&[data-active="true"] {
-					outline: 3px solid $accent-color;
-				}
-
-				@media screen and (max-width: 500px) {
-					flex-flow: column;
-				}
-			}
-
-			@media screen and (max-width: 500px) {
-				width: 100%;
-				justify-content: center;
-			}
-		}
-
-		&.search-running {
-			button {
-				opacity: 0.8;
-				pointer-events: none;
-			}
-		}
-	}
-
 	.content {
 		display: flex;
 		width: 100%;
@@ -319,10 +232,6 @@
 		.inner {
 			width: 100%;
 			max-width: 1200px;
-
-			h2 {
-				margin-left: 15px;
-			}
 		}
 	}
 </style>

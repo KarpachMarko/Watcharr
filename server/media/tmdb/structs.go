@@ -764,6 +764,83 @@ type TMDBContentCredits struct {
 }
 
 //
+// Discover All Trending
+//
+
+type TrendingType string
+
+const (
+	TrendingTypeAll    TrendingType = "all"
+	TrendingTypeMovie  TrendingType = "movie"
+	TrendingTypeShow   TrendingType = "tv"
+	TrendingTypePerson TrendingType = "person"
+)
+
+type TMDBTrendingCombined struct {
+	TMDBSearchResponse[TMDBTrendingCombinedResult]
+}
+
+type TMDBTrendingCombinedResult struct {
+	TMDBSearchResult
+	Adult            bool     `json:"adult"`
+	BackdropPath     string   `json:"backdrop_path"`
+	Title            string   `json:"title,omitempty"`
+	Name             string   `json:"name,omitempty"`
+	OriginalLanguage string   `json:"original_language"`
+	OriginalTitle    string   `json:"original_title,omitempty"`
+	GenreIds         []int    `json:"genre_ids"`
+	Popularity       float64  `json:"popularity"`
+	ReleaseDate      string   `json:"release_date,omitempty"`
+	Video            bool     `json:"video,omitempty"`
+	OriginalName     string   `json:"original_name,omitempty"`
+	FirstAirDate     string   `json:"first_air_date,omitempty"`
+	OriginCountry    []string `json:"origin_country,omitempty"`
+	ProfilePath      string   `json:"profile_path"`
+}
+
+func (t *TMDBTrendingCombinedResult) AsMedia() domain.Media {
+	m := t.TMDBSearchResult.AsMedia()
+
+	m.Name = t.Title
+	if t.Name != "" {
+		m.Name = t.Name
+	}
+
+	var tmdbReleaseDate string
+	switch t.MediaType {
+	case "movie":
+		tmdbReleaseDate = t.ReleaseDate
+	case "tv":
+		tmdbReleaseDate = t.FirstAirDate
+	case "person":
+		m.ExtPosterPath = t.ProfilePath
+	}
+	if tmdbReleaseDate != "" {
+		if releaseDate, err := time.Parse("2006-01-02", tmdbReleaseDate); err == nil {
+			m.ReleaseDate = releaseDate
+		} else {
+			slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+		}
+	}
+	return m
+}
+
+//
+// Discover
+//
+
+type DiscoverOptions struct {
+	// Release date greater than.
+	ReleaseDateMin time.Time
+	// Release date less than.
+	ReleaseDateMax time.Time
+	// With release type.
+	// Release types are listed on this page:
+	// https://developer.themoviedb.org/reference/movie-release-dates
+	WithReleaseType string
+}
+
+//
 // Discover Movies
 //
 
@@ -788,21 +865,24 @@ type TMDBDiscoverMoviesResult struct {
 	VoteCount        int     `json:"vote_count"`
 }
 
-func (t TMDBDiscoverMoviesResult) GetId() int {
-	return t.ID
-}
-
-func (t TMDBDiscoverMoviesResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaMovie
-}
-
-type TMDBDiscoverMoviesWithWatched struct {
-	TMDBSearchResponse[TMDBDiscoverMoviesResultWithWatched]
-}
-
-type TMDBDiscoverMoviesResultWithWatched struct {
-	TMDBDiscoverMoviesResult
-	Watched *entity.Watched `json:"watched,omitempty"`
+func (t *TMDBDiscoverMoviesResult) AsMedia() domain.Media {
+	m := domain.Media{
+		IDs: domain.MediaIDs{
+			TMDB: t.ID,
+		},
+		Type:          domain.MediaTypeTMDBMovie,
+		Name:          t.Title,
+		Summary:       t.Overview,
+		ExtPosterPath: t.PosterPath,
+		Rating:        uint(t.VoteAverage),
+		RatingCount:   uint(t.VoteCount),
+	}
+	if releaseDate, err := time.Parse("2006-01-02", t.ReleaseDate); err == nil {
+		m.ReleaseDate = releaseDate
+	} else {
+		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+	}
+	return m
 }
 
 //
@@ -829,155 +909,50 @@ type TMDBDiscoverShowsResult struct {
 	VoteCount        int      `json:"vote_count"`
 }
 
-func (t TMDBDiscoverShowsResult) GetId() int {
-	return t.ID
-}
-
-func (t TMDBDiscoverShowsResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaShow
-}
-
-type TMDBDiscoverShowsWithWatched struct {
-	TMDBSearchResponse[TMDBDiscoverShowsResultWithWatched]
-}
-
-type TMDBDiscoverShowsResultWithWatched struct {
-	TMDBDiscoverShowsResult
-	Watched *entity.Watched `json:"watched,omitempty"`
-}
-
-//
-// Discover All Trending
-//
-
-type TMDBTrendingAll struct {
-	TMDBSearchResponse[TMDBTrendingAllResult]
-}
-
-type TMDBTrendingAllResult struct {
-	Adult            bool     `json:"adult"`
-	BackdropPath     string   `json:"backdrop_path"`
-	ID               int      `json:"id"`
-	Title            string   `json:"title,omitempty"`
-	OriginalLanguage string   `json:"original_language"`
-	OriginalTitle    string   `json:"original_title,omitempty"`
-	Overview         string   `json:"overview"`
-	PosterPath       string   `json:"poster_path"`
-	MediaType        string   `json:"media_type"`
-	GenreIds         []int    `json:"genre_ids"`
-	Popularity       float64  `json:"popularity"`
-	ReleaseDate      string   `json:"release_date,omitempty"`
-	Video            bool     `json:"video,omitempty"`
-	VoteAverage      float64  `json:"vote_average"`
-	VoteCount        int      `json:"vote_count"`
-	Name             string   `json:"name,omitempty"`
-	OriginalName     string   `json:"original_name,omitempty"`
-	FirstAirDate     string   `json:"first_air_date,omitempty"`
-	OriginCountry    []string `json:"origin_country,omitempty"`
-}
-
-func (t TMDBTrendingAllResult) GetId() int {
-	return t.ID
-}
-
-func (t TMDBTrendingAllResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMedia(t.MediaType)
-}
-
-type TMDBTrendingAllWithWatched struct {
-	TMDBSearchResponse[TMDBTrendingAllResultWithWatched]
-}
-
-type TMDBTrendingAllResultWithWatched struct {
-	TMDBTrendingAllResult
-	Watched *entity.Watched `json:"watched,omitempty"`
+func (t *TMDBDiscoverShowsResult) AsMedia() domain.Media {
+	m := domain.Media{
+		IDs: domain.MediaIDs{
+			TMDB: t.ID,
+		},
+		Type:          domain.MediaTypeTMDBShow,
+		Name:          t.Name,
+		Summary:       t.Overview,
+		ExtPosterPath: t.PosterPath,
+		Rating:        uint(t.VoteAverage),
+		RatingCount:   uint(t.VoteCount),
+	}
+	if releaseDate, err := time.Parse("2006-01-02", t.FirstAirDate); err == nil {
+		m.ReleaseDate = releaseDate
+	} else {
+		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+	}
+	return m
 }
 
 //
-// Discover Upcoming Movies
+// Discover Shows
 //
 
-type TMDBUpcomingMovies struct {
-	Dates struct {
-		Maximum string `json:"maximum"`
-		Minimum string `json:"minimum"`
-	} `json:"dates"`
-	TMDBSearchResponse[TMDBUpcomingMoviesResult]
+type TMDBPopularPeople struct {
+	TMDBSearchResponse[TMDBPopularPeopleResult]
 }
 
-type TMDBUpcomingMoviesResult struct {
-	Adult            bool    `json:"adult"`
-	BackdropPath     string  `json:"backdrop_path"`
-	GenreIds         []int   `json:"genre_ids"`
-	ID               int     `json:"id"`
-	OriginalLanguage string  `json:"original_language"`
-	OriginalTitle    string  `json:"original_title"`
-	Overview         string  `json:"overview"`
-	Popularity       float64 `json:"popularity"`
-	PosterPath       string  `json:"poster_path"`
-	ReleaseDate      string  `json:"release_date"`
-	Title            string  `json:"title"`
-	Video            bool    `json:"video"`
-	VoteAverage      float32 `json:"vote_average"`
-	VoteCount        int     `json:"vote_count"`
+type TMDBPopularPeopleResult struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	ProfilePath string `json:"profile_path"`
 }
 
-func (t TMDBUpcomingMoviesResult) GetId() int {
-	return t.ID
-}
-
-func (t TMDBUpcomingMoviesResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaMovie
-}
-
-type TMDBUpcomingMoviesWithWatched struct {
-	TMDBSearchResponse[TMDBUpcomingMoviesResultWithWatched]
-}
-
-type TMDBUpcomingMoviesResultWithWatched struct {
-	TMDBUpcomingMoviesResult
-	Watched *entity.Watched `json:"watched,omitempty"`
-}
-
-//
-// Discover Upcoming Shows
-//
-
-type TMDBUpcomingShows struct {
-	TMDBSearchResponse[TMDBUpcomingShowsResult]
-}
-
-type TMDBUpcomingShowsResult struct {
-	BackdropPath     string   `json:"backdrop_path"`
-	FirstAirDate     string   `json:"first_air_date"`
-	GenreIds         []int    `json:"genre_ids"`
-	ID               int      `json:"id"`
-	Name             string   `json:"name"`
-	OriginCountry    []string `json:"origin_country"`
-	OriginalLanguage string   `json:"original_language"`
-	OriginalName     string   `json:"original_name"`
-	Overview         string   `json:"overview"`
-	Popularity       float64  `json:"popularity"`
-	PosterPath       string   `json:"poster_path"`
-	VoteAverage      float32  `json:"vote_average"`
-	VoteCount        int      `json:"vote_count"`
-}
-
-func (t TMDBUpcomingShowsResult) GetId() int {
-	return t.ID
-}
-
-func (t TMDBUpcomingShowsResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaShow
-}
-
-type TMDBUpcomingShowsWithWatched struct {
-	TMDBSearchResponse[TMDBUpcomingShowsResultWithWatched]
-}
-
-type TMDBUpcomingShowsResultWithWatched struct {
-	TMDBUpcomingShowsResult
-	Watched *entity.Watched `json:"watched,omitempty"`
+func (t *TMDBPopularPeopleResult) AsMedia() domain.Media {
+	m := domain.Media{
+		IDs: domain.MediaIDs{
+			TMDB: t.ID,
+		},
+		Type:          domain.MediaTypeTMDBPerson,
+		Name:          t.Name,
+		ExtPosterPath: t.ProfilePath,
+	}
+	return m
 }
 
 //

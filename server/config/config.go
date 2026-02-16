@@ -48,6 +48,7 @@ type ServerConfig struct {
 
 	// Default country for new users. This is used to set the default
 	// region to get correct content streaming providers.
+	// TODO Enforce iso_3166_1 validity (same as tmdb)
 	DEFAULT_COUNTRY string `json:",omitempty"`
 
 	// Optional: Point to your Jellyfin install
