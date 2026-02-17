@@ -60,7 +60,7 @@ func (s *Service) Discover(
 	return resp, nil
 }
 
-// Discover Multi
+// Discover Multi. Just for tmdb.
 func (s *Service) DiscoverMulti(
 	r domain.DiscoverRequest,
 	meta domain.DiscoverRequestMeta,
