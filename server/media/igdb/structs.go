@@ -46,14 +46,6 @@ type GameSearchResponseResult struct {
 	VersionTitle     string   `json:"version_title,omitempty"`
 }
 
-func (t GameSearchResponseResult) GetId() int {
-	return t.ID
-}
-
-func (t GameSearchResponseResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaGame
-}
-
 func (t *GameSearchResponseResult) AsMedia() domain.Media {
 	m := domain.Media{
 		Type: domain.MediaTypeIGDBGame,
@@ -68,6 +60,8 @@ func (t *GameSearchResponseResult) AsMedia() domain.Media {
 	return m
 }
 
+// This type is used for quite a few of our service funcs, maybe be a bit
+// careful when updating it and separate out stuff if need be.
 type GameSearchResponse []GameSearchResponseResult
 
 // Similar
@@ -206,3 +200,11 @@ type GameDetailsBasicResponse struct {
 	Storyline   string  `json:"storyline"`
 	Status      int     `json:"status"`
 }
+
+// Popularity primitives where we just want the game id.
+
+type PopularityPrimitivesGameIdsResponseResult struct {
+	GameID int `json:"game_id"`
+}
+
+type PopularityPrimitivesGameIdsResponse []PopularityPrimitivesGameIdsResponseResult

@@ -54,10 +54,13 @@ func (s *Service) Discover(
 		return s.DiscoverPeople(r, meta)
 	case domain.SearchTypeMovie:
 		return s.DiscoverMovie(r, meta)
+	case domain.SearchTypeGame:
+		return s.DiscoverGame(r, meta)
 	}
 	return resp, nil
 }
 
+// Discover Multi
 func (s *Service) DiscoverMulti(
 	r domain.DiscoverRequest,
 	meta domain.DiscoverRequestMeta,
@@ -76,6 +79,7 @@ func (s *Service) DiscoverMulti(
 	return resp, err
 }
 
+// Discover movies.
 func (s *Service) DiscoverMovie(
 	r domain.DiscoverRequest,
 	meta domain.DiscoverRequestMeta,
@@ -98,6 +102,7 @@ func (s *Service) DiscoverMovie(
 	return resp, err
 }
 
+// Discover shows.
 func (s *Service) DiscoverTv(
 	r domain.DiscoverRequest,
 	meta domain.DiscoverRequestMeta,
@@ -118,6 +123,7 @@ func (s *Service) DiscoverTv(
 	return resp, err
 }
 
+// Discover people.
 func (s *Service) DiscoverPeople(
 	r domain.DiscoverRequest,
 	meta domain.DiscoverRequestMeta,
@@ -131,6 +137,25 @@ func (s *Service) DiscoverPeople(
 		err = s.discoverPeoplePopular(meta, &resp)
 	default:
 		slog.Error("DiscoverMulti: Unsupported filter.")
+		return resp, errors.New("unsupported filter")
+	}
+	return resp, err
+}
+
+// Discover games.
+func (s *Service) DiscoverGame(
+	r domain.DiscoverRequest,
+	meta domain.DiscoverRequestMeta,
+) (domain.DiscoverResponse, error) {
+	resp := domain.DiscoverResponse{}
+	var err error
+	switch r.Filter {
+	case domain.DiscoverFilterTrending:
+		err = s.discoverGameTrending(&resp)
+	case domain.DiscoverFilterUpcoming:
+		err = s.discoverGameUpcoming(&resp)
+	default:
+		slog.Error("DiscoverGame: Unsupported filter.")
 		return resp, errors.New("unsupported filter")
 	}
 	return resp, err
@@ -322,5 +347,45 @@ func (s *Service) discoverPeoplePopular(
 	resp.Page = tmdbRes.Page
 	resp.TotalPages = tmdbRes.TotalPages
 	resp.TotalResults = int64(tmdbRes.TotalResults)
+	return nil
+}
+
+func (s *Service) discoverGameTrending(
+	resp *domain.DiscoverResponse,
+) error {
+	igdbRes, err := s.cfg.TWITCH.Trending()
+	if err != nil {
+		slog.Error("discoverGameTrending: Failed to search igdb!", "error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range igdbRes {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = 1
+	resp.TotalPages = 1
+	resp.TotalResults = int64(len(igdbRes))
+	return nil
+}
+
+func (s *Service) discoverGameUpcoming(
+	resp *domain.DiscoverResponse,
+) error {
+	igdbRes, err := s.cfg.TWITCH.Upcoming()
+	if err != nil {
+		slog.Error("discoverGameUpcoming: Failed to search igdb!", "error", err)
+		return errors.New("content request failed")
+	}
+	for _, v := range igdbRes {
+		resp.Results = append(
+			resp.Results,
+			v.AsMedia(),
+		)
+	}
+	resp.Page = 1
+	resp.TotalPages = 1
+	resp.TotalResults = int64(len(igdbRes))
 	return nil
 }

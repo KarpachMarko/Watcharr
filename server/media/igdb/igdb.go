@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	gocache "github.com/robfig/go-cache"
@@ -22,6 +24,13 @@ var GameStore = gocache.New(time.Hour*24, time.Minute)
 const (
 	igdbHost       = "https://api.igdb.com/v4"
 	tokenGrantType = "client_credentials"
+
+	// Fields that we select for "search" services.
+	fieldsForSearch = `name,
+cover.image_id,
+version_title,
+summary,
+first_release_date`
 )
 
 var tokenRefreshJobCancel context.CancelFunc
@@ -185,7 +194,7 @@ func (i *IGDB) Search(q string) (GameSearchResponse, error) {
 		igdbHost,
 		"/games",
 		map[string]string{},
-		"fields name, cover.image_id, version_title, summary, first_release_date; search \""+q+"\"; limit 20;",
+		"fields "+fieldsForSearch+"; search \""+q+"\"; limit 40;",
 		&resp,
 	)
 	if err != nil {
@@ -209,7 +218,7 @@ func (i *IGDB) SearchById(id string) (GameSearchResponse, error) {
 		igdbHost,
 		"/games",
 		map[string]string{},
-		"fields name, cover.image_id, version_title, summary, first_release_date; where id = "+id+";",
+		"fields "+fieldsForSearch+"; where id = "+id+";",
 		&resp,
 	)
 	if err != nil {
@@ -233,7 +242,7 @@ func (i *IGDB) SearchBySlug(slug string) (GameSearchResponse, error) {
 		igdbHost,
 		"/games",
 		map[string]string{},
-		"fields name, cover.image_id, version_title, summary, first_release_date; where slug = \""+slug+"\";",
+		"fields "+fieldsForSearch+"; where slug = \""+slug+"\";",
 		&resp,
 	)
 	if err != nil {
@@ -354,4 +363,106 @@ func (i *IGDB) GameDetailsBasic(id string) (GameDetailsBasicResponse, error) {
 		return resp[0], nil
 	}
 	return GameDetailsBasicResponse{}, errors.New("no game details recieved")
+}
+
+// Getting top visited games in last 24hrs with popscore.
+// There doesn't seem to be a way to get game details directly in this request
+// so it must be combined with another.
+func (i *IGDB) GetTopVisitedGameIds() (PopularityPrimitivesGameIdsResponse, error) {
+	slog.Debug("GetTopVisitedGameIds: Running.")
+	var resp PopularityPrimitivesGameIdsResponse
+	cacheKey := cache.CreateCacheKey("GetTopVisitedGameIds")
+	if cache.GetCache(GameStore, cacheKey, &resp) {
+		slog.Debug("GetTopVisitedGameIds: Returning cache.")
+		return resp, nil
+	}
+	err := i.req(
+		igdbHost,
+		"/popularity_primitives",
+		map[string]string{},
+		`fields game_id;
+sort value desc;
+where popularity_type = 1;
+limit 40;`,
+		&resp,
+	)
+	if err != nil {
+		slog.Error("GetTopVisitedGameIds: request failed!", "error", err)
+		return resp, errors.New("request failed")
+	}
+	GameStore.Set(cacheKey, resp, time.Hour*24)
+	if len(resp) <= 0 {
+		slog.Error("GetTopVisitedGameIds: We got zero results!"+
+			"Something must be wrong.",
+			"error", err)
+		return resp, errors.New("got zero results")
+	}
+	return resp, nil
+}
+
+// Trending games using popscores (which suck btw.. they dont expose that nice
+// Popular Right Now list you can see on igdb homepage :( uh)
+func (i *IGDB) Trending() (GameSearchResponse, error) {
+	slog.Debug("Trending: Running.")
+	var resp GameSearchResponse
+
+	// Get game ids.
+	ids, err := i.GetTopVisitedGameIds()
+	if err != nil {
+		return resp, errors.New("failed to get game ids")
+	}
+
+	// Get ids in a string we can pass to igdb.
+	idsStr := ""
+	for _, v := range ids {
+		idsStr = idsStr + strconv.Itoa(v.GameID) + ","
+	}
+	idsStr = strings.TrimSuffix(idsStr, ",")
+
+	cacheKey := cache.CreateCacheKey("Trending")
+	if cache.GetCache(GameStore, cacheKey, &resp) {
+		slog.Debug("Trending: Returning cache.")
+		return resp, nil
+	}
+	err = i.req(
+		igdbHost,
+		"/games",
+		map[string]string{},
+		"fields "+fieldsForSearch+"; where id = ("+idsStr+"); limit 40;",
+		&resp,
+	)
+	if err != nil {
+		slog.Error("Trending: request failed!", "error", err)
+		return resp, errors.New("request failed")
+	}
+	GameStore.Set(cacheKey, resp, time.Hour*24)
+	return resp, nil
+}
+
+// Most hyped upcoming games
+func (i *IGDB) Upcoming() (GameSearchResponse, error) {
+	slog.Debug("Upcoming: Running.")
+	var resp GameSearchResponse
+	cacheKey := cache.CreateCacheKey("Upcoming")
+	if cache.GetCache(GameStore, cacheKey, &resp) {
+		slog.Debug("Upcoming: Returning cache.")
+		return resp, nil
+	}
+	epochNow := strconv.Itoa(int(time.Now().Unix()))
+	err := i.req(
+		igdbHost,
+		"/games",
+		map[string]string{},
+		"fields "+fieldsForSearch+`;
+sort hypes desc;
+where first_release_date > `+epochNow+`;
+limit 40;`,
+		&resp,
+	)
+	if err != nil {
+		slog.Error("Upcoming: request failed!", "error", err)
+		return resp, errors.New("request failed")
+	}
+	GameStore.Set(cacheKey, resp, time.Hour*24)
+	return resp, nil
 }
