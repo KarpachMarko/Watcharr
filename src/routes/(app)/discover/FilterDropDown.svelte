@@ -1,4 +1,5 @@
 <script lang="ts">
+	import tooltip from "@/lib/actions/tooltip";
 	import DropDown from "@/lib/DropDown.svelte";
 	import {
 		DiscoverFilter,
@@ -45,9 +46,6 @@
 	let options = $derived.by(() => {
 		let o: DropDownItem[] = [dropDownOptions.trending];
 		switch (discoverType) {
-			case SearchType.multi:
-				o.push(dropDownOptions.intheatres);
-				break;
 			case SearchType.movie:
 				o.push(
 					dropDownOptions.popular,
@@ -68,12 +66,22 @@
 		// o.push(dropDownOptions.advanced);
 		return o;
 	});
+	let onMultiDiscover = $derived(discoverType === SearchType.multi);
 </script>
 
-<DropDown
-	placeholder="Trending"
-	{options}
-	isDropDownItem={true}
-	bind:active
-	{onChange}
-/>
+<div
+	use:tooltip={{
+		text: "Must select a type first.",
+		pos: "left",
+		condition: onMultiDiscover,
+	}}
+>
+	<DropDown
+		placeholder="Trending"
+		{options}
+		isDropDownItem={true}
+		bind:active
+		{onChange}
+		disabled={onMultiDiscover}
+	/>
+</div>
