@@ -52,7 +52,7 @@
 		flex-flow: row;
 		flex-wrap: wrap;
 		gap: 10px;
-		margin: 0 15px;
+		padding: 0 5px;
 
 		button {
 			display: flex;
@@ -84,6 +84,9 @@
 
 			@media screen and (max-width: 500px) {
 				flex-flow: column;
+				/* Keep the buttons all the same
+				width so they look less weird. */
+				width: 90px;
 			}
 		}
 
@@ -97,6 +100,22 @@
 		@media screen and (max-width: 500px) {
 			width: 100%;
 			justify-content: center;
+		}
+
+		/* Adjusting the gap to let the buttons stay on one line for
+		longer. Makes it so it fits on one line for my phone, it's as
+		far as I will take it for now. */
+
+		@media screen and (max-width: 430px) {
+			gap: 8px;
+		}
+
+		@media screen and (max-width: 424px) {
+			gap: 6px;
+		}
+
+		@media screen and (max-width: 418px) {
+			gap: 3px;
 		}
 	}
 </style>

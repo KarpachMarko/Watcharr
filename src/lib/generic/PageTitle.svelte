@@ -24,7 +24,7 @@
 		margin: 0 15px;
 
 		&.row {
-			flex-flow: row;
+			flex-flow: row wrap;
 		}
 	}
 </style>

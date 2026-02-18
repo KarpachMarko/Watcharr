@@ -104,26 +104,29 @@
 <div class="content">
 	<div class="inner">
 		<PageTitle title="Discover">
-			<MediaTypeFilter
-				active={discoverType}
-				disabled={false}
-				onChange={(nowActive) => {
-					// Reset discoverFilter as we change type filter
-					// to avoid going into new type filter with unsupported
-					// discoverFilter that was set in previous type.
-					discoverFilter = DiscoverFilter.trending;
-					setActiveDiscoverType(nowActive as SearchType | undefined);
-				}}
-			/>
-			<div style="margin-left: auto;"></div>
-			<FilterDropDown
-				{discoverType}
-				bind:active={discoverFilter}
-				onChange={() => {
-					console.log("Discover FilterDropDown Selected Change");
-					dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
-				}}
-			/>
+			<div class="pagetitle-mediatypefilter">
+				<MediaTypeFilter
+					active={discoverType}
+					disabled={false}
+					onChange={(nowActive) => {
+						// Reset discoverFilter as we change type filter
+						// to avoid going into new type filter with unsupported
+						// discoverFilter that was set in previous type.
+						discoverFilter = DiscoverFilter.trending;
+						setActiveDiscoverType(nowActive as SearchType | undefined);
+					}}
+				/>
+			</div>
+			<div class="pagetitle-filterdropdown">
+				<FilterDropDown
+					{discoverType}
+					bind:active={discoverFilter}
+					onChange={() => {
+						console.log("Discover FilterDropDown Selected Change");
+						dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
+					}}
+				/>
+			</div>
 		</PageTitle>
 
 		<PosterList>
@@ -185,6 +188,17 @@
 </div>
 
 <style lang="scss">
+	.pagetitle-mediatypefilter {
+		@media screen and (max-width: 745px) {
+			width: 100%;
+			order: 2;
+		}
+	}
+
+	.pagetitle-filterdropdown {
+		margin-left: auto;
+	}
+
 	.content {
 		display: flex;
 		width: 100%;
