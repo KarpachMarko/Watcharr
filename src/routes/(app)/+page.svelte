@@ -67,7 +67,7 @@
 	<title>Watched List</title>
 </svelte:head>
 
-<span style="position: fixed; top: 80px; background-color: white; z-index: 60;"
+<!-- <span style="position: fixed; top: 80px; background-color: white; z-index: 60;"
 	><b>listPage</b>: {dataLoader.state.page} listPageMax: {dataLoader.state
 		.pageMax} listLoading:
 	{dataLoader.state.reqLoading}
@@ -75,7 +75,7 @@
 	{JSON.stringify(store.activeSort)} <b>filter:</b>
 	{JSON.stringify(store.activeFilters)} <b>queryp:</b>
 	{JSON.stringify(store.sortAndFiltersForQueryParams)}</span
->
+> -->
 
 {#if dataLoader.state.data.length >= 0 && !dataLoader.state.reqLoadError}
 	<!-- Hide WatchedList if there is a load error and we have no

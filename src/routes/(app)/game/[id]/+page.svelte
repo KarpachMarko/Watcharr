@@ -2,44 +2,34 @@
 	import PageError from "@/lib/PageError.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
 	import HorizontalList from "@/lib/HorizontalList.svelte";
-	import {
-		GameWebsiteCategory,
-		type GameDetailsResponseWithWatched,
-		type WatchedStatus,
-	} from "@/types";
+	import { type Media, type WatchedStatus } from "@/types";
 	import axios from "axios";
 	import Activity from "@/lib/Activity.svelte";
 	import Title from "@/lib/content/Title.svelte";
-	import VideoEmbedModal from "@/lib/content/VideoEmbedModal.svelte";
 	import Error from "@/lib/Error.svelte";
 	import FollowedThoughts from "@/lib/content/FollowedThoughts.svelte";
-	import { removeWatched, updatePlayed } from "@/lib/util/api.js";
-	import GamePoster from "@/lib/poster/GamePoster.svelte";
+	import { removeWatched, updateWatched } from "@/lib/util/api.js";
 	import tooltip from "@/lib/actions/tooltip.js";
 	import Icon from "@/lib/Icon.svelte";
 	import AddToTagButton from "@/lib/tag/AddToTagButton.svelte";
 	import PageBackdrop from "@/lib/generic/PageBackdrop.svelte";
-	import Poster from "@/lib/content/Poster.svelte";
 	import MyReview from "@/lib/content/MyReview.svelte";
+	import ViewTrailerButton from "@/lib/content/ViewTrailerButton.svelte";
+	import ProvidersList from "@/lib/content/ProvidersList.svelte";
+	import PosterImage from "@/lib/content/PosterImage.svelte";
+	import Poster from "@/lib/poster/Poster.svelte";
 
 	let { data } = $props();
 
-	let trailer: string | undefined = $state();
-	let trailerShown = $state(false);
-	let game: GameDetailsResponseWithWatched | undefined = $state();
+	let game: Media | undefined = $state();
 	let pageError: Error | undefined = $state();
 	let backdropSrc = $derived.by(() => {
 		const base = "https://images.igdb.com/igdb/image/upload/t_1080p/";
 
-		if (game?.artworks && game?.artworks?.length > 0) {
-			return (
-				base +
-				game.artworks[Math.floor(Math.random() * game.artworks.length)]
-					.image_id +
-				".jpg"
-			);
-		} else if (game?.cover?.image_id) {
-			return base + game.cover.image_id + ".jpg";
+		if (game?.extBackdropPath) {
+			return base + game.extBackdropPath + ".jpg";
+		} else if (game?.extPosterPath) {
+			return base + game.extPosterPath + ".jpg";
 		}
 	});
 
@@ -51,17 +41,7 @@
 				if (!data.gameId) {
 					return;
 				}
-				const resp = (await axios.get(`/game/${data.gameId}`))
-					.data as GameDetailsResponseWithWatched;
-				if (resp.videos?.length > 0) {
-					const t = resp.videos.find(
-						(v) => v.name?.toLowerCase() === "trailer",
-					);
-					// Doc says the video_id is "usually youtube", so we are gonna go with that assumption too ( 0 _ 0 )
-					if (t?.video_id) {
-						trailer = `https://www.youtube.com/embed/${t?.video_id}`;
-					}
-				}
+				const resp = (await axios.get(`/game/${data.gameId}`)).data as Media;
 				game = resp;
 			} catch (err: any) {
 				game = undefined;
@@ -84,8 +64,9 @@
 			console.error("contentChanged: no show");
 			return;
 		}
-		game.watched = await updatePlayed(game.watched, {
-			igdbId: data.gameId,
+		game.watched = await updateWatched(game.watched, {
+			contentType: "game",
+			contentId: data.gameId,
 			status: newStatus,
 			rating: newRating,
 			thoughts: newThoughts,
@@ -120,25 +101,25 @@
 		<div class="content">
 			<div class="details-wrap">
 				<div class="details-container">
-					<Poster
+					<PosterImage
 						src={"https://images.igdb.com/igdb/image/upload/t_cover_big/" +
-							game.cover.image_id +
+							game.extPosterPath +
 							".jpg"}
 					/>
 
 					<div class="details">
 						<Title
 							title={game.name}
-							homepage={game.websites?.find(
-								(w) => w.category == GameWebsiteCategory.Official,
-							)?.url}
-							releaseYear={new Date(game.first_release_date).getFullYear()}
+							homepage={game.homepage}
+							releaseDate={game.releaseDate
+								? new Date(game.releaseDate)
+								: undefined}
 							voteAverage={game.rating}
-							voteCount={game.rating_count}
+							voteCount={game.ratingCount}
 						/>
 
 						<span class="quick-info">
-							{#if game.genres?.length > 0}
+							{#if game.genres && game.genres?.length > 0}
 								<div>
 									{#each game.genres as g, i}
 										<span
@@ -151,10 +132,10 @@
 							{/if}
 							<span></span>
 							<div>
-								{#if game.game_modes?.length > 0}
-									{#each game.game_modes as g, i}
+								{#if game.gameModes && game.gameModes?.length > 0}
+									{#each game.gameModes as g, i}
 										<span
-											>{g.name}{i !== game.game_modes.length - 1
+											>{g.name}{i !== game.gameModes.length - 1
 												? ", "
 												: ""}</span
 										>
@@ -168,17 +149,7 @@
 						<p>{game.summary}</p>
 
 						<div class="btns">
-							{#if trailer}
-								<button onclick={() => (trailerShown = !trailerShown)}
-									>View Trailer</button
-								>
-								{#if trailerShown}
-									<VideoEmbedModal
-										embed={trailer}
-										closed={() => (trailerShown = false)}
-									/>
-								{/if}
-							{/if}
+							<ViewTrailerButton videos={game.videos} />
 							{#if game.watched}
 								<div class="other-side">
 									<AddToTagButton watchedItem={game.watched} />
@@ -208,7 +179,9 @@
 							{/if}
 						</div>
 
-						<!-- <ProvidersList providers={game["watch/providers"]} /> -->
+						{#if game.providers}
+							<ProvidersList providers={game.providers} />
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -229,18 +202,12 @@
 				<FollowedThoughts mediaType="game" mediaId={data.gameId} />
 			{/if}
 
-			{#if game.similar_games?.length > 0}
+			{#if game.similar && game.similar?.length > 0}
 				<HorizontalList title="Similar">
-					{#each game.similar_games as g, i}
-						<GamePoster
-							media={{
-								id: g.id,
-								coverId: g.cover.image_id,
-								name: g.name,
-								summary: g.summary,
-								firstReleaseDate: g.first_release_date,
-							}}
-							bind:watched={game.similar_games[i].watched}
+					{#each game.similar as g, i}
+						<Poster
+							media={g}
+							bind:watched={game.similar[i].watched}
 							small={true}
 						/>
 					{/each}
@@ -282,7 +249,6 @@
 				gap: 8px;
 				margin-top: auto;
 
-				a.btn,
 				button {
 					max-width: fit-content;
 					overflow: hidden;
@@ -333,24 +299,6 @@
 
 		@media screen and (max-width: 500px) {
 			padding: 20px;
-		}
-	}
-
-	.creators {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: 35px;
-		margin: 10px 60px;
-
-		div {
-			display: flex;
-			flex-flow: column;
-			min-width: 150px;
-
-			span:first-child {
-				font-weight: bold;
-			}
 		}
 	}
 </style>

@@ -6,9 +6,9 @@
 	import type {
 		ArrRequestResponse,
 		ListBoxItem,
+		Media,
 		SonarrSettings,
 		SonarrTestResponse,
-		TMDBShowDetails,
 	} from "@/types";
 	import { notify } from "../util/notify";
 	import DropDown from "../DropDown.svelte";
@@ -16,10 +16,8 @@
 	import Spinner from "../Spinner.svelte";
 	import ListBox from "../ListBox.svelte";
 
-	const animeKeywordId = 210024;
-
 	interface Props {
-		content: TMDBShowDetails;
+		content: Media;
 		onClose: (r: ArrRequestResponse | undefined) => void;
 		approveMode?: boolean;
 		originalRequest?: ArrRequestResponse | undefined;
@@ -37,13 +35,18 @@
 	let inputsDisabled = true;
 	let selectedServerCfg: SonarrTestResponse | undefined = $state();
 	let seasonItems: ListBoxItem[] = $state(
-		content.seasons.map((s) => {
-			return {
-				id: s.season_number,
-				value: false,
-				displayValue: s.name,
-			};
-		}),
+		content.seasons
+			? content.seasons.flatMap((s) => {
+					if (s.number == undefined) {
+						return [];
+					}
+					return {
+						id: s.number,
+						value: false,
+						displayValue: s.name ?? `(${s.number}) Unknown`,
+					};
+				})
+			: [],
 	);
 	let addRequestRunning = $state(false);
 
@@ -109,14 +112,12 @@
 				{
 					serverName: server.name,
 					title: content.name,
-					year: new Date(content.first_air_date)?.getFullYear(),
-					tmdbId: content.id,
-					tvdbId: content.external_ids.tvdb_id,
-					seriesType: content.keywords.results?.find(
-						(k) => k.id == animeKeywordId,
-					)
-						? "anime"
-						: "standard",
+					year: content.releaseDate
+						? new Date(content.releaseDate)?.getFullYear()
+						: undefined,
+					tmdbId: content.ids.tmdb,
+					tvdbId: content.ids.tvdb,
+					seriesType: content.isShowAnime ? "anime" : "standard",
 					qualityProfile: server.qualityProfile,
 					rootFolder: rootFolder.path,
 					languageProfile: server.languageProfile,

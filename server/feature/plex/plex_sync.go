@@ -9,10 +9,10 @@ import (
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
-	"github.com/sbondCo/Watcharr/feature/watched"
 	"github.com/sbondCo/Watcharr/feature/watched/episode"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
 	"github.com/sbondCo/Watcharr/job"
+	"github.com/sbondCo/Watcharr/util"
 )
 
 type PlexSyncResponse struct {
@@ -20,7 +20,7 @@ type PlexSyncResponse struct {
 }
 
 type WatchedProvider interface {
-	AddWatched(userId uint, ar watched.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
+	AddWatched(userId uint, ar domain.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
 }
 
 type WatchedSeasonProvider interface {
@@ -115,10 +115,10 @@ func (s *SyncService) startPlexSync(
 				}
 
 				lastViewedAt := time.Unix(movie.LastViewedAt, 0)
-				w, err := s.wp.AddWatched(userId, watched.WatchedAddRequest{
+				w, err := s.wp.AddWatched(userId, domain.WatchedAddRequest{
 					Status:      entity.FINISHED,
-					ContentID:   tmdbId,
-					ContentType: entity.MOVIE,
+					TMDBID:      tmdbId,
+					ContentType: util.SupportedMediaMovie,
 					Rating:      float64(movie.UserRating),
 					WatchedDate: lastViewedAt,
 				}, entity.IMPORTED_WATCHED_PLEX)
@@ -182,10 +182,10 @@ func (s *SyncService) startPlexSync(
 				}
 
 				lastViewedAt := time.Unix(show.LastViewedAt, 0)
-				w, err := s.wp.AddWatched(userId, watched.WatchedAddRequest{
+				w, err := s.wp.AddWatched(userId, domain.WatchedAddRequest{
 					Status:      entity.FINISHED,
-					ContentID:   tmdbId,
-					ContentType: entity.SHOW,
+					ContentType: util.SupportedMediaShow,
+					TMDBID:      tmdbId,
 					Rating:      float64(show.UserRating),
 					WatchedDate: lastViewedAt,
 				}, entity.IMPORTED_WATCHED_PLEX)

@@ -117,45 +117,47 @@
 	cursor: pointer;
 }
 
-:global(button:not(.plain)),
-:global(a.btn) {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 7px 10px;
-	border: 2px solid $text-color;
-	border-radius: 5px;
-	background-color: $bg-color;
-	color: $text-color;
-	fill: $text-color;
-	font-weight: bold;
-	width: 100%;
-	transition:
-		background-color 100ms ease,
-		opacity 100ms ease;
+:global {
+	button:not(.plain),
+	a.btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 7px 10px;
+		border: 2px solid $text-color;
+		border-radius: 5px;
+		background-color: $bg-color;
+		color: $text-color;
+		fill: $text-color;
+		font-weight: bold;
+		width: 100%;
+		transition:
+			background-color 100ms ease,
+			opacity 100ms ease;
 
-	& :global(svg) {
-		height: 100%;
-		width: auto;
-	}
-
-	&:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	&:not(:disabled) {
-		&:hover,
-		&:focus-visible,
-		&.active {
-			background-color: $text-color;
-			color: $bg-color;
-			fill: $bg-color;
-			opacity: 1;
+		& svg {
+			height: 100%;
+			width: auto;
 		}
 
-		&.active {
-			border-color: $bg-color;
+		&:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
+		&:not(:disabled) {
+			&:hover,
+			&:focus-visible,
+			&.active {
+				background-color: $text-color;
+				color: $bg-color;
+				fill: $bg-color;
+				opacity: 1;
+			}
+
+			&.active {
+				border-color: $bg-color;
+			}
 		}
 	}
 }

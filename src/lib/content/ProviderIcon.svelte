@@ -158,8 +158,6 @@
 			></path>
 		</svg>
 	</a>
-{:else}
-	<span>{i}</span>
 {/if}
 
 <style lang="scss">

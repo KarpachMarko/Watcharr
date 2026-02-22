@@ -150,16 +150,11 @@ export interface Watched extends dbModel {
 }
 
 export interface WatchedAddRequest {
-	contentId: number;
-	contentType: ContentType;
-	rating?: number;
-	status: WatchedStatus;
-}
-
-export interface PlayedAddRequest {
+	tmdbId?: number;
+	igdbId?: number;
+	contentType: SupportedMedia;
 	rating?: number;
 	status?: WatchedStatus;
-	igdbId?: number;
 }
 
 export interface WatchedUpdateRequest {
@@ -195,9 +190,6 @@ export interface WatchedAddedToContent {
 
 export type TMDBShowDetailsWithWatched = WatchedAddedToContent &
 	TMDBShowDetails;
-
-export type TMDBMovieDetailsWithWatched = WatchedAddedToContent &
-	TMDBMovieDetails;
 
 export interface EpisodeStatusChangedHookResponse {
 	newShowStatus?: WatchedStatus;
@@ -300,7 +292,10 @@ export interface TokenClaims {
 
 export interface MediaIDs {
 	tmdb?: number;
-	imdb?: number;
+	imdb?: string;
+	wikidata?: string;
+	tvdb?: number;
+
 	igdb?: number;
 }
 
@@ -316,6 +311,7 @@ export interface Media {
 	ids: MediaIDs;
 	name?: string;
 	summary?: string;
+	poster?: Image;
 	extPosterPath?: string;
 	rating?: number;
 	ratingCount?: number;
@@ -323,9 +319,46 @@ export interface Media {
 	similar?: Media[];
 	releaseDate?: string;
 	extBackdropPath?: string;
+	genres?: MediaGenre[];
 	homepage?: string;
-	trailer?: string;
+	videos?: MediaVideo[];
 	runtime?: number;
+	providers?: MediaProvider[];
+	providersFullListLink?: string;
+	gameModes?: MediaGenre[];
+	seasons?: MediaSeason[];
+	isShowAnime?: boolean;
+}
+
+export interface MediaGenre {
+	// ID Is for external db id.
+	id: number;
+	// Genre name.
+	name: string;
+}
+
+export interface MediaProvider {
+	name: string;
+	link: string;
+}
+
+export enum MediaVideoType {
+	trailer = "trailer",
+	other = "other",
+}
+
+export interface MediaVideo {
+	id?: string;
+	name?: string;
+	type?: MediaVideoType;
+	best?: boolean;
+}
+
+export interface MediaSeason {
+	name?: string;
+	number: number;
+	episodeCount: number;
+	releaseDate?: string;
 }
 
 interface PaginationParams {

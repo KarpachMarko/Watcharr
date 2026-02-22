@@ -4,8 +4,7 @@
 	import Poster from "@/lib/poster/Poster.svelte";
 	import PosterList from "@/lib/poster/PosterList.svelte";
 	import { store, clearActiveFilters } from "@/store.svelte";
-	import { MediaTypeE, type Watched } from "@/types";
-	import GamePoster from "./poster/GamePoster.svelte";
+	import { type Watched } from "@/types";
 	import Spinner from "./Spinner.svelte";
 
 	interface Props {
@@ -15,47 +14,18 @@
 	}
 
 	let { list, isPublicList = false, isLoading = false }: Props = $props();
-
-	/**
-	 * TODO Figure out if we need this still, don't think so, we are probably going
-	 * to not modify sort when items are changed to avoid having to reload the whole
-	 * list and stops items jumping around too which might be better for UX idk.
-	 * Callback for when a watched list item is updated through poster,
-	 * this allows us to run the filt() func again so the sorting is
-	 * updated.
-	 */
-	function itemUpdated() {
-		console.debug("itemUpdated");
-		// filt();
-	}
 </script>
 
 <PosterList>
 	{#if list?.length > 0}
 		{#each list as w, i (w.id)}
-			{#if w.media.type == MediaTypeE.igdbGame}
-				<GamePoster
-					bind:watched={list[i]}
-					media={{
-						id: w.media.ids.igdb,
-						coverId: w.media.extPosterPath,
-						name: w.media.name || "",
-						summary: w.media.summary,
-						firstReleaseDate: w.media.releaseDate,
-					}}
-					disableInteraction={isPublicList}
-					fluidSize={true}
-					pinned={w.pinned}
-					onUpdated={itemUpdated}
-				/>
-			{:else if w.media.type == MediaTypeE.tmdbMovie || w.media.type == MediaTypeE.tmdbShow}
+			{#if w.media}
 				<Poster
 					bind:watched={list[i]}
 					media={w.media}
 					disableInteraction={isPublicList}
 					fluidSize={true}
 					pinned={w.pinned}
-					onUpdated={itemUpdated}
 				/>
 			{/if}
 		{/each}

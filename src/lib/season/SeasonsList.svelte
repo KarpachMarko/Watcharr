@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type {
+		MediaSeason,
 		TMDBSeasonDetails,
-		TMDBShowSeason,
 		Watched,
 		WatchedSeason,
 		WatchedStatus,
@@ -12,7 +12,6 @@
 	import SeasonsListEpisode from "./SeasonsListEpisode.svelte";
 	import PosterStatus from "@/lib/poster/PosterStatus.svelte";
 	import { notify } from "@/lib/util/notify";
-	import { store } from "@/store.svelte";
 	import PosterRating from "@/lib/poster/PosterRating.svelte";
 	import Icon from "@/lib/Icon.svelte";
 	import { watchedStatuses } from "@/lib/util/helpers";
@@ -20,7 +19,7 @@
 
 	interface Props {
 		tvId: number;
-		seasons: TMDBShowSeason[];
+		seasons: MediaSeason[];
 		watchedItem: Watched | undefined;
 	}
 
@@ -36,6 +35,7 @@
 	);
 
 	async function sdr(seasonNum: number) {
+		console.debug("SeasonList: sdr: Called.", tvId, seasonNum);
 		const resp = await axios.get(`/content/tv/${tvId}/season/${seasonNum}`, {
 			params: {
 				watchedId: watchedItem?.id,
@@ -102,15 +102,15 @@
 
 	function checkSeasonStatus(
 		watchedSeasons: WatchedSeason[] | undefined,
-		currentSeason: TMDBShowSeason,
+		currentSeason: MediaSeason,
 	): WatchedStatus | undefined {
 		if (watchedSeasons) {
 			const watchedSeason = watchedSeasons.find(
-				(ws) => ws.seasonNumber === currentSeason.season_number,
+				(ws) => ws.seasonNumber === currentSeason.number,
 			);
 			console.debug(
 				"checkSeasonStatus:",
-				currentSeason.season_number,
+				currentSeason.number,
 				watchedSeason?.status,
 			);
 			return watchedSeason?.status;
@@ -123,27 +123,27 @@
 	<ul class="seasons">
 		{#each seasons as season}
 			<button
-				class={`plain${activeSeason === season.season_number ? " active" : ""}`}
+				class={`plain${activeSeason === season.number ? " active" : ""}`}
 				onclick={() => {
-					activeSeason = season.season_number;
+					activeSeason = season.number;
 				}}
 			>
 				<div>
 					<h1 class="season-name">{season.name}</h1>
 					<h2 class="season-episodes">
-						{#if season.episode_count > 0}
-							{season.episode_count} Episodes
+						{#if season.episodeCount > 0}
+							{season.episodeCount} Episodes
 						{:else}
 							No Episodes Yet
 						{/if}
 					</h2>
 				</div>
 				<div>
-					{#if season.air_date}
+					{#if season.releaseDate}
 						<h2 class="season-date">
-							{new Date(Date.parse(season.air_date)).getFullYear()}
+							{new Date(Date.parse(season.releaseDate)).getFullYear()}
 						</h2>
-					{:else if season.season_number > 0}
+					{:else if season.number > 0}
 						<h2>TBD</h2>
 					{/if}
 

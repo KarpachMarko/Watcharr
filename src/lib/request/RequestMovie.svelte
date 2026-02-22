@@ -5,9 +5,9 @@
 	import Modal from "../Modal.svelte";
 	import type {
 		ArrRequestResponse,
+		Media,
 		RadarrSettings,
 		RadarrTestResponse,
-		TMDBMovieDetails,
 	} from "@/types";
 	import { notify } from "../util/notify";
 	import DropDown from "../DropDown.svelte";
@@ -15,7 +15,7 @@
 	import Spinner from "../Spinner.svelte";
 
 	interface Props {
-		content: TMDBMovieDetails;
+		content: Media;
 		onClose: (r: ArrRequestResponse | undefined) => void;
 		approveMode?: boolean;
 		originalRequest?: ArrRequestResponse | undefined;
@@ -95,9 +95,11 @@
 				`/arr/rad/request${approveMode && originalRequest ? `/approve/${originalRequest.id}` : ""}`,
 				{
 					serverName: server.name,
-					title: content.title,
-					year: new Date(content.release_date)?.getFullYear(),
-					tmdbId: content.id,
+					title: content.name,
+					year: content.releaseDate
+						? new Date(content.releaseDate)?.getFullYear()
+						: undefined,
+					tmdbId: content.ids.tmdb,
 					qualityProfile: server.qualityProfile,
 					rootFolder: rootFolder.path,
 				},
@@ -167,7 +169,7 @@
 
 <Modal
 	title={approveMode ? "Approve Request" : "Request"}
-	desc={content.title}
+	desc={content.name}
 	onClose={() => onClose(undefined)}
 >
 	<div class="req-ctr">

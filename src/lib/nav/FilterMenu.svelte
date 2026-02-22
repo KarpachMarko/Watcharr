@@ -4,8 +4,6 @@
 	import Icon from "../Icon.svelte";
 	import tooltip from "../actions/tooltip";
 	import Menu from "../Menu.svelte";
-	import DropDown from "../DropDown.svelte";
-	import Checkbox from "../Checkbox.svelte";
 
 	function filterClicked(type: keyof Filters, f: string) {
 		if (store.activeFilters[type]?.includes(f)) {
@@ -34,20 +32,20 @@
 	</div>
 	<div class="type-filter">
 		<button
-			class={`pill ${store.activeFilters.type.includes("tv") ? "active" : ""}`}
+			class:active={store.activeFilters.type.includes("tv")}
 			onclick={() => filterClicked("type", "tv")}
 		>
 			SHOW
 		</button>
 		<button
-			class={`pill ${store.activeFilters.type.includes("movie") ? "active" : ""}`}
+			class:active={store.activeFilters.type.includes("movie")}
 			onclick={() => filterClicked("type", "movie")}
 		>
 			MOVIE
 		</button>
 		{#if store.serverFeatures?.games}
 			<button
-				class={`pill ${store.activeFilters.type.includes("game") ? "active" : ""}`}
+				class:active={store.activeFilters.type.includes("game")}
 				onclick={() => filterClicked("type", "game")}
 			>
 				GAME
@@ -116,11 +114,6 @@
 			height: 26px;
 			padding: 2px 3px;
 			border-radius: 8px;
-
-			&.manage-on {
-				color: #f3555a;
-				background-color: $text-color;
-			}
 
 			&:first-of-type {
 				margin-left: auto;

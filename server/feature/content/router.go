@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
 	"github.com/sbondCo/Watcharr/media/tmdb"
@@ -63,13 +64,6 @@ func (r *Router) AddRoutes() {
 	content.GET("/regions", r.GetRegions)
 }
 
-// NOTE: The handler functions use `copier` to copy values from the response
-// structs into a new one that includes the user "Watched" data.
-// This was done to avoid adding Watched data to the response structs, as they
-// are cached in our in-mem cache, which could cause references to pollute the cache
-// resulting in user data being leaked to others.
-// We are doing to to explicitly not let that case happen.
-
 func (r *Router) GetMovieDetails(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	if c.Param("id") == "" {
@@ -87,27 +81,19 @@ func (r *Router) GetMovieDetails(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	ww := tmdb.TMDBMovieDetailsWithWatched{}
-	if err := copier.Copy(&ww, &content); err != nil {
-		slog.Error("GetMovieDetails: Failed to copy content to with watched struct", "error", err)
-		c.JSON(
-			http.StatusInternalServerError,
-			router.ErrorResponse{Error: "failed to prepare response"},
-		)
-		return
-	}
+	contentAsMedia := content.AsMedia()
 	if err := addedtocontent.AddSingularAndList(
 		r.wp,
 		userId,
-		ww,
+		contentAsMedia,
 		func(w *entity.Watched) {
-			ww.Watched = w
+			contentAsMedia.Watched = w
 		},
-		[]*addedtocontent.AddListCall[tmdb.TMDBMovieSimilarResultWithWatched]{
+		[]*addedtocontent.AddListCall[domain.Media]{
 			addedtocontent.NewAddListCall(
-				ww.Similar.Results,
+				contentAsMedia.Similar,
 				func(i int, w *entity.Watched) {
-					ww.Similar.Results[i].Watched = w
+					contentAsMedia.Similar[i].Watched = w
 				},
 			),
 		},
@@ -119,7 +105,7 @@ func (r *Router) GetMovieDetails(c *gin.Context) {
 		)
 		return
 	}
-	c.JSON(http.StatusOK, ww)
+	c.JSON(http.StatusOK, contentAsMedia)
 }
 
 func (r *Router) GetMovieCredits(c *gin.Context) {
@@ -153,27 +139,19 @@ func (r *Router) GetTvDetails(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	ww := tmdb.TMDBShowDetailsWithWatched{}
-	if err := copier.Copy(&ww, &content); err != nil {
-		slog.Error("GetTvDetails: Failed to copy content to with watched struct", "error", err)
-		c.JSON(
-			http.StatusInternalServerError,
-			router.ErrorResponse{Error: "failed to prepare response"},
-		)
-		return
-	}
+	contentAsMedia := content.AsMedia()
 	if err := addedtocontent.AddSingularAndList(
 		r.wp,
 		userId,
-		ww,
+		contentAsMedia,
 		func(w *entity.Watched) {
-			ww.Watched = w
+			contentAsMedia.Watched = w
 		},
-		[]*addedtocontent.AddListCall[tmdb.TMDBShowSimilarResultWithWatched]{
+		[]*addedtocontent.AddListCall[domain.Media]{
 			addedtocontent.NewAddListCall(
-				ww.Similar.Results,
+				contentAsMedia.Similar,
 				func(i int, w *entity.Watched) {
-					ww.Similar.Results[i].Watched = w
+					contentAsMedia.Similar[i].Watched = w
 				},
 			),
 		},
@@ -185,7 +163,7 @@ func (r *Router) GetTvDetails(c *gin.Context) {
 		)
 		return
 	}
-	c.JSON(http.StatusOK, ww)
+	c.JSON(http.StatusOK, contentAsMedia)
 }
 
 func (r *Router) GetTvCredits(c *gin.Context) {
@@ -262,6 +240,7 @@ func (r *Router) GetPersonCredits(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
+	// TODO (like movie and tv above, no need for copier like above probs)
 	ww := tmdb.TMDBPersonCombinedCreditsWithWatched{}
 	if err := copier.Copy(&ww, &content); err != nil {
 		slog.Error("GetPersonCredits: Failed to copy content to with watched struct", "error", err)

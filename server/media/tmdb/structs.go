@@ -2,11 +2,11 @@ package tmdb
 
 import (
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
-	"github.com/sbondCo/Watcharr/util"
 )
 
 // Separated from `TMDBSearchResponse` so we can embed it for
@@ -52,7 +52,7 @@ func (t *TMDBSearchResult) AsMedia() domain.Media {
 		},
 		Summary:       t.Overview,
 		ExtPosterPath: t.PosterPath,
-		Rating:        uint(t.VoteAverage),
+		Rating:        uint(t.VoteAverage * 10),
 		RatingCount:   uint(t.VoteCount),
 	}
 	switch t.MediaType {
@@ -99,14 +99,6 @@ type TMDBSearchMultiResult struct {
 	SeasonNumber   int    `json:"season_number,omitempty"`
 	ShowId         int    `json:"show_id,omitempty"`
 	StillPath      string `json:"still_path,omitempty"`
-}
-
-func (t TMDBSearchMultiResult) GetId() int {
-	return t.ID
-}
-
-func (t TMDBSearchMultiResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMedia(t.MediaType)
 }
 
 func (t *TMDBSearchMultiResult) AsMedia() domain.Media {
@@ -164,14 +156,6 @@ type TMDBSearchMovieResult struct {
 	Video            bool    `json:"video"`
 }
 
-func (t TMDBSearchMovieResult) GetId() int {
-	return t.ID
-}
-
-func (t TMDBSearchMovieResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaMovie
-}
-
 func (t *TMDBSearchMovieResult) AsMedia() domain.Media {
 	m := t.TMDBSearchResult.AsMedia()
 	m.Name = t.Title
@@ -211,14 +195,6 @@ type TMDBSearchShowsResult struct {
 	Popularity       float64  `json:"popularity"`
 	FirstAirDate     string   `json:"first_air_date"`
 	Name             string   `json:"name"`
-}
-
-func (t TMDBSearchShowsResult) GetId() int {
-	return t.ID
-}
-
-func (t TMDBSearchShowsResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaShow
 }
 
 func (t *TMDBSearchShowsResult) AsMedia() domain.Media {
@@ -307,12 +283,12 @@ type TMDBFindByExternalIdResponse struct {
 
 type TMDBContentDetails struct {
 	ID           int    `json:"id"`
+	PosterPath   string `json:"poster_path"`
 	BackdropPath string `json:"backdrop_path"`
 	Genres       []struct {
 		ID   int    `json:"id"`
 		Name string `json:"name"`
 	} `json:"genres"`
-	PosterPath          string  `json:"poster_path"`
 	Homepage            string  `json:"homepage"`
 	Popularity          float32 `json:"popularity"`
 	Overview            string  `json:"overview"`
@@ -336,6 +312,13 @@ type TMDBContentDetails struct {
 		Iso6391     string `json:"iso_639_1"`
 		Name        string `json:"name"`
 	} `json:"spoken_languages"`
+
+	// Extra items because we use `append_to_response` on the request
+	Videos TMDBContentVideos `json:"videos"`
+	// Raw watched providers object from tmdb
+	WatchProviders interface{} `json:"watch/providers"`
+	// Watched providers but after we apply our transformations to it.
+	WatchProvidersTransformed WatchProviders `json:"-"`
 }
 
 // Adds the base items to a Media struct, which can be used in the
@@ -345,11 +328,54 @@ func (t *TMDBContentDetails) AsMedia() domain.Media {
 		IDs: domain.MediaIDs{
 			TMDB: t.ID,
 		},
-		Summary:       t.Overview,
-		ExtPosterPath: t.PosterPath,
-		Rating:        uint(t.VoteAverage),
-		RatingCount:   uint(t.VoteCount),
+		Summary:         t.Overview,
+		ExtPosterPath:   t.PosterPath,
+		ExtBackdropPath: t.BackdropPath,
+		Rating:          uint(t.VoteAverage * 10),
+		RatingCount:     uint(t.VoteCount),
+		Homepage:        t.Homepage,
 	}
+	// Genres
+	for _, g := range t.Genres {
+		m.Genres = append(m.Genres, domain.MediaGenre{
+			ID:   uint(g.ID),
+			Name: g.Name,
+		})
+	}
+	// Videos
+	for i := range t.Videos.Results {
+		v := &t.Videos.Results[i]
+		// Currently we only care about trailers
+		if strings.ToLower(v.Type) != "trailer" {
+			continue
+		}
+		// Is best?
+		isBest := false
+		if v.Official && strings.ToLower(v.Name) == "official trailer" {
+			isBest = true
+		}
+		m.Videos = append(m.Videos, domain.MediaVideo{
+			ID:   v.Key,
+			Name: v.Name,
+			// Currently we only care about trailers
+			Type: domain.MediaVideoTypeTrailer,
+			Best: isBest,
+		})
+	}
+	// Watch providers
+	for _, v := range t.WatchProvidersTransformed.Free {
+		m.Providers = append(m.Providers, domain.MediaProvider{
+			Name: v.ProviderName,
+			Type: domain.MediaProviderTypeFree,
+		})
+	}
+	for _, v := range t.WatchProvidersTransformed.Flatrate {
+		m.Providers = append(m.Providers, domain.MediaProvider{
+			Name: v.ProviderName,
+			Type: domain.MediaProviderTypeSub,
+		})
+	}
+	m.ProvidersFullListLink = t.WatchProvidersTransformed.Link
 	return m
 }
 
@@ -357,7 +383,7 @@ func (t *TMDBContentDetails) AsMedia() domain.Media {
 // Movie Details
 //
 
-type TMDBMovieDetailsBase struct {
+type TMDBMovieDetails struct {
 	TMDBContentDetails
 	Adult               bool   `json:"adult"`
 	BelongsToCollection any    `json:"belongs_to_collection"`
@@ -371,40 +397,28 @@ type TMDBMovieDetailsBase struct {
 	Video               bool   `json:"video"`
 
 	// Extra items because we use `append_to_response` on the request
-	Videos         TMDBContentVideos    `json:"videos"`
-	WatchProviders interface{}          `json:"watch/providers"`
-	ExternalIds    TMDBExternalIdsMovie `json:"external_ids"`
+	ExternalIds TMDBExternalIdsMovie `json:"external_ids"`
+	Similar     TMDBMovieSimilar     `json:"similar"`
 }
 
-type TMDBMovieDetails struct {
-	TMDBMovieDetailsBase
-	Similar TMDBMovieSimilar `json:"similar"`
-}
-
-func (t TMDBMovieDetailsBase) GetId() int {
-	return t.ID
-}
-
-func (t TMDBMovieDetailsBase) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaMovie
-}
-
-func (t *TMDBMovieDetailsBase) AsMedia() domain.Media {
+func (t *TMDBMovieDetails) AsMedia() domain.Media {
 	m := t.TMDBContentDetails.AsMedia()
 	m.Type = domain.MediaTypeTMDBMovie
 	m.Name = t.Title
+	m.Runtime = uint(t.Runtime)
 	if releaseDate, err := time.Parse("2006-01-02", t.ReleaseDate); err == nil {
 		m.ReleaseDate = releaseDate
 	} else {
 		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
 	}
+	// IDS
+	m.IDs.IMDB = t.ExternalIds.ImdbID
+	m.IDs.Wikidata = t.ExternalIds.WikidataID
+	// Convert similar items to media too.
+	for i := range t.Similar.Results {
+		m.Similar = append(m.Similar, t.Similar.Results[i].AsMedia())
+	}
 	return m
-}
-
-type TMDBMovieDetailsWithWatched struct {
-	TMDBMovieDetailsBase
-	Similar TMDBMovieSimilarWithWatched `json:"similar"`
-	Watched *entity.Watched             `json:"watched,omitempty"`
 }
 
 //
@@ -416,44 +430,46 @@ type TMDBMovieSimilar struct {
 }
 
 type TMDBMovieSimilarResult struct {
+	ID               int     `json:"id"`
+	Title            string  `json:"title"`
 	Adult            bool    `json:"adult"`
 	BackdropPath     string  `json:"backdrop_path"`
 	GenreIds         []int   `json:"genre_ids"`
-	ID               int     `json:"id"`
 	OriginalLanguage string  `json:"original_language"`
 	OriginalTitle    string  `json:"original_title"`
 	Overview         string  `json:"overview"`
 	Popularity       float64 `json:"popularity"`
 	PosterPath       string  `json:"poster_path"`
 	ReleaseDate      string  `json:"release_date"`
-	Title            string  `json:"title"`
-	Video            bool    `json:"video"`
 	VoteAverage      float64 `json:"vote_average"`
 	VoteCount        uint32  `json:"vote_count"`
 }
 
-func (t TMDBMovieSimilarResult) GetId() int {
-	return t.ID
-}
-
-func (t TMDBMovieSimilarResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaMovie
-}
-
-type TMDBMovieSimilarWithWatched struct {
-	TMDBSearchResponse[TMDBMovieSimilarResultWithWatched]
-}
-
-type TMDBMovieSimilarResultWithWatched struct {
-	TMDBMovieSimilarResult
-	Watched *entity.Watched `json:"watched,omitempty"`
+func (t *TMDBMovieSimilarResult) AsMedia() domain.Media {
+	m := domain.Media{
+		IDs: domain.MediaIDs{
+			TMDB: t.ID,
+		},
+		Type:          domain.MediaTypeTMDBMovie,
+		Name:          t.Title,
+		Summary:       t.Overview,
+		ExtPosterPath: t.PosterPath,
+		Rating:        uint(t.VoteAverage * 10),
+		RatingCount:   uint(t.VoteCount),
+	}
+	if releaseDate, err := time.Parse("2006-01-02", t.ReleaseDate); err == nil {
+		m.ReleaseDate = releaseDate
+	} else {
+		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+	}
+	return m
 }
 
 //
 // Show Details
 //
 
-type TMDBShowDetailsBase struct {
+type TMDBShowDetails struct {
 	TMDBContentDetails
 	CreatedBy []struct {
 		ID          int    `json:"id"`
@@ -503,26 +519,12 @@ type TMDBShowDetailsBase struct {
 	Type string `json:"type"`
 
 	// Extra items because we use `append_to_response` on the request
-	Videos         TMDBContentVideos   `json:"videos"`
-	WatchProviders interface{}         `json:"watch/providers"`
-	ExternalIds    TMDBExternalIdsShow `json:"external_ids"`
-	Keywords       TMDBKeywords        `json:"keywords"`
+	ExternalIds TMDBExternalIdsShow `json:"external_ids"`
+	Keywords    TMDBKeywords        `json:"keywords"`
+	Similar     TMDBShowSimilar     `json:"similar"`
 }
 
-type TMDBShowDetails struct {
-	TMDBShowDetailsBase
-	Similar TMDBShowSimilar `json:"similar"`
-}
-
-func (t TMDBShowDetailsBase) GetId() int {
-	return t.ID
-}
-
-func (t TMDBShowDetailsBase) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaShow
-}
-
-func (t *TMDBShowDetailsBase) AsMedia() domain.Media {
+func (t *TMDBShowDetails) AsMedia() domain.Media {
 	m := t.TMDBContentDetails.AsMedia()
 	m.Type = domain.MediaTypeTMDBShow
 	m.Name = t.Name
@@ -531,35 +533,33 @@ func (t *TMDBShowDetailsBase) AsMedia() domain.Media {
 	} else {
 		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
 	}
+	// IDS
+	m.IDs.IMDB = t.ExternalIds.ImdbID
+	m.IDs.Wikidata = t.ExternalIds.WikidataID
+	m.IDs.TVDB = t.ExternalIds.TvdbID
+	// Seasons
+	for _, v := range t.Seasons {
+		ms := domain.MediaSeason{
+			Number:       v.SeasonNumber,
+			Name:         v.Name,
+			EpisodeCount: v.EpisodeCount,
+		}
+		if releaseDate, err := time.Parse("2006-01-02", t.FirstAirDate); err == nil {
+			ms.ReleaseDate = releaseDate
+		} else {
+			slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+		}
+		m.Seasons = append(m.Seasons, ms)
+	}
+	// Is show anime
+	for _, v := range t.Keywords.Results {
+		// 210024 is the id of "anime" keyword on tmdb.
+		if v.ID == 210024 {
+			m.IsShowAnime = true
+			break
+		}
+	}
 	return m
-}
-
-type TMDBShowDetailsWithWatched struct {
-	TMDBShowDetailsBase
-	Similar TMDBShowSimilarWithWatched `json:"similar"`
-	Watched *entity.Watched            `json:"watched,omitempty"`
-}
-
-type WatchProvider struct {
-	ProviderID      int    `json:"provider_id"`
-	ProviderName    string `json:"provider_name"`
-	DisplayPriority int    `json:"display_priority"`
-}
-
-type TMDBContentVideos struct {
-	ID      int `json:"id"`
-	Results []struct {
-		Iso6391     string    `json:"iso_639_1"`
-		Iso31661    string    `json:"iso_3166_1"`
-		Name        string    `json:"name"`
-		Key         string    `json:"key"`
-		Site        string    `json:"site"`
-		Size        int       `json:"size"`
-		Type        string    `json:"type"`
-		Official    bool      `json:"official"`
-		PublishedAt time.Time `json:"published_at"`
-		ID          string    `json:"id"`
-	} `json:"results"`
 }
 
 type TMDBSeasonDetails struct {
@@ -621,10 +621,11 @@ type TMDBShowSimilar struct {
 }
 
 type TMDBShowSimilarResult struct {
+	ID               int      `json:"id"`
+	Name             string   `json:"name"`
 	Adult            bool     `json:"adult"`
 	BackdropPath     string   `json:"backdrop_path"`
 	GenreIds         []int    `json:"genre_ids"`
-	ID               int      `json:"id"`
 	OriginCountry    []string `json:"origin_country"`
 	OriginalLanguage string   `json:"original_language"`
 	OriginalName     string   `json:"original_name"`
@@ -632,26 +633,28 @@ type TMDBShowSimilarResult struct {
 	Popularity       float64  `json:"popularity"`
 	PosterPath       string   `json:"poster_path"`
 	FirstAirDate     string   `json:"first_air_date"`
-	Name             string   `json:"name"`
 	VoteAverage      float64  `json:"vote_average"`
 	VoteCount        uint32   `json:"vote_count"`
 }
 
-func (t TMDBShowSimilarResult) GetId() int {
-	return t.ID
-}
-
-func (t TMDBShowSimilarResult) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaShow
-}
-
-type TMDBShowSimilarWithWatched struct {
-	TMDBSearchResponse[TMDBShowSimilarResultWithWatched]
-}
-
-type TMDBShowSimilarResultWithWatched struct {
-	TMDBShowSimilarResult
-	Watched *entity.Watched `json:"watched,omitempty"`
+func (t *TMDBShowSimilarResult) AsMedia() domain.Media {
+	m := domain.Media{
+		IDs: domain.MediaIDs{
+			TMDB: t.ID,
+		},
+		Type:          domain.MediaTypeTMDBMovie,
+		Name:          t.Name,
+		Summary:       t.Overview,
+		ExtPosterPath: t.PosterPath,
+		Rating:        uint(t.VoteAverage * 10),
+		RatingCount:   uint(t.VoteCount),
+	}
+	if releaseDate, err := time.Parse("2006-01-02", t.FirstAirDate); err == nil {
+		m.ReleaseDate = releaseDate
+	} else {
+		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+	}
+	return m
 }
 
 //
@@ -713,14 +716,6 @@ type TMDBPersonCombinedCreditsCast struct {
 	ReleaseDate      string   `json:"release_date"`
 	Title            string   `json:"title"`
 	Adult            bool     `json:"adult"`
-}
-
-func (t TMDBPersonCombinedCreditsCast) GetId() int {
-	return t.ID
-}
-
-func (t TMDBPersonCombinedCreditsCast) GetMediaType() util.SupportedMedia {
-	return util.SupportedMedia(t.MediaType)
 }
 
 type TMDBPersonCombinedCreditsCastWithWatched struct {
@@ -874,7 +869,7 @@ func (t *TMDBDiscoverMoviesResult) AsMedia() domain.Media {
 		Name:          t.Title,
 		Summary:       t.Overview,
 		ExtPosterPath: t.PosterPath,
-		Rating:        uint(t.VoteAverage),
+		Rating:        uint(t.VoteAverage * 10),
 		RatingCount:   uint(t.VoteCount),
 	}
 	if releaseDate, err := time.Parse("2006-01-02", t.ReleaseDate); err == nil {
@@ -918,7 +913,7 @@ func (t *TMDBDiscoverShowsResult) AsMedia() domain.Media {
 		Name:          t.Name,
 		Summary:       t.Overview,
 		ExtPosterPath: t.PosterPath,
-		Rating:        uint(t.VoteAverage),
+		Rating:        uint(t.VoteAverage * 10),
 		RatingCount:   uint(t.VoteCount),
 	}
 	if releaseDate, err := time.Parse("2006-01-02", t.FirstAirDate); err == nil {
@@ -959,8 +954,39 @@ func (t *TMDBPopularPeopleResult) AsMedia() domain.Media {
 //
 //
 
+// Watch providers in one country
+type WatchProviders struct {
+	// Subscription services
+	Flatrate []WatchProvider `json:"flatrate"`
+	// Free providers
+	Free []WatchProvider `json:"free"`
+	// Link to view all streaming options on tmdb
+	Link string `json:"link"`
+}
+
+type WatchProvider struct {
+	ProviderID      int    `json:"provider_id"`
+	ProviderName    string `json:"provider_name"`
+	DisplayPriority int    `json:"display_priority"`
+}
+
+type TMDBContentVideos struct {
+	ID      int `json:"id"`
+	Results []struct {
+		Iso6391     string    `json:"iso_639_1"`
+		Iso31661    string    `json:"iso_3166_1"`
+		Name        string    `json:"name"`
+		Key         string    `json:"key"`
+		Site        string    `json:"site"`
+		Size        int       `json:"size"`
+		Type        string    `json:"type"`
+		Official    bool      `json:"official"`
+		PublishedAt time.Time `json:"published_at"`
+		ID          string    `json:"id"`
+	} `json:"results"`
+}
+
 type TMDBExternalIds struct {
-	ID          int    `json:"id"`
 	ImdbID      string `json:"imdb_id"`
 	WikidataID  string `json:"wikidata_id"`
 	FacebookID  string `json:"facebook_id"`

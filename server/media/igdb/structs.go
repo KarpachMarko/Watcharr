@@ -2,11 +2,10 @@ package igdb
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
-	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
-	"github.com/sbondCo/Watcharr/util"
 )
 
 type TwitchTokenResponse struct {
@@ -29,6 +28,15 @@ func (u *UnixTime) UnmarshalJSON(b []byte) error {
 	u.Time = time.Unix(timestamp, 0)
 	return nil
 }
+
+// Website Type Enum
+type WebsiteType int
+
+const (
+	WebsiteTypeOfficial WebsiteType = 1
+	WebsiteTypeSteam    WebsiteType = 13
+	WebsiteTypeGOG      WebsiteType = 17
+)
 
 // Only the fields we request included in each struct
 
@@ -77,22 +85,23 @@ type GameSimilar struct {
 	} `json:"cover"`
 }
 
-func (t GameSimilar) GetId() int {
-	return t.ID
-}
-
-func (t GameSimilar) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaGame
-}
-
-type GameSimilarWithWatched struct {
-	GameSimilar
-	Watched *entity.Watched `json:"watched,omitempty"`
+func (t *GameSimilar) AsMedia() domain.Media {
+	m := domain.Media{
+		Type: domain.MediaTypeIGDBGame,
+		IDs: domain.MediaIDs{
+			IGDB: t.ID,
+		},
+		Name:          t.Name,
+		Summary:       t.Summary,
+		ExtPosterPath: t.Cover.ImageID,
+		ReleaseDate:   t.FirstReleaseDate.Time,
+	}
+	return m
 }
 
 // Details
 
-type GameDetailsResponseBase struct {
+type GameDetailsResponse struct {
 	ID       int `json:"id"`
 	Artworks []struct {
 		Width   int    `json:"width"`
@@ -149,30 +158,87 @@ type GameDetailsResponseBase struct {
 		VideoID string `json:"video_id"`
 	} `json:"videos"`
 	Websites []struct {
-		ID       int    `json:"id"`
-		Category int    `json:"category"`
-		Trusted  bool   `json:"trusted"`
-		URL      string `json:"url"`
+		ID      int         `json:"id"`
+		Type    WebsiteType `json:"type"`
+		Trusted bool        `json:"trusted"`
+		URL     string      `json:"url"`
 	} `json:"websites"`
-}
 
-type GameDetailsResponse struct {
-	GameDetailsResponseBase
 	SimilarGame []GameSimilar `json:"similar_games"`
 }
 
-func (t GameDetailsResponseBase) GetId() int {
-	return t.ID
-}
-
-func (t GameDetailsResponseBase) GetMediaType() util.SupportedMedia {
-	return util.SupportedMediaGame
-}
-
-type GameDetailsResponseWithWatched struct {
-	GameDetailsResponseBase
-	SimilarGame []GameSimilarWithWatched `json:"similar_games"`
-	Watched     *entity.Watched          `json:"watched,omitempty"`
+func (t *GameDetailsResponse) AsMedia() domain.Media {
+	m := domain.Media{
+		Type: domain.MediaTypeIGDBGame,
+		IDs: domain.MediaIDs{
+			IGDB: t.ID,
+		},
+		Name:          t.Name,
+		Summary:       t.Summary,
+		ExtPosterPath: t.Cover.ImageID,
+		ReleaseDate:   t.FirstReleaseDate.Time,
+		Rating:        uint(t.Rating),
+		RatingCount:   uint(t.RatingCount),
+	}
+	if len(t.Artworks) > 0 {
+		m.ExtBackdropPath = t.Artworks[0].ImageID
+	}
+	// Process websites
+	for _, v := range t.Websites {
+		switch v.Type {
+		case WebsiteTypeOfficial:
+			m.Homepage = v.URL
+		case WebsiteTypeSteam:
+			m.Providers = append(m.Providers, domain.MediaProvider{
+				Name: "Steam",
+				Link: v.URL,
+			})
+		case WebsiteTypeGOG:
+			m.Providers = append(m.Providers, domain.MediaProvider{
+				Name: "GOG",
+				Link: v.URL,
+			})
+		}
+	}
+	// Genres
+	for _, v := range t.Genres {
+		m.Genres = append(m.Genres, domain.MediaGenre{
+			ID:   uint(v.ID),
+			Name: v.Name,
+		})
+	}
+	// Game modes
+	for _, v := range t.GameModes {
+		m.GameModes = append(m.GameModes, domain.MediaGenre{
+			ID:   uint(v.ID),
+			Name: v.Name,
+		})
+	}
+	// Videos
+	for _, v := range t.Videos {
+		nameLower := strings.ToLower(v.Name)
+		if !strings.Contains(nameLower, "trailer") {
+			// Currently we only care about trailers
+			continue
+		}
+		// Is best?
+		isBest := false
+		if nameLower == "trailer" || nameLower == "launch trailer" {
+			isBest = true
+		}
+		m.Videos = append(m.Videos, domain.MediaVideo{
+			ID:   v.VideoID,
+			Name: v.Name,
+			// Currently we only care about trailers
+			Type: domain.MediaVideoTypeTrailer,
+			Best: isBest,
+		})
+	}
+	// Convert similar items to media too.
+	for i := range t.SimilarGame {
+		m.Similar = append(m.Similar, t.SimilarGame[i].AsMedia())
+	}
+	return m
 }
 
 // Basic Details

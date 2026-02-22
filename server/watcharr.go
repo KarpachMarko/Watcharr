@@ -207,7 +207,8 @@ func main() {
 	activityService := activity.NewService(db)
 	userService := user.NewService(db)
 	userManageService := user.NewManageService(db)
-	watchedService := watched.NewService(db, contentService, activityService)
+	gameService := game.NewService(db, &br.Cfg.TWITCH, activityService)
+	watchedService := watched.NewService(db, contentService, gameService, activityService)
 	watchedSeasonService := season.NewService(db, activityService)
 	watchedEpisodeService := episode.NewService(
 		db,
@@ -243,7 +244,6 @@ func main() {
 		activityService,
 		tagService)
 	importTraktService := imprt.NewTraktService(importService)
-	gameService := game.NewService(activityService)
 	searchService := search.NewService(db, br.Cfg, contentService)
 	discoverService := discover.NewService(db, br.Cfg, contentService)
 

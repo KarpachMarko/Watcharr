@@ -10,16 +10,15 @@
 	} from "@/lib/util/api";
 	import { store } from "@/store.svelte";
 	import type {
+		Media,
 		TMDBContentCredits,
 		TMDBContentCreditsCrew,
-		TMDBMovieDetailsWithWatched,
 		WatchedStatus,
 	} from "@/types";
 	import axios from "axios";
 	import { getTopCrew } from "@/lib/util/helpers.js";
 	import Activity from "@/lib/Activity.svelte";
 	import Title from "@/lib/content/Title.svelte";
-	import VideoEmbedModal from "@/lib/content/VideoEmbedModal.svelte";
 	import ProvidersList from "@/lib/content/ProvidersList.svelte";
 	import Icon from "@/lib/Icon.svelte";
 	import SimilarContent from "@/lib/content/SimilarContent.svelte";
@@ -30,17 +29,16 @@
 	import tooltip from "@/lib/actions/tooltip.js";
 	import AddToTagButton from "@/lib/tag/AddToTagButton.svelte";
 	import PageBackdrop from "@/lib/generic/PageBackdrop.svelte";
-	import Poster from "@/lib/content/Poster.svelte";
 	import MyReview from "@/lib/content/MyReview.svelte";
+	import ViewTrailerButton from "@/lib/content/ViewTrailerButton.svelte";
+	import PosterImage from "@/lib/content/PosterImage.svelte";
 
 	let { data } = $props();
 
-	let trailer: string | undefined = $state();
-	let trailerShown = $state(false);
 	let requestModalShown = $state(false);
 	let jellyfinUrl: string | undefined = $state();
 	let arrRequestButtonComp: ArrRequestButton | undefined = $state();
-	let movie: TMDBMovieDetailsWithWatched | undefined = $state();
+	let movie: Media | undefined = $state();
 	let pageError: Error | undefined = $state();
 
 	$effect(() => {
@@ -55,23 +53,17 @@
 					await axios.get(`/content/movie/${data.movieId}`, {
 						params: { region: store.userSettings?.country },
 					})
-				).data as TMDBMovieDetailsWithWatched;
+				).data as Media;
 				if (resp) {
-					if (resp.videos?.results?.length > 0) {
-						const t = resp.videos.results.find(
-							(v) => v.type?.toLowerCase() === "trailer",
+					if (resp.name && resp.ids.tmdb) {
+						contentExistsOnJellyfin("movie", resp.name, resp.ids.tmdb).then(
+							(j) => {
+								if (j?.hasContent && j?.url !== "") {
+									jellyfinUrl = j.url;
+								}
+							},
 						);
-						if (t?.key) {
-							if (t?.site?.toLowerCase() === "youtube") {
-								trailer = `https://www.youtube.com/embed/${t?.key}`;
-							}
-						}
 					}
-					contentExistsOnJellyfin("movie", resp.title, resp.id).then((j) => {
-						if (j?.hasContent && j?.url !== "") {
-							jellyfinUrl = j.url;
-						}
-					});
 					movie = resp;
 				} else {
 					movie = undefined;
@@ -128,7 +120,7 @@
 </script>
 
 <svelte:head>
-	<title>{movie?.title ? `${movie.title} - ` : ""}Movie</title>
+	<title>{movie?.name ? `${movie.name} - ` : ""}Movie</title>
 </svelte:head>
 
 {#if pageError}
@@ -136,55 +128,51 @@
 {:else if !movie}
 	<Spinner />
 {:else if Object.keys(movie).length > 0}
-	{#if movie?.backdrop_path}
+	{#if movie?.extBackdropPath}
 		<PageBackdrop
 			src={"https://www.themoviedb.org/t/p/w1920_and_h800_multi_faces" +
-				movie.backdrop_path}
+				movie.extBackdropPath}
 		/>
 	{/if}
 	<div>
 		<div class="content">
 			<div class="details-wrap">
 				<div class="details-container">
-					<Poster src={"https://image.tmdb.org/t/p/w500" + movie.poster_path} />
+					<PosterImage
+						src={"https://image.tmdb.org/t/p/w500" + movie.extPosterPath}
+					/>
 
 					<div class="details">
 						<Title
-							title={movie.title}
+							title={movie.name}
 							homepage={movie.homepage}
-							releaseYear={new Date(
-								Date.parse(movie.release_date),
-							).getFullYear()}
-							voteAverage={movie.vote_average}
-							voteCount={movie.vote_count}
+							releaseDate={movie.releaseDate
+								? new Date(movie.releaseDate)
+								: undefined}
+							voteAverage={movie.rating}
+							voteCount={movie.ratingCount}
 						/>
 
 						<span class="quick-info">
 							<span>{movie.runtime} min</span>
 
-							<div>
-								{#each movie.genres as g, i}
-									<span
-										>{g.name}{i !== movie.genres.length - 1 ? ", " : ""}</span
-									>
-								{/each}
-							</div>
+							{#if movie.genres && movie.genres?.length > 0}
+								<div>
+									{#each movie.genres as g, i}
+										<span>
+											{g.name}{i !== movie.genres.length - 1 ? ", " : ""}
+										</span>
+									{/each}
+								</div>
+							{:else}
+								<span>Unknown Genres</span>
+							{/if}
 						</span>
 
-						<p>{movie.overview}</p>
+						<p>{movie.summary}</p>
 
 						<div class="btns">
-							{#if trailer}
-								<button onclick={() => (trailerShown = !trailerShown)}
-									>View Trailer</button
-								>
-								{#if trailerShown}
-									<VideoEmbedModal
-										embed={trailer}
-										closed={() => (trailerShown = false)}
-									/>
-								{/if}
-							{/if}
+							<ViewTrailerButton videos={movie.videos} />
 							{#if jellyfinUrl}
 								<a class="btn" href={jellyfinUrl} target="_blank">
 									{#if localStorage.getItem("useEmby")}
@@ -232,14 +220,20 @@
 							{/if}
 						</div>
 
-						<ProvidersList providers={movie["watch/providers"]} />
+						{#if movie.providers}
+							<ProvidersList
+								providers={movie.providers}
+								fullListLink={movie.providersFullListLink}
+								fullListLinkText="JustWatch"
+							/>
+						{/if}
 					</div>
 				</div>
 			</div>
 
 			<MyReview
 				watched={movie.watched}
-				contentTitle={movie.title}
+				contentTitle={movie.name}
 				onRatingChanged={(n) => contentChanged(undefined, n)}
 				onStatusChanged={(n) => contentChanged(n)}
 				onThoughtsChanged={(newThoughts) => {
@@ -268,6 +262,7 @@
 			{#await getMovieCredits()}
 				<Spinner />
 			{:then credits}
+				<!-- TODO make this nicer  -->
 				{#if credits.topCrew?.length > 0}
 					<div class="creators">
 						{#each credits.topCrew as crew}
@@ -296,7 +291,9 @@
 				<Error error={err} pretty="Failed to load cast!" />
 			{/await}
 
-			<SimilarContent type="movie" similar={movie.similar} />
+			{#if movie.similar}
+				<SimilarContent similar={movie.similar} />
+			{/if}
 
 			{#if movie.watched}
 				<Activity bind:activity={movie.watched.activity} />

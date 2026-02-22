@@ -104,7 +104,7 @@ func (r *Router) GetPublicWatchedList(c *gin.Context) {
 
 func (r *Router) AddWatched(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	var ar WatchedAddRequest
+	var ar domain.WatchedAddRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
 		response, err := r.s.AddWatched(userId, ar, entity.ADDED_WATCHED)
@@ -125,7 +125,7 @@ func (r *Router) UpdateWatched(c *gin.Context) {
 		return
 	}
 	userId := c.MustGet("userId").(uint)
-	var ur WatchedUpdateRequest
+	var ur domain.WatchedUpdateRequest
 	err = c.ShouldBindJSON(&ur)
 	if err == nil {
 		response, err := r.s.updateWatched(userId, uint(id), ur)

@@ -77,3 +77,39 @@ func NewWatchedGetPageResponse(w []entity.Watched) WatchedGetPageResponse {
 	}
 	return r
 }
+
+// Add a watched entry request
+type WatchedAddRequest struct {
+	// Type of content we are adding to watched.
+	ContentType util.SupportedMedia `json:"contentType" binding:"required,oneof=movie tv game"`
+	// ID of content from tmdb (if ContentType is movie or tv).
+	TMDBID int `json:"tmdbId"`
+	// ID of content from igdb (if ContentType is game).
+	IGDBID int `json:"igdbId"`
+
+	Status   entity.WatchedStatus `json:"status"`
+	Rating   float64              `json:"rating" binding:"max=10"`
+	Thoughts string               `json:"thoughts"`
+	// Pass a watched date and we will set the CreatedAt (and initial UpdatedAt)
+	// properties for this watched entry to this specific date.
+	WatchedDate time.Time `json:"watchedDate,omitempty"`
+}
+
+// Update watched entry request
+type WatchedUpdateRequest struct {
+	Status         entity.WatchedStatus `json:"status" binding:"required_without_all=Rating Thoughts RemoveThoughts Pinned"`
+	Rating         float64              `json:"rating" binding:"max=10,required_without_all=Status Thoughts RemoveThoughts Pinned"`
+	Thoughts       string               `json:"thoughts" binding:"required_without_all=Status Rating RemoveThoughts Pinned"`
+	RemoveThoughts bool                 `json:"removeThoughts"`
+	Pinned         *bool                `json:"pinned" binding:"required_without_all=Status Rating Thoughts RemoveThoughts"`
+}
+
+// Update response.
+type WatchedUpdateResponse struct {
+	NewActivity entity.Activity `json:"newActivity"`
+}
+
+// Removal response.
+type WatchedRemoveResponse struct {
+	NewActivity entity.Activity `json:"newActivity"`
+}

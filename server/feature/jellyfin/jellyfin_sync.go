@@ -8,10 +8,10 @@ import (
 	"github.com/sbondCo/Watcharr/config"
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
-	"github.com/sbondCo/Watcharr/feature/watched"
 	"github.com/sbondCo/Watcharr/feature/watched/episode"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
 	"github.com/sbondCo/Watcharr/job"
+	"github.com/sbondCo/Watcharr/util"
 )
 
 type JellyfinSeriesSeasonsResponse struct {
@@ -41,7 +41,7 @@ type JellyfinSyncResponse struct {
 }
 
 type WatchedProvider interface {
-	AddWatched(userId uint, ar watched.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
+	AddWatched(userId uint, ar domain.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
 }
 
 type WatchedSeasonProvider interface {
@@ -132,10 +132,10 @@ func (s *SyncService) startJellyfinSync(
 				job.UpdateJobCurrentTask(jobId, userId, "syncing "+v.Name)
 
 				// 2. Imported watched movie
-				w, err := s.wp.AddWatched(userId, watched.WatchedAddRequest{
+				w, err := s.wp.AddWatched(userId, domain.WatchedAddRequest{
 					Status:      entity.FINISHED,
-					ContentID:   tmdbId,
-					ContentType: entity.MOVIE,
+					ContentType: util.SupportedMediaMovie,
+					TMDBID:      tmdbId,
 					WatchedDate: v.UserData.LastPlayedDate,
 				}, entity.IMPORTED_WATCHED_JF)
 				if err != nil {
@@ -210,10 +210,10 @@ func (s *SyncService) startJellyfinSync(
 				job.UpdateJobCurrentTask(jobId, userId, "syncing serie "+v.Name)
 
 				// 2. Imported watched series
-				w, err := s.wp.AddWatched(userId, watched.WatchedAddRequest{
+				w, err := s.wp.AddWatched(userId, domain.WatchedAddRequest{
 					Status:      entity.FINISHED,
-					ContentID:   tmdbId,
-					ContentType: entity.SHOW,
+					ContentType: util.SupportedMediaShow,
+					TMDBID:      tmdbId,
 					WatchedDate: v.UserData.LastPlayedDate,
 				}, entity.IMPORTED_WATCHED_JF)
 				if err != nil {

@@ -18,7 +18,6 @@
 	import UsersList from "@/lib/UsersList.svelte";
 	import { onDestroy, onMount } from "svelte";
 	import Error from "@/lib/Error.svelte";
-	import GamePoster from "@/lib/poster/GamePoster.svelte";
 	import infScroll from "@/lib/util/infScroll.js";
 	import paginatedLoader, {
 		PaginatedLoaderRunFnAction,
@@ -169,19 +168,7 @@
 								name={w.name}
 								path={w.extPosterPath}
 							/>
-						{:else if w.type === MediaTypeE.igdbGame && w.ids.igdb}
-							<GamePoster
-								media={{
-									id: w.ids.igdb,
-									coverId: w.extPosterPath,
-									name: w.name || "",
-									summary: w.summary,
-									firstReleaseDate: w.releaseDate,
-								}}
-								bind:watched={dataLoader.state.data[i].watched}
-								fluidSize
-							/>
-						{:else if dataLoader.state.data[i].type === MediaTypeE.tmdbMovie || dataLoader.state.data[i].type === MediaTypeE.tmdbShow}
+						{:else if w.type === MediaTypeE.tmdbMovie || w.type === MediaTypeE.tmdbShow || w.type === MediaTypeE.igdbGame}
 							<Poster
 								media={w}
 								bind:watched={dataLoader.state.data[i].watched}

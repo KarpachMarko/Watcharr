@@ -104,10 +104,12 @@ func AddSingularAndList[S Addable, S2 Addable](
 ) error {
 	err := Add(wp, userId, s, addCb)
 	if err != nil {
+		slog.Error("AddSingularAndList: Failed to add singular.")
 		return err
 	}
 	for i := range list {
 		if err := AddList(wp, userId, list[i].s, list[i].addCb); err != nil {
+			slog.Error("AddSingularAndList: An error occurred adding to list.")
 			return err
 		}
 	}

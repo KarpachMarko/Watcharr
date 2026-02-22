@@ -281,30 +281,6 @@ func (s *Service) GetOrCacheContent(contentType entity.ContentType, tmdbId int) 
 	return content, nil
 }
 
-// Getting only region needed from api is not a feature yet
-// https://trello.com/c/75tR4cpF/106-add-watch-provider-region-filtering
-// When it is, this can be removed for that instead.
-func (s *Service) transformProviders(c *interface{}, country string) {
-	slog.Debug("transformProviders called", "country", country)
-	if cmap, ok := (*c).(map[string]interface{}); ok {
-		if rmap, ok := cmap["results"].(map[string]interface{}); ok {
-			if val, ok := rmap[country]; ok {
-				slog.Debug("transformProviders: Found country.. overwriting whole object", "new_obj", val)
-				if rvmap, ok := val.(map[string]interface{}); ok {
-					rvmap["country"] = country
-				}
-				*c = val
-			} else {
-				slog.Warn("transformProviders: Couldn't find country..", "country", country)
-			}
-		} else {
-			slog.Warn("transformProviders: Couldn't find results property..")
-		}
-	} else {
-		slog.Error("transformProviders: Assertion failed")
-	}
-}
-
 // TMDB Multi Search.
 func (s *Service) SearchContent(query string, pageNum int) (tmdb.TMDBSearchMultiResponse, error) {
 	resp := new(tmdb.TMDBSearchMultiResponse)
@@ -430,7 +406,11 @@ func (s *Service) SearchByExternalId(id string, source string) (tmdb.TMDBSearchM
 	}}, nil
 }
 
-func (s *Service) MovieDetails(id string, country string, rParams map[string]string) (tmdb.TMDBMovieDetails, error) {
+func (s *Service) MovieDetails(
+	id string,
+	country string,
+	rParams map[string]string,
+) (tmdb.TMDBMovieDetails, error) {
 	resp := new(tmdb.TMDBMovieDetails)
 	cacheKey := cache.CreateCacheKey("MovieDetails", id, country, rParams)
 	if cache.GetCache(ContentStore, cacheKey, &resp) {
@@ -439,10 +419,13 @@ func (s *Service) MovieDetails(id string, country string, rParams map[string]str
 	}
 	err := s.tmdb.Request("/movie/"+id, rParams, &resp)
 	if err != nil {
-		slog.Error("Failed to complete movie details request!", "error", err.Error())
-		return tmdb.TMDBMovieDetails{}, errors.New("failed to complete movie details request")
+		slog.Error("Failed to complete movie details request!",
+			"error", err.Error())
+		return tmdb.TMDBMovieDetails{},
+			errors.New("failed to complete movie details request")
 	}
-	s.transformProviders(&resp.WatchProviders, country)
+	resp.WatchProvidersTransformed = transformProviders(&resp.WatchProviders, country)
+	resp.WatchProviders = nil // We don't want this to linger around (in cache) since we have the transformed version now..
 	go s.cacheContentMovie(*resp, true)
 	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil
@@ -474,7 +457,8 @@ func (s *Service) TvDetails(
 		slog.Error("Failed to complete tv details request!", "error", err.Error())
 		return tmdb.TMDBShowDetails{}, errors.New("failed to complete tv details request")
 	}
-	s.transformProviders(&resp.WatchProviders, country)
+	resp.WatchProvidersTransformed = transformProviders(&resp.WatchProviders, country)
+	resp.WatchProviders = nil // We don't want this to linger around (in cache) since we have the transformed version now..
 	go s.cacheContentTv(*resp, true)
 	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil

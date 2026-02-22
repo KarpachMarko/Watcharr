@@ -10,7 +10,6 @@
 	import ProvidersList from "@/lib/content/ProvidersList.svelte";
 	import SimilarContent from "@/lib/content/SimilarContent.svelte";
 	import Title from "@/lib/content/Title.svelte";
-	import VideoEmbedModal from "@/lib/content/VideoEmbedModal.svelte";
 	import {
 		contentExistsOnJellyfin,
 		removeWatched,
@@ -19,9 +18,9 @@
 	import { getTopCrew } from "@/lib/util/helpers.js";
 	import { store } from "@/store.svelte.js";
 	import type {
+		Media,
 		TMDBContentCredits,
 		TMDBContentCreditsCrew,
-		TMDBShowDetailsWithWatched,
 		WatchedStatus,
 	} from "@/types";
 	import axios from "axios";
@@ -31,17 +30,16 @@
 	import tooltip from "@/lib/actions/tooltip.js";
 	import AddToTagButton from "@/lib/tag/AddToTagButton.svelte";
 	import PageBackdrop from "@/lib/generic/PageBackdrop.svelte";
-	import Poster from "@/lib/content/Poster.svelte";
 	import MyReview from "@/lib/content/MyReview.svelte";
+	import ViewTrailerButton from "@/lib/content/ViewTrailerButton.svelte";
+	import PosterImage from "@/lib/content/PosterImage.svelte";
 
 	let { data } = $props();
 
-	let trailer: string | undefined = $state();
-	let trailerShown = $state(false);
 	let requestModalShown = $state(false);
 	let jellyfinUrl: string | undefined = $state();
 	let arrRequestButtonComp: ArrRequestButton | undefined = $state();
-	let show: TMDBShowDetailsWithWatched | undefined = $state();
+	let show: Media | undefined = $state();
 	let pageError: Error | undefined = $state();
 
 	$effect(() => {
@@ -56,23 +54,17 @@
 					await axios.get(`/content/tv/${data.tvId}`, {
 						params: { region: store.userSettings?.country },
 					})
-				).data as TMDBShowDetailsWithWatched;
+				).data as Media;
 				if (resp) {
-					if (resp?.videos?.results && resp?.videos?.results?.length > 0) {
-						const t = resp?.videos.results.find(
-							(v) => v.type?.toLowerCase() === "trailer",
+					if (resp.name && resp.ids.tmdb) {
+						contentExistsOnJellyfin("tv", resp.name, resp.ids.tmdb).then(
+							(j) => {
+								if (j?.hasContent && j?.url !== "") {
+									jellyfinUrl = j.url;
+								}
+							},
 						);
-						if (t?.key) {
-							if (t?.site?.toLowerCase() === "youtube") {
-								trailer = `https://www.youtube.com/embed/${t?.key}`;
-							}
-						}
 					}
-					contentExistsOnJellyfin("tv", resp.name, resp.id).then((j) => {
-						if (j?.hasContent && j?.url !== "") {
-							jellyfinUrl = j.url;
-						}
-					});
 					show = resp;
 				} else {
 					show = undefined;
@@ -107,14 +99,22 @@
 			console.error("contentChanged: no show");
 			return;
 		}
-		show.watched = await updateWatched(show.watched, {
+		await updateWatched(show.watched, {
 			contentId: data.tvId,
 			contentType: "tv",
 			status: newStatus,
 			rating: newRating,
 			thoughts: newThoughts,
 			pinned: pinned,
-		});
+		})
+			.then((w) => {
+				if (show) {
+					show.watched = w;
+				}
+			})
+			.catch(() => {
+				/* Default handling inside updateWatched is good enough here */
+			});
 	}
 
 	async function deleteWatched() {
@@ -137,56 +137,49 @@
 {:else if !show}
 	<Spinner />
 {:else if Object.keys(show).length > 0}
-	{#if show?.backdrop_path}
+	{#if show?.extBackdropPath}
 		<PageBackdrop
 			src={"https://www.themoviedb.org/t/p/w1920_and_h800_multi_faces" +
-				show.backdrop_path}
+				show.extBackdropPath}
 		/>
 	{/if}
 	<div>
 		<div class="content">
 			<div class="details-wrap">
 				<div class="details-container">
-					<Poster src={"https://image.tmdb.org/t/p/w500" + show.poster_path} />
+					<PosterImage
+						src={"https://image.tmdb.org/t/p/w500" + show.extPosterPath}
+					/>
 
 					<div class="details">
 						<Title
 							title={show.name}
 							homepage={show.homepage}
-							releaseYear={new Date(
-								Date.parse(show.first_air_date),
-							).getFullYear()}
-							voteAverage={show.vote_average}
-							voteCount={show.vote_count}
+							releaseDate={show.releaseDate
+								? new Date(show.releaseDate)
+								: undefined}
+							voteAverage={show.rating}
+							voteCount={show.ratingCount}
 						/>
 
 						<span class="quick-info">
-							{#if show?.episode_run_time?.length > 0}
-								<span>{show.episode_run_time.join(",")} min</span>
+							{#if show.genres && show.genres?.length > 0}
+								<div>
+									{#each show.genres as g, i}
+										<span
+											>{g.name}{i !== show.genres.length - 1 ? ", " : ""}</span
+										>
+									{/each}
+								</div>
+							{:else}
+								<span>Unknown Genres</span>
 							{/if}
-
-							<div>
-								{#each show.genres as g, i}
-									<span>{g.name}{i !== show.genres.length - 1 ? ", " : ""}</span
-									>
-								{/each}
-							</div>
 						</span>
 
-						<p>{show.overview}</p>
+						<p>{show.summary}</p>
 
 						<div class="btns">
-							{#if trailer}
-								<button onclick={() => (trailerShown = !trailerShown)}
-									>View Trailer</button
-								>
-								{#if trailerShown}
-									<VideoEmbedModal
-										embed={trailer}
-										closed={() => (trailerShown = false)}
-									/>
-								{/if}
-							{/if}
+							<ViewTrailerButton videos={show.videos} />
 							{#if jellyfinUrl}
 								<a class="btn" href={jellyfinUrl} target="_blank">
 									{#if localStorage.getItem("useEmby")}
@@ -234,7 +227,13 @@
 							{/if}
 						</div>
 
-						<ProvidersList providers={show["watch/providers"]} />
+						{#if show.providers}
+							<ProvidersList
+								providers={show.providers}
+								fullListLink={show.providersFullListLink}
+								fullListLinkText="JustWatch"
+							/>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -298,12 +297,15 @@
 				<Error error={err} pretty="Failed to load cast!" />
 			{/await}
 
-			<SimilarContent type="tv" similar={show.similar} />
+			{#if show.similar}
+				<SimilarContent similar={show.similar} />
+			{/if}
 
 			{#if show.watched}
 				<Activity bind:activity={show.watched.activity} />
 			{/if}
-			{#if data?.tvId}
+
+			{#if data?.tvId && show.seasons}
 				<SeasonsList
 					tvId={data.tvId}
 					seasons={show.seasons}
@@ -322,13 +324,6 @@
 	.content {
 		position: relative;
 		color: white;
-
-		img.provider {
-			width: 45px;
-			height: 45px;
-			box-shadow: 0px 0px 8px -4px #9c8080;
-			border-radius: 50px;
-		}
 
 		.details-container .details {
 			.quick-info {

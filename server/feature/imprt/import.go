@@ -14,6 +14,7 @@ import (
 	"github.com/sbondCo/Watcharr/feature/watched/episode"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
 	"github.com/sbondCo/Watcharr/media/tmdb"
+	"github.com/sbondCo/Watcharr/util"
 	"gorm.io/gorm"
 )
 
@@ -58,7 +59,7 @@ type ImportResponse struct {
 }
 
 type WatchedProvider interface {
-	AddWatched(userId uint, ar watched.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
+	AddWatched(userId uint, ar domain.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
 	GetWatchedItemByTmdbId(userId uint, tmdbId uint, contentType entity.ContentType) (entity.Watched, error)
 }
 
@@ -125,14 +126,14 @@ func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, 
 				return ImportResponse{}, errors.New("movie details request failed")
 			}
 			slog.Debug("import: by tmdbid of movie", "cr", cr)
-			return s.SuccessfulImport(userId, cr.ID, entity.MOVIE, ar)
+			return s.SuccessfulImport(userId, cr.ID, util.SupportedMediaMovie, ar)
 		} else if ar.Type == entity.SHOW {
 			cr, err := s.cp.TvDetails(tid, "", map[string]string{})
 			if err != nil {
 				return ImportResponse{}, errors.New("tv details request failed")
 			}
 			slog.Debug("import: by tmdbid of tv", "cr", cr)
-			return s.SuccessfulImport(userId, cr.ID, entity.SHOW, ar)
+			return s.SuccessfulImport(userId, cr.ID, util.SupportedMediaShow, ar)
 		}
 	}
 	// If imdb id passed, attempt to get content with it
@@ -143,7 +144,7 @@ func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, 
 				if onlyResult.MediaType == string(entity.MOVIE) || onlyResult.MediaType == string(entity.SHOW) {
 					// Will only be one result
 					slog.Debug("import: importing imdb match", "imdb_id", ar.ImdbID, "tmdb_id_thatwasfound", onlyResult.ID)
-					return s.SuccessfulImport(userId, onlyResult.ID, entity.ContentType(onlyResult.MediaType), ar)
+					return s.SuccessfulImport(userId, onlyResult.ID, util.SupportedMedia(onlyResult.MediaType), ar)
 				} else if onlyResult.MediaType == string(entity.SHOW_EPISODE) {
 					// Handle episodes differently.
 					// Clients must import tv episodes last so that the actual show can be imported first
@@ -246,17 +247,17 @@ func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, 
 		pmLen := len(perfectMatches)
 		if pmLen == 1 && perfectMatches[0].ID != 0 {
 			slog.Debug("import: importing from perfect match")
-			return s.SuccessfulImport(userId, perfectMatches[0].ID, entity.ContentType(perfectMatches[0].MediaType), ar)
+			return s.SuccessfulImport(userId, perfectMatches[0].ID, util.SupportedMedia(perfectMatches[0].MediaType), ar)
 		}
 		slog.Debug("import: returning all potential matches")
 		return ImportResponse{Type: IMPORT_MULTI, Results: pMatches}, nil
 	} else {
 		slog.Debug("import: success.. only found one result")
-		return s.SuccessfulImport(userId, pMatches[0].ID, entity.ContentType(pMatches[0].MediaType), ar)
+		return s.SuccessfulImport(userId, pMatches[0].ID, util.SupportedMedia(pMatches[0].MediaType), ar)
 	}
 }
 
-func (s *Service) SuccessfulImport(userId uint, contentId int, contentType entity.ContentType, ar ImportRequest) (ImportResponse, error) {
+func (s *Service) SuccessfulImport(userId uint, contentId int, contentType util.SupportedMedia, ar ImportRequest) (ImportResponse, error) {
 	status := entity.FINISHED
 	if ar.Status != "" {
 		status = ar.Status
@@ -270,9 +271,9 @@ func (s *Service) SuccessfulImport(userId uint, contentId int, contentType entit
 			}
 		}
 	}
-	w, err := s.wp.AddWatched(userId, watched.WatchedAddRequest{
+	w, err := s.wp.AddWatched(userId, domain.WatchedAddRequest{
 		Status:      status,
-		ContentID:   contentId,
+		TMDBID:      contentId,
 		ContentType: contentType,
 		Rating:      ar.Rating,
 		Thoughts:    ar.Thoughts,

@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/copier"
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
 	"github.com/sbondCo/Watcharr/media/igdb"
@@ -53,8 +53,6 @@ func (r *Router) AddRoutes() {
 
 	// Game details for game page
 	gamer.GET("/:id", r.GetGameDetails)
-	// Add game to played(watched) list
-	gamer.POST("/played", r.AddPlayed)
 
 	// IMPORTANT: Routes below only for admins!
 	gamer.Use(authmiddleware.AuthRequired(r.br.DB, r.br.Cfg), authmiddleware.AdminRequired())
@@ -62,13 +60,6 @@ func (r *Router) AddRoutes() {
 		gamer.POST("/config", r.UpdateConfig)
 	}
 }
-
-// NOTE: The handler functions use `copier` to copy values from the response
-// structs into a new one that includes the user "Watched" data.
-// This was done to avoid adding Watched data to the response structs, as they
-// are cached in our in-mem cache, which could cause references to pollute the cache
-// resulting in user data being leaked to others.
-// We are doing to to explicitly not let that case happen.
 
 func (r *Router) GetGameDetails(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
@@ -81,27 +72,19 @@ func (r *Router) GetGameDetails(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	ww := igdb.GameDetailsResponseWithWatched{}
-	if err := copier.Copy(&ww, &content); err != nil {
-		slog.Error("GetGameDetails: Failed to copy content to with watched struct", "error", err)
-		c.JSON(
-			http.StatusInternalServerError,
-			router.ErrorResponse{Error: "failed to prepare response"},
-		)
-		return
-	}
+	contentAsMedia := content.AsMedia()
 	if err := addedtocontent.AddSingularAndList(
 		r.watchedProvider,
 		userId,
-		ww,
+		contentAsMedia,
 		func(w *entity.Watched) {
-			ww.Watched = w
+			contentAsMedia.Watched = w
 		},
-		[]*addedtocontent.AddListCall[igdb.GameSimilarWithWatched]{
+		[]*addedtocontent.AddListCall[domain.Media]{
 			addedtocontent.NewAddListCall(
-				ww.SimilarGame,
+				contentAsMedia.Similar,
 				func(i int, w *entity.Watched) {
-					ww.SimilarGame[i].Watched = w
+					contentAsMedia.Similar[i].Watched = w
 				},
 			),
 		},
@@ -113,23 +96,7 @@ func (r *Router) GetGameDetails(c *gin.Context) {
 		)
 		return
 	}
-	c.JSON(http.StatusOK, ww)
-}
-
-func (r *Router) AddPlayed(c *gin.Context) {
-	userId := c.MustGet("userId").(uint)
-	var ar PlayedAddRequest
-	err := c.ShouldBindJSON(&ar)
-	if err == nil {
-		response, err := r.service.addPlayed(r.br.DB, &r.br.Cfg.TWITCH, userId, ar, entity.ADDED_WATCHED)
-		if err != nil {
-			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, response)
-		return
-	}
-	c.AbortWithStatusJSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
+	c.JSON(http.StatusOK, contentAsMedia)
 }
 
 func (r *Router) UpdateConfig(c *gin.Context) {

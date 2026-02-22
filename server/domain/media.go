@@ -5,6 +5,7 @@
 package domain
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
@@ -14,11 +15,11 @@ import (
 type MediaType string
 
 const (
-	MediaTypeTMDBMovie  = "tmdb_movie"
-	MediaTypeTMDBShow   = "tmdb_tv"
-	MediaTypeTMDBPerson = "tmdb_person"
+	MediaTypeTMDBMovie  MediaType = "tmdb_movie"
+	MediaTypeTMDBShow   MediaType = "tmdb_tv"
+	MediaTypeTMDBPerson MediaType = "tmdb_person"
 
-	MediaTypeIGDBGame = "igdb_game"
+	MediaTypeIGDBGame MediaType = "igdb_game"
 )
 
 type Media struct {
@@ -44,6 +45,8 @@ type Media struct {
 	Similar []Media `json:"similar,omitempty"`
 	// Release date / first air date.
 	ReleaseDate time.Time `json:"releaseDate,omitzero"`
+	// Videos (trailers, etc)
+	Videos []MediaVideo `json:"videos,omitempty"`
 
 	//
 	// Properties that are less important (not used for all responses).
@@ -55,16 +58,26 @@ type Media struct {
 	Genres []MediaGenre `json:"genres,omitempty"`
 	// Media website.
 	Homepage string `json:"homepage,omitempty"`
-	// Trailer video.
-	Trailer string `json:"trailer,omitempty"`
+	// Media providers (eg Streaming sites, game markets)
+	Providers []MediaProvider `json:"providers,omitempty"`
+	// A link to the database we are using that lists all providers with max details.
+	// (especially for TMDB since it's data from JustWatch isn't available to us).
+	ProvidersFullListLink string `json:"providersFullListLink,omitempty"`
 
 	//
 	// Properties only for movies/tv.
 	//
 
 	// Runtime.
-	Runtime        uint                `json:"runtime,omitempty"`
-	WatchProviders *MediaWatchProvider `json:"watchProviders,omitempty"`
+	Runtime uint `json:"runtime,omitempty"`
+	// Seasons.
+	Seasons []MediaSeason `json:"seasons,omitempty"`
+	// Simple bool for our RequestShow component since Sonarr can be given a
+	// series type (ideally the frontend doesn't need to do that, but for now it
+	// does.. if (son)arr code is refactored, can the client just pass very basic
+	// details for the server to fetch fully/verify, i.e fetched full details from
+	// tmdb again to verify if show is anime itself, etc).
+	IsShowAnime bool `json:"isShowAnime,omitempty"`
 
 	//
 	// Properties only for Games
@@ -95,6 +108,8 @@ func (t Media) GetMediaType() util.SupportedMedia {
 		return util.SupportedMediaGame
 	}
 	// Unsupported...
+	slog.Warn("GetMediaType: Requested, but unsupported type encountered.",
+		"type", t.Type)
 	return ""
 }
 
@@ -103,8 +118,10 @@ type MediaIDs struct {
 	// Watcharr uint
 
 	// For tmdb data
-	TMDB int `json:"tmdb,omitempty"`
-	IMDB int `json:"imdb,omitempty"`
+	TMDB     int    `json:"tmdb,omitempty"`
+	IMDB     string `json:"imdb,omitempty"`
+	Wikidata string `json:"wikidata,omitempty"`
+	TVDB     int    `json:"tvdb,omitempty"`
 
 	// For igdb data
 	IGDB int `json:"igdb,omitempty"`
@@ -114,12 +131,19 @@ type MediaGenre struct {
 	// ID of the genre on the external database.
 	ID uint `json:"id,omitempty"`
 	// Name of genre.
-	Name uint `json:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 }
 
-type MediaWatchProvider struct {
-	// Name of the provider.
+type MediaSeason struct {
+	// Season number (doesn't omit empty to keep support for season 0).
+	Number int `json:"number"`
+	// Season name.
 	Name string `json:"name,omitempty"`
+	// Season air date.
+	ReleaseDate time.Time `json:"releaseDate,omitzero"`
+	// Number of episodes in season.
+	EpisodeCount int `json:"episodeCount"`
+}
 
 // Converter for Content (tv/movie) entity to Media
 func NewMediaFromContent(c *entity.Content) Media {

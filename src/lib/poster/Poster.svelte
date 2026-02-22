@@ -4,10 +4,9 @@
 		type Watched,
 		type Media,
 		MediaTypeE,
-		type MediaType,
+		type SupportedMedia,
 	} from "@/types";
 	import {
-		addClassToParent,
 		calculateTransformOrigin,
 		isTouch,
 		mouseOverEl,
@@ -20,14 +19,15 @@
 	import PosterRating from "./PosterRating.svelte";
 	import ExtraDetails from "./ExtraDetails.svelte";
 	import { buildExtraDetails } from "./lib";
+	import { decode } from "blurhash";
 
 	interface Props {
+		media: Media;
 		/**
 		 * If this content is on our watched list,
 		 * the entry should be provided in full.
 		 */
 		watched?: Watched;
-		media: Media;
 		small?: boolean;
 		disableInteraction?: boolean;
 		hideButtons?: boolean;
@@ -71,37 +71,72 @@
 	let posterActive = $state(false);
 	// If mouse in on poster. Added to fix #656.
 	let mouseOverPoster = $state(false);
+	// If the image is loaded or failed. -1 = fail, 0 = false, 1 = true
+	let posterImgLoaded = $state(0);
 
 	let containerEl: HTMLDivElement | undefined = $state();
+	let bhCanvas: HTMLCanvasElement | undefined = $state();
 
-	// For now, if the content is on watched list, we can assume we have a local
-	// cached image. Could be improved, since we could have a cached image for
-	// show not on someone elses watched list.
-	let poster = $derived(
-		watched
-			? `${baseURL}/img${media.extPosterPath}`
-			: `https://image.tmdb.org/t/p/w500${media.extPosterPath}`,
-	);
-	let mediaTypeTMDB: MediaType | undefined = $derived.by(() => {
+	const meta:
+		| {
+				id: number | undefined;
+				type: SupportedMedia;
+		  }
+		| undefined = $derived.by(() => {
+		let id: number | undefined;
+		let type: SupportedMedia;
 		switch (media.type) {
 			case MediaTypeE.tmdbMovie:
-				return "movie";
+				id = media.ids.tmdb;
+				type = "movie";
+				break;
 			case MediaTypeE.tmdbShow:
-				return "tv";
+				id = media.ids.tmdb;
+				type = "tv";
+				break;
+			case MediaTypeE.igdbGame:
+				id = media.ids.igdb;
+				type = "game";
+				break;
+			default:
+				return;
+		}
+		return {
+			id,
+			type,
+		};
+	});
+	const poster = $derived.by(() => {
+		if (media.poster?.path) {
+			return `${baseURL}/${media.poster.path}`;
+		}
+
+		if (
+			media.type == MediaTypeE.tmdbMovie ||
+			media.type == MediaTypeE.tmdbShow
+		) {
+			if (watched) {
+				// For now, if the content is on watched list, we can assume we have a local
+				// cached image. Could be improved, since we could have a cached image for
+				// show not on someone elses watched list.
+				return `${baseURL}/img${media.extPosterPath}`;
+			} else {
+				return `https://image.tmdb.org/t/p/w500${media.extPosterPath}`;
+			}
+		} else if (media.type == MediaTypeE.igdbGame) {
+			return `https://images.igdb.com/igdb/image/upload/t_cover_big/${media.extPosterPath}.jpg`;
 		}
 	});
-	let link = $derived(
-		media?.ids?.tmdb ? `/${mediaTypeTMDB}/${media.ids.tmdb}` : undefined,
-	);
-	let year = $derived(
+	const link = $derived(meta?.id ? `/${meta.type}/${meta.id}` : undefined);
+	const year = $derived(
 		media.releaseDate ? new Date(media.releaseDate).getFullYear() : undefined,
 	);
 
 	function handleStarClick(r: number) {
-		if (r == watched?.rating || !media.ids.tmdb || !mediaTypeTMDB) return;
+		if (r == watched?.rating || !meta?.id) return;
 		updateWatched(watched, {
-			contentId: media.ids.tmdb,
-			contentType: mediaTypeTMDB,
+			contentId: meta.id,
+			contentType: meta.type,
 			rating: r,
 		}).then((w) => {
 			if (typeof onUpdated === "function") {
@@ -130,10 +165,10 @@
 			});
 			return;
 		}
-		if (type == watched?.status || !media.ids.tmdb || !mediaTypeTMDB) return;
+		if (type == watched?.status || !meta?.id) return;
 		updateWatched(watched, {
-			contentId: media.ids.tmdb,
-			contentType: mediaTypeTMDB,
+			contentId: meta.id,
+			contentType: meta.type,
 			status: type,
 		}).then((w) => {
 			if (typeof onUpdated === "function") {
@@ -205,6 +240,28 @@
 			ae.blur();
 		}
 	}
+
+	onMount(() => {
+		if (containerEl) {
+			if (small) {
+				containerEl.classList.add("small");
+			}
+			if (fluidSize) {
+				containerEl.classList.add("fluid-size");
+			}
+		}
+
+		// Show blurhash if we can
+		if (media.poster?.path && media.poster?.blurHash && bhCanvas) {
+			const pixels = decode(media.poster.blurHash, 170, 256);
+			const ctx = bhCanvas.getContext("2d");
+			if (ctx) {
+				const imageData = ctx.createImageData(170, 256);
+				imageData.data.set(pixels);
+				ctx.putImageData(imageData, 0, 0);
+			}
+		}
+	});
 </script>
 
 <!-- HACK: disabled this issue for now, it should probably be fixed properly -->
@@ -242,26 +299,39 @@
 	class={`${posterActive ? "active " : ""}${pinned ? "pinned " : ""}${hideIfNotOnList && !watched ? "hidden " : ""}`}
 >
 	<div
-		class={`container${!poster || !media.extPosterPath ? " details-shown" : ""}`}
+		class={`container${!poster ? " details-shown" : ""}`}
 		bind:this={containerEl}
 	>
-		{#if poster && media.extPosterPath}
-			<div class="img-loader"></div>
+		{#if poster}
+			{#if posterImgLoaded == 0}
+				<!-- We only show the loader (or blurhash) while the image
+				  is still loading. -->
+				{#if media?.poster?.blurHash}
+					<canvas
+						width="170"
+						height="256"
+						bind:this={bhCanvas}
+						class="img-loader"
+					></canvas>
+				{:else}
+					<div class="img-loader"></div>
+				{/if}
+			{/if}
 			<img
 				loading="lazy"
 				src={poster}
 				alt=""
 				onload={(e) => {
-					addClassToParent(e, "img-loaded");
+					posterImgLoaded = 1;
 				}}
 				onerror={(e) => {
-					addClassToParent(e, "details-shown");
+					posterImgLoaded = -1;
 				}}
 			/>
 		{/if}
-		{#if watched && !posterActive}
+		{#if watched && meta && !posterActive}
 			<!-- Must be on watched list, and poster not hovered -->
-			<ExtraDetails {...buildExtraDetails(mediaTypeTMDB, watched)} />
+			<ExtraDetails {...buildExtraDetails(meta.type, watched)} />
 		{/if}
 		<div
 			onclick={(e) => {
@@ -352,7 +422,6 @@
 			height: 100%;
 		}
 
-		&.img-loaded .img-loader,
 		&.details-shown .img-loader {
 			display: none;
 		}
