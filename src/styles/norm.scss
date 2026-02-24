@@ -55,66 +55,81 @@
 	font-display: swap;
 }
 
-:global(*) {
-	padding: 0;
-	margin: 0;
-	box-sizing: border-box;
+:global {
+	* {
+		padding: 0;
+		margin: 0;
+		box-sizing: border-box;
+	}
+
+	body {
+		font-family:
+			sans-serif,
+			system-ui,
+			-apple-system,
+			BlinkMacSystemFont;
+		background-color: $bg-color;
+		color: $text-color;
+	}
 }
 
-:global(body) {
-	font-family:
-		sans-serif,
-		system-ui,
-		-apple-system,
-		BlinkMacSystemFont;
-	background-color: $bg-color;
-	color: $text-color;
-}
-
-:global(
+:global {
 	h1:not(.norm),
 	h2:not(.norm),
 	h3:not(.norm),
 	h4:not(.norm),
-	h5:not(.norm)
-) {
-	font-family:
-		"Shrikhand",
-		system-ui,
-		-apple-system,
-		BlinkMacSystemFont;
+	h5:not(.norm) {
+		font-family:
+			"Shrikhand",
+			system-ui,
+			-apple-system,
+			BlinkMacSystemFont;
+	}
 }
 
-:global(.sm-caps) {
-	font-variant: small-caps;
+:global {
+	.sm-caps {
+		font-variant: small-caps;
+	}
 }
 
-:global(a) {
-	text-decoration: none;
-	color: $text-color;
+:global {
+	a {
+		text-decoration: none;
+		color: $text-color;
+	}
 }
 
-:global(input, textarea) {
-	padding: 7px 10px;
-	border: 2px solid black;
-	border-radius: 5px;
-	width: 100%;
+:global {
+	input,
+	textarea {
+		padding: 7px 10px;
+		border: 2px solid black;
+		border-radius: 5px;
+		width: 100%;
+	}
 }
 
-:global(input.invalid) {
-	border: 3px solid $error;
+:global {
+	input.invalid {
+		border: 3px solid $error;
+	}
 }
 
-:global(textarea) {
-	padding: 5px;
-	max-width: 100%;
-	color: $text-color;
-	background-color: transparent;
-	border-color: $text-color;
+:global {
+	textarea {
+		padding: 5px;
+		max-width: 100%;
+		color: $text-color;
+		background-color: transparent;
+		border-color: $text-color;
+	}
 }
 
-:global(button) {
-	cursor: pointer;
+:global {
+	button {
+		cursor: pointer;
+	}
 }
 
 :global {
@@ -162,55 +177,65 @@
 	}
 }
 
-:global(button.secondary) {
-	border: 2px solid transparent;
+:global {
+	button.secondary {
+		border: 2px solid transparent;
 
-	&:hover,
-	&:focus-visible {
-		background-color: white;
-		color: black;
-		border: 2px solid black;
-	}
-}
-
-:global(button.danger) {
-	border: 2px solid $error;
-	color: $error;
-
-	&:not(:disabled) {
 		&:hover,
 		&:focus-visible {
-			background-color: $error;
-			color: white;
+			background-color: white;
+			color: black;
+			border: 2px solid black;
 		}
 	}
 }
 
-:global(button.plain),
-:global(a.plain-btn) {
-	background-color: transparent;
-	color: $text-color;
-	border: 0;
+:global {
+	button.danger {
+		border: 2px solid $error;
+		color: $error;
+
+		&:not(:disabled) {
+			&:hover,
+			&:focus-visible {
+				background-color: $error;
+				color: white;
+			}
+		}
+	}
 }
 
-:global(button.not-active) {
-	opacity: 0.5;
+:global {
+	button.plain,
+	a.plain-btn {
+		background-color: transparent;
+		color: $text-color;
+		border: 0;
+	}
 }
 
-:global(#tooltip) {
-	visibility: hidden;
-	position: absolute;
-	padding: 8px 5px;
-	background-color: black;
-	color: white;
-	border: 1px solid white;
-	border-radius: 6px;
-	text-transform: capitalize;
-	z-index: 99999;
-	transition:
-		top 100ms ease,
-		left 100ms ease;
-	pointer-events: none;
+:global {
+	button.not-active {
+		opacity: 0.5;
+	}
+}
+
+:global {
+	#tooltip {
+		visibility: hidden;
+		position: absolute;
+		padding: 8px 5px;
+		background-color: black;
+		color: white;
+		border: 1px solid white;
+		border-radius: 6px;
+		text-transform: capitalize;
+		z-index: 99999;
+		transition:
+			top 100ms ease,
+			left 100ms ease;
+		pointer-events: none;
+	}
 }
 
 :global {
@@ -323,93 +348,95 @@
 	}
 }
 
-:global(table) {
-	margin-top: 20px;
-	width: 100%;
-	border-spacing: 0px;
-	border: 1px solid $accent-color;
-	border-radius: 10px;
-	font-size: 16px;
+:global {
+	table {
+		margin-top: 20px;
+		width: 100%;
+		border-spacing: 0px;
+		border: 1px solid $accent-color;
+		border-radius: 10px;
+		font-size: 16px;
 
-	th {
-		padding: 12px 15px;
-		text-align: left;
-		transition: padding 100ms ease;
-
-		&:first-of-type {
-			border-top-left-radius: 10px;
-		}
-
-		&:last-of-type {
-			border-top-right-radius: 10px;
-		}
-
-		&.loading-col {
-			width: 28px;
-			padding: 0;
-		}
-	}
-
-	tr {
 		th {
-			background-color: $accent-color;
-		}
-
-		&:last-child {
-			td:first-of-type {
-				border-bottom-left-radius: 10px;
-			}
-
-			td:last-of-type {
-				border-bottom-right-radius: 10px;
-			}
-		}
-
-		&:nth-child(odd) td {
-			background-color: $accent-color;
-		}
-	}
-
-	td {
-		padding: 5px;
-
-		&.icon-cell {
-			padding-right: 3px;
-
-			& > div {
-				display: flex;
-				padding-left: 4px;
-			}
-		}
-
-		input {
-			background: transparent;
-			color: $text-color;
-			border: 0;
-			font-size: 16px;
-			padding: 0;
-			padding: 7px 10px;
+			padding: 12px 15px;
+			text-align: left;
 			transition: padding 100ms ease;
 
-			&[type="number"] {
-				appearance: textfield;
+			&:first-of-type {
+				border-top-left-radius: 10px;
+			}
 
-				&::-webkit-outer-spin-button,
-				&::-webkit-inner-spin-button {
-					-webkit-appearance: none;
-					margin: 0;
-				}
+			&:last-of-type {
+				border-top-right-radius: 10px;
+			}
+
+			&.loading-col {
+				width: 28px;
+				padding: 0;
 			}
 		}
 
-		button {
-			&.delete {
-				display: flex;
-				justify-content: center;
-				color: $placeholder-color;
+		tr {
+			th {
+				background-color: $accent-color;
+			}
 
-				&:hover {
-					color: $error;
+			&:last-child {
+				td:first-of-type {
+					border-bottom-left-radius: 10px;
+				}
+
+				td:last-of-type {
+					border-bottom-right-radius: 10px;
+				}
+			}
+
+			&:nth-child(odd) td {
+				background-color: $accent-color;
+			}
+		}
+
+		td {
+			padding: 5px;
+
+			&.icon-cell {
+				padding-right: 3px;
+
+				& > div {
+					display: flex;
+					padding-left: 4px;
+				}
+			}
+
+			input {
+				background: transparent;
+				color: $text-color;
+				border: 0;
+				font-size: 16px;
+				padding: 0;
+				padding: 7px 10px;
+				transition: padding 100ms ease;
+
+				&[type="number"] {
+					appearance: textfield;
+
+					&::-webkit-outer-spin-button,
+					&::-webkit-inner-spin-button {
+						-webkit-appearance: none;
+						margin: 0;
+					}
+				}
+			}
+
+			button {
+				&.delete {
+					display: flex;
+					justify-content: center;
+					color: $placeholder-color;
+
+					&:hover {
+						color: $error;
+					}
 				}
 			}
 		}
