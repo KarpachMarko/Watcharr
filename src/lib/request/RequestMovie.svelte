@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from "svelte/legacy";
-
 	import axios from "axios";
 	import Modal from "../Modal.svelte";
 	import type {
@@ -28,8 +26,8 @@
 		originalRequest = undefined,
 	}: Props = $props();
 
-	let servarrs: RadarrSettings[] = $state();
-	let selectedServarrIndex: number = $state();
+	let servarrs: RadarrSettings[] | undefined = $state();
+	let selectedServarrIndex: number = $state(0);
 	let inputsDisabled = true;
 	let selectedServerCfg: RadarrTestResponse | undefined = $state();
 	let addRequestRunning = $state(false);
@@ -133,7 +131,7 @@
 						ogr?.serverName,
 					);
 					const idx = servarrs?.findIndex((s) => s.name === ogr?.serverName);
-					if (idx !== -1) {
+					if (idx !== undefined && idx !== -1) {
 						selectedServarrIndex = idx;
 					}
 				}
@@ -153,8 +151,12 @@
 		}
 	}
 
-	run(() => {
-		if (typeof selectedServarrIndex !== "undefined" && servarrs?.length > 0) {
+	$effect.pre(() => {
+		if (
+			typeof selectedServarrIndex !== "undefined" &&
+			servarrs &&
+			servarrs?.length > 0
+		) {
 			const s = servarrs[selectedServarrIndex];
 			if (!s) {
 				selectedServerCfg = undefined;
@@ -170,12 +172,11 @@
 <Modal
 	title={approveMode ? "Approve Request" : "Request"}
 	desc={content.name}
+	maxWidth="700px"
 	onClose={() => onClose(undefined)}
 >
 	<div class="req-ctr">
 		{#if servarrs}
-			{@const server = servarrs[selectedServarrIndex]}
-
 			{#if servarrs?.length > 1}
 				<Setting title="Select the server to use">
 					<DropDown

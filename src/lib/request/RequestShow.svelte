@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from "svelte/legacy";
-
 	import axios from "axios";
 	import Modal from "../Modal.svelte";
 	import type {
@@ -30,8 +28,8 @@
 		originalRequest = undefined,
 	}: Props = $props();
 
-	let servarrs: SonarrSettings[] = $state();
-	let selectedServarrIndex: number = $state();
+	let servarrs: SonarrSettings[] | undefined = $state();
+	let selectedServarrIndex: number = $state(0);
 	let inputsDisabled = true;
 	let selectedServerCfg: SonarrTestResponse | undefined = $state();
 	let seasonItems: ListBoxItem[] = $state(
@@ -172,7 +170,7 @@
 						ogr?.serverName,
 					);
 					const idx = servarrs?.findIndex((s) => s.name === ogr?.serverName);
-					if (idx !== -1) {
+					if (idx !== undefined && idx !== -1) {
 						selectedServarrIndex = idx;
 					}
 				}
@@ -192,8 +190,12 @@
 		}
 	}
 
-	run(() => {
-		if (typeof selectedServarrIndex !== "undefined" && servarrs?.length > 0) {
+	$effect.pre(() => {
+		if (
+			typeof selectedServarrIndex !== "undefined" &&
+			servarrs &&
+			servarrs?.length > 0
+		) {
 			const s = servarrs[selectedServarrIndex];
 			if (!s) {
 				selectedServerCfg = undefined;
@@ -209,12 +211,11 @@
 <Modal
 	title={approveMode ? "Approve Request" : "Request"}
 	desc={content.name}
+	maxWidth="700px"
 	onClose={() => onClose(undefined)}
 >
 	<div class="req-ctr">
 		{#if servarrs}
-			{@const server = servarrs[selectedServarrIndex]}
-
 			<div class="seasons-list">
 				<ListBox bind:options={seasonItems} allCheckBox="All Seasons" />
 			</div>
