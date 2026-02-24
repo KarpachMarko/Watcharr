@@ -394,6 +394,18 @@ export interface DiscoverRequest extends PaginationParams {
 	filter?: DiscoverFilter;
 }
 
+export interface PersonDetailsResponse {
+	name?: string;
+	birthday?: string;
+	deathday?: string;
+	age?: number;
+	placeOfBirth?: string;
+	knownForDepartment?: string;
+	biography?: string;
+	homepage?: string;
+	extPosterPath?: string;
+}
+
 export interface PersonCreditsResponse {
 	credits?: Media[];
 }
@@ -663,23 +675,6 @@ export interface TMDBMovieSimilarResult extends WatchedAddedToContent {
 }
 
 export type TMDBMovieSimilar = TMDBPaginatedResponse<TMDBMovieSimilarResult>;
-
-export interface TMDBPersonDetails {
-	birthday?: string;
-	known_for_department?: string;
-	deathday?: string;
-	id?: number;
-	name?: string;
-	also_known_as?: string[];
-	gender?: number;
-	biography?: string;
-	popularity?: number;
-	place_of_birth?: string;
-	profile_path?: string;
-	adult?: boolean;
-	imdb_id?: string;
-	homepage?: string;
-}
 
 export interface TMDBDiscoverMovies {
 	page: number;

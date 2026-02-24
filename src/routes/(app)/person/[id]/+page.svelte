@@ -8,7 +8,7 @@
 	import type {
 		Media,
 		PersonCreditsResponse,
-		TMDBPersonDetails,
+		PersonDetailsResponse,
 	} from "@/types";
 	import axios from "axios";
 	import Checkbox from "@/lib/Checkbox.svelte";
@@ -19,7 +19,7 @@
 
 	let { data } = $props();
 
-	let person: TMDBPersonDetails | undefined = $state();
+	let person: PersonDetailsResponse | undefined = $state();
 	let pageError: Error | undefined = $state();
 	let sortOption = $state("Vote count");
 	let credits: PersonCreditsResponse | undefined = $state();
@@ -54,7 +54,8 @@
 	}
 
 	async function getPerson(id: number) {
-		return (await axios.get(`/content/person/${id}`)).data as TMDBPersonDetails;
+		return (await axios.get<PersonDetailsResponse>(`/content/person/${id}`))
+			.data;
 	}
 
 	async function updatePersonCredits() {
@@ -136,7 +137,7 @@
 				<div class="details-wrap">
 					<div class="details-container">
 						<PosterImage
-							src={"https://image.tmdb.org/t/p/w500" + person.profile_path}
+							src={"https://image.tmdb.org/t/p/w500" + person.extPosterPath}
 						/>
 
 						<div class="details">
@@ -148,16 +149,16 @@
 							<Bio bio={person.biography} />
 
 							<div class="detail-info">
-								{#if person.known_for_department}
+								{#if person.knownForDepartment}
 									<div>
 										<span>Department</span>
-										<span>{person.known_for_department}</span>
+										<span>{person.knownForDepartment}</span>
 									</div>
 								{/if}
-								{#if person.place_of_birth}
+								{#if person.placeOfBirth}
 									<div>
 										<span>Born In</span>
-										<span>{person.place_of_birth}</span>
+										<span>{person.placeOfBirth}</span>
 									</div>
 								{/if}
 								{#if person.birthday}
@@ -178,6 +179,12 @@
 												Date.parse(person.deathday),
 											).toLocaleDateString()}
 										</span>
+									</div>
+								{/if}
+								{#if person.age}
+									<div>
+										<span>Age</span>
+										<span>{person.age} Years</span>
 									</div>
 								{/if}
 							</div>

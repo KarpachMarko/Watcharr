@@ -7,6 +7,7 @@ import (
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
+	"github.com/sbondCo/Watcharr/util"
 )
 
 // Separated from `TMDBSearchResponse` so we can embed it for
@@ -674,6 +675,31 @@ type TMDBPersonDetails struct {
 	ProfilePath        string   `json:"profile_path"`
 	ImdbID             string   `json:"imdb_id"`
 	Homepage           string   `json:"homepage"`
+}
+
+func (t *TMDBPersonDetails) AsPersonDetailsResponse() domain.PersonDetailsResponse {
+	m := domain.PersonDetailsResponse{
+		Name:               t.Name,
+		PlaceOfBirth:       t.PlaceOfBirth,
+		KnownForDepartment: t.KnownForDepartment,
+		Biography:          t.Biography,
+		ExtPosterPath:      t.ProfilePath,
+		Homepage:           t.Homepage,
+	}
+	// Dates
+	if date, err := time.Parse("2006-01-02", t.Birthday); err == nil {
+		m.Birthday = date
+	} else {
+		slog.Error("AsPersonDetailsResponse: Failed to parse birthdate", "name", m.Name, "error", err)
+	}
+	if date, err := time.Parse("2006-01-02", t.Deathday); err == nil {
+		m.Deathday = date
+	} else {
+		slog.Error("AsPersonDetailsResponse: Failed to parse birthdate", "name", m.Name, "error", err)
+	}
+	// Age
+	m.Age = util.GetAge(m.Birthday, m.Deathday)
+	return m
 }
 
 //

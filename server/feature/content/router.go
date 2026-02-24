@@ -224,7 +224,7 @@ func (r *Router) GetPerson(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, content)
+	c.JSON(http.StatusOK, content.AsPersonDetailsResponse())
 }
 
 func (r *Router) GetPersonCredits(c *gin.Context) {
