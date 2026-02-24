@@ -662,18 +662,16 @@ func (t *TMDBShowSimilarResult) AsMedia() domain.Media {
 //
 
 type TMDBPersonDetails struct {
-	Birthday           string   `json:"birthday"`
-	KnownForDepartment string   `json:"known_for_department"`
-	Deathday           string   `json:"deathday"`
 	ID                 int      `json:"id"`
 	Name               string   `json:"name"`
-	AlsoKnownAs        []string `json:"also_known_as"`
-	Gender             int8     `json:"gender"`
-	Biography          string   `json:"biography"`
-	Popularity         float32  `json:"popularity"`
+	Birthday           string   `json:"birthday"`
+	Deathday           string   `json:"deathday"`
 	PlaceOfBirth       string   `json:"place_of_birth"`
+	KnownForDepartment string   `json:"known_for_department"`
+	Biography          string   `json:"biography"`
+	AlsoKnownAs        []string `json:"also_known_as"`
+	Popularity         float32  `json:"popularity"`
 	ProfilePath        string   `json:"profile_path"`
-	Adult              bool     `json:"adult"`
 	ImdbID             string   `json:"imdb_id"`
 	Homepage           string   `json:"homepage"`
 }
@@ -683,17 +681,12 @@ type TMDBPersonDetails struct {
 //
 
 type TMDBPersonCombinedCredits struct {
-	ID   int                             `json:"id"`
-	Cast []TMDBPersonCombinedCreditsCast `json:"cast"`
+	ID   int                                   `json:"id"`
+	Cast []TMDBPersonCombinedCreditsCastResult `json:"cast"`
 	// crew TMDBPersonCombinedCreditsCrew
 }
 
-type TMDBPersonCombinedCreditsWithWatched struct {
-	ID   int                                        `json:"id"`
-	Cast []TMDBPersonCombinedCreditsCastWithWatched `json:"cast"`
-}
-
-type TMDBPersonCombinedCreditsCast struct {
+type TMDBPersonCombinedCreditsCastResult struct {
 	ID               int      `json:"id"`
 	OriginalLanguage string   `json:"original_language"`
 	EpisodeCount     int      `json:"episode_count"`
@@ -718,9 +711,38 @@ type TMDBPersonCombinedCreditsCast struct {
 	Adult            bool     `json:"adult"`
 }
 
-type TMDBPersonCombinedCreditsCastWithWatched struct {
-	TMDBPersonCombinedCreditsCast
-	Watched *entity.Watched `json:"watched,omitempty"`
+func (t *TMDBPersonCombinedCreditsCastResult) AsMedia() domain.Media {
+	m := domain.Media{
+		IDs: domain.MediaIDs{
+			TMDB: t.ID,
+		},
+		Summary:         t.Overview,
+		ExtPosterPath:   t.PosterPath,
+		ExtBackdropPath: t.BackdropPath,
+		Rating:          uint(t.VoteAverage * 10),
+		RatingCount:     uint(t.VoteCount),
+	}
+
+	m.Name = t.Title
+	if t.Name != "" {
+		m.Name = t.Name
+	}
+
+	var tmdbReleaseDate string
+	switch t.MediaType {
+	case "movie":
+		m.Type = domain.MediaTypeTMDBMovie
+		tmdbReleaseDate = t.ReleaseDate
+	case "tv":
+		m.Type = domain.MediaTypeTMDBShow
+		tmdbReleaseDate = t.FirstAirDate
+	}
+	if releaseDate, err := time.Parse("2006-01-02", tmdbReleaseDate); err == nil {
+		m.ReleaseDate = releaseDate
+	} else {
+		slog.Error("AsMedia: Failed to parse release date", "name", m.Name, "error", err)
+	}
+	return m
 }
 
 //

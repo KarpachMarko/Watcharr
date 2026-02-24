@@ -394,6 +394,10 @@ export interface DiscoverRequest extends PaginationParams {
 	filter?: DiscoverFilter;
 }
 
+export interface PersonCreditsResponse {
+	credits?: Media[];
+}
+
 export interface TMDBContentDetails {
 	id: number;
 	backdrop_path: string;
@@ -675,36 +679,6 @@ export interface TMDBPersonDetails {
 	adult?: boolean;
 	imdb_id?: string;
 	homepage?: string;
-}
-
-export interface TMDBPersonCombinedCredits {
-	id: number;
-	cast: TMDBPersonCombinedCreditsCast[];
-}
-
-export interface TMDBPersonCombinedCreditsCast extends WatchedAddedToContent {
-	id: number;
-	original_language: string;
-	episode_count: number;
-	overview: string;
-	origin_country: string[];
-	original_name: string;
-	genre_ids: number[];
-	name: string;
-	media_type: ContentType;
-	poster_path: string;
-	first_air_date: string;
-	vote_average: number;
-	vote_count: number;
-	character: string;
-	backdrop_path: string;
-	popularity: number;
-	credit_id: string;
-	original_title: string;
-	video: boolean;
-	release_date: string;
-	title: string;
-	adult: boolean;
 }
 
 export interface TMDBDiscoverMovies {

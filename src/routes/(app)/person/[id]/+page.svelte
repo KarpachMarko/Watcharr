@@ -6,20 +6,23 @@
 	import Spinner from "@/lib/Spinner.svelte";
 	import DropDown from "@/lib/DropDown.svelte";
 	import type {
-		TMDBPersonCombinedCredits,
-		TMDBPersonCombinedCreditsCast,
+		Media,
+		PersonCreditsResponse,
 		TMDBPersonDetails,
 	} from "@/types";
 	import axios from "axios";
 	import Checkbox from "@/lib/Checkbox.svelte";
 	import Icon from "@/lib/Icon.svelte";
+	import PageBackdrop from "@/lib/generic/PageBackdrop.svelte";
+	import Bio from "./Bio.svelte";
+	import PosterImage from "@/lib/content/PosterImage.svelte";
 
 	let { data } = $props();
 
 	let person: TMDBPersonDetails | undefined = $state();
 	let pageError: Error | undefined = $state();
 	let sortOption = $state("Vote count");
-	let credits: TMDBPersonCombinedCredits | undefined = $state();
+	let credits: PersonCreditsResponse | undefined = $state();
 	let onMyListFilter = $state(false);
 
 	$effect(() => {
@@ -55,38 +58,36 @@
 	}
 
 	async function updatePersonCredits() {
-		credits = (await axios.get(`/content/person/${data.personId}/credits`))
-			.data as TMDBPersonCombinedCredits;
-		credits.cast = credits.cast.filter(
-			(v, i, a) => a.findIndex((t) => t.id === v.id) === i,
+		credits = (
+			await axios.get<PersonCreditsResponse>(
+				`/content/person/${data.personId}/credits`,
+			)
+		).data;
+		credits.credits = credits.credits?.filter(
+			(v, i, a) => a.findIndex((t) => t.ids.tmdb === v.ids.tmdb) === i,
 		); // remove duplicate entries. If an actor has multiple roles in a single movie, it would otherwise show up multiple times
 	}
 
 	function newestOldestSort(
-		a: TMDBPersonCombinedCreditsCast,
-		b: TMDBPersonCombinedCreditsCast,
+		a: Media,
+		b: Media,
 		/**
 		 * 0 = Newest,
 		 * 1 = Oldest
 		 */
 		n: 0 | 1,
 	) {
-		const dateA = new Date(a.release_date || a.first_air_date).valueOf();
-		const dateB = new Date(b.release_date || b.first_air_date).valueOf();
-
 		// Assume missing release date means future release (TBD)
-		if (
-			!a.release_date &&
-			!a.first_air_date &&
-			!b.release_date &&
-			!b.first_air_date
-		) {
+		if (!a.releaseDate && !b.releaseDate) {
 			// Both releases have no date, return as equals
 			// here to avoid an infinite loop.
 			return 0;
 		}
-		if (!a.release_date && !a.first_air_date) return n === 0 ? -1 : 1;
-		if (!b.release_date && !b.first_air_date) return n === 0 ? 1 : -1;
+		if (!a.releaseDate && !a.releaseDate) return n === 0 ? -1 : 1;
+		if (!b.releaseDate && !b.releaseDate) return n === 0 ? 1 : -1;
+
+		const dateA = new Date(a.releaseDate).valueOf();
+		const dateB = new Date(b.releaseDate).valueOf();
 
 		if (n === 0) {
 			return dateB - dateA;
@@ -96,19 +97,21 @@
 	}
 
 	function sortCredits(sortOption: string) {
-		if (!credits || !credits.cast) return;
+		if (!credits || !credits.credits) return;
 		switch (sortOption) {
 			case "Vote count":
-				credits.cast.sort((a, b) => b.vote_count - a.vote_count);
+				credits.credits.sort(
+					(a, b) => (b.ratingCount ?? 0) - (a.ratingCount ?? 0),
+				);
 				break;
 			case "Newest":
-				credits.cast.sort((a, b) => newestOldestSort(a, b, 0));
+				credits.credits.sort((a, b) => newestOldestSort(a, b, 0));
 				break;
 			case "Oldest":
-				credits.cast.sort((a, b) => newestOldestSort(a, b, 1));
+				credits.credits.sort((a, b) => newestOldestSort(a, b, 1));
 				break;
 		}
-		credits.cast = credits.cast;
+		credits.credits = credits.credits;
 	}
 </script>
 
@@ -123,73 +126,67 @@
 		<Spinner />
 	{:else if Object.keys(person).length > 0}
 		{#if Object.keys(person).length > 0}
-			<div class="content">
-				<img
-					class="backdrop"
+			{#if credits?.credits && credits.credits.length > 0 && credits.credits[0].extBackdropPath}
+				<PageBackdrop
 					src={"https://www.themoviedb.org/t/p/w1920_and_h800_multi_faces" +
-						person.profile_path}
-					alt=""
+						credits.credits[0].extBackdropPath}
 				/>
-				<div class="vignette"></div>
+			{/if}
+			<div class="content">
+				<div class="details-wrap">
+					<div class="details-container">
+						<PosterImage
+							src={"https://image.tmdb.org/t/p/w500" + person.profile_path}
+						/>
 
-				<div class="details-container">
-					<img
-						class="poster"
-						src={"https://image.tmdb.org/t/p/w500" + person.profile_path}
-						alt=""
-					/>
+						<div class="details">
+							<span class="title-container">
+								<a href={person.homepage} target="_blank">{person.name}</a>
+								<span></span>
+							</span>
 
-					<div class="details">
-						<span class="title-container">
-							<a href={person.homepage} target="_blank">{person.name}</a>
-							<span></span>
-						</span>
+							<Bio bio={person.biography} />
 
-						{#if person.biography}
-							<span style="font-weight: bold; font-size: 14px;">Biography</span>
-							<!-- Show just the first paragraph -->
-							<p>{person.biography?.split("\n")[0]}</p>
-						{/if}
-
-						<div class="detail-info">
-							{#if person.known_for_department}
-								<div>
-									<span>Department</span>
-									<span>{person.known_for_department}</span>
-								</div>
-							{/if}
-							{#if person.place_of_birth}
-								<div>
-									<span>Born In</span>
-									<span>{person.place_of_birth}</span>
-								</div>
-							{/if}
-							{#if person.birthday}
-								<div>
-									<span>Born On</span>
-									<span
-										>{new Date(
-											Date.parse(person.birthday),
-										).toLocaleDateString()}</span
-									>
-								</div>
-							{/if}
-							{#if person.deathday}
-								<div>
-									<span>Died On</span>
-									<span
-										>{new Date(
-											Date.parse(person.deathday),
-										).toLocaleDateString()}</span
-									>
-								</div>
-							{/if}
+							<div class="detail-info">
+								{#if person.known_for_department}
+									<div>
+										<span>Department</span>
+										<span>{person.known_for_department}</span>
+									</div>
+								{/if}
+								{#if person.place_of_birth}
+									<div>
+										<span>Born In</span>
+										<span>{person.place_of_birth}</span>
+									</div>
+								{/if}
+								{#if person.birthday}
+									<div>
+										<span>Born On</span>
+										<span
+											>{new Date(
+												Date.parse(person.birthday),
+											).toLocaleDateString()}</span
+										>
+									</div>
+								{/if}
+								{#if person.deathday}
+									<div>
+										<span>Died On</span>
+										<span>
+											{new Date(
+												Date.parse(person.deathday),
+											).toLocaleDateString()}
+										</span>
+									</div>
+								{/if}
+							</div>
 						</div>
 					</div>
 				</div>
 			</div>
 			{#if credits}
-				{#if credits?.cast?.length > 0}
+				{#if credits?.credits && credits?.credits?.length > 0}
 					<div class="filters">
 						<div class="listFilter">
 							<span>On my list</span>
@@ -205,10 +202,10 @@
 					</div>
 					<div class="page">
 						<PosterList>
-							{#each credits.cast as c, i (c.id)}
+							{#each credits.credits as c, i (`${i}-${c.ids.tmdb}`)}
 								<Poster
 									media={c}
-									bind:watched={credits.cast[i].watched}
+									bind:watched={credits.credits[i].watched}
 									fluidSize
 									hideIfNotOnList={onMyListFilter}
 								/>
@@ -234,6 +231,8 @@
 </div>
 
 <style lang="scss">
+	@use "../../../../lib/content/page.scss";
+
 	.filters {
 		align-items: center;
 		display: flex;
@@ -258,28 +257,6 @@
 		color: white;
 		margin-bottom: 15px;
 
-		img.backdrop {
-			position: absolute;
-			left: 0;
-			top: 0;
-			z-index: -2;
-			width: 100%;
-			height: 100%;
-			object-fit: cover;
-			filter: blur(4px) grayscale(80%);
-			/* mix-blend-mode: multiply; */
-		}
-
-		.vignette {
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			background-color: rgba($color: #000000, $alpha: 0.7);
-			z-index: -1;
-		}
-
 		.details-container {
 			display: flex;
 			flex-flow: row;
@@ -288,13 +265,6 @@
 			padding: 40px 80px;
 			margin-left: auto;
 			margin-right: auto;
-
-			img.poster {
-				width: 235px;
-				height: 100%;
-				box-shadow: 0px 0px 14px -4px #9c8080;
-				border-radius: 12px;
-			}
 
 			.details {
 				display: flex;
@@ -316,18 +286,10 @@
 					}
 				}
 
-				p {
-					font-size: 14px;
-					max-height: 200px;
-					overflow: hidden;
-					text-overflow: ellipsis;
-					white-space: pre-line;
-				}
-
 				.detail-info {
 					display: flex;
 					flex-wrap: wrap;
-					gap: 35px;
+					gap: 15px 30px;
 					margin-top: 10px;
 					font-size: 14px;
 

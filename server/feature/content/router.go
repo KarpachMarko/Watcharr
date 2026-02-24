@@ -8,12 +8,10 @@ import (
 
 	"github.com/gin-contrib/cache"
 	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/copier"
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
-	"github.com/sbondCo/Watcharr/media/tmdb"
 	"github.com/sbondCo/Watcharr/router"
 	"github.com/sbondCo/Watcharr/util"
 )
@@ -240,22 +238,17 @@ func (r *Router) GetPersonCredits(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	// TODO (like movie and tv above, no need for copier like above probs)
-	ww := tmdb.TMDBPersonCombinedCreditsWithWatched{}
-	if err := copier.Copy(&ww, &content); err != nil {
-		slog.Error("GetPersonCredits: Failed to copy content to with watched struct", "error", err)
-		c.JSON(
-			http.StatusInternalServerError,
-			router.ErrorResponse{Error: "failed to prepare response"},
-		)
-		return
+	// Add content into response struct then add watched entries
+	resp := domain.PersonCreditsResponse{}
+	for i := range content.Cast {
+		resp.Credits = append(resp.Credits, content.Cast[i].AsMedia())
 	}
 	if err := addedtocontent.AddList(
 		r.wp,
 		userId,
-		ww.Cast,
+		resp.Credits,
 		func(i int, w *entity.Watched) {
-			ww.Cast[i].Watched = w
+			resp.Credits[i].Watched = w
 		},
 	); err != nil {
 		slog.Error("GetPersonCredits: Failed to add watched to content!", "error", err)
@@ -265,7 +258,7 @@ func (r *Router) GetPersonCredits(c *gin.Context) {
 		)
 		return
 	}
-	c.JSON(http.StatusOK, ww)
+	c.JSON(http.StatusOK, resp)
 }
 
 func (r *Router) GetRegions(c *gin.Context) {

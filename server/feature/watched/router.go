@@ -32,9 +32,6 @@ func NewRouter(
 	}
 }
 
-// TODO all handlers moving here, then the base router will become the initializer of all handlers and
-// initial creator of all services and passes them down to services that want them
-
 func (r *Router) AddRoutes() {
 	watched := r.br.Router.Group("/watched").Use(authmiddleware.AuthRequired(nil, r.br.Cfg))
 
