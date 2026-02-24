@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { MediaProvider, TMDBContentWatchProviders } from "@/types";
+	import type { MediaProvider } from "@/types";
 	import ProviderIcon from "./ProviderIcon.svelte";
 
 	interface Props {

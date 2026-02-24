@@ -8,7 +8,7 @@ export type WatchedStatus =
  * Types of media supported by Watcharr in an overarching way.
  */
 export type SupportedMedia = "tv" | "movie" | "game";
-export type ContentType = "tv" | "movie" | "tv_episode";
+export type ContentType = SupportedMedia | "tv_episode";
 export type MediaType = ContentType | "person";
 
 // Wasn't able to figure out how to import this type from its component file in other places, so its here for now.
@@ -133,20 +133,16 @@ export interface WatchedEpisode {
 }
 
 export interface Watched extends dbModel {
-	watched: boolean;
-	rating?: number;
-	// content?: Content;
-	// game?: Game;
-	media?: Media;
+	id: number;
+	createdAt: string;
+	updatedAt: string;
 
-	activity: Activity[];
+	rating?: number;
 	status: WatchedStatus;
 	thoughts: string;
 	pinned: boolean;
-	watchedSeasons?: WatchedSeason[];
-	watchedEpisodes?: WatchedEpisode[];
-	tags?: Tag[];
-	lastViewedSeason?: number;
+
+	media?: Media;
 }
 
 export interface WatchedAddRequest {
@@ -183,13 +179,6 @@ export interface WatchedEpisodeAddResponse {
 	addedActivity: Activity;
 	episodeStatusChangedHookResponse?: EpisodeStatusChangedHookResponse;
 }
-
-export interface WatchedAddedToContent {
-	watched?: Watched;
-}
-
-export type TMDBShowDetailsWithWatched = WatchedAddedToContent &
-	TMDBShowDetails;
 
 export interface EpisodeStatusChangedHookResponse {
 	newShowStatus?: WatchedStatus;
@@ -330,6 +319,18 @@ export interface Media {
 	isShowAnime?: boolean;
 }
 
+export function getContentTypeFromMedia(m: Media): ContentType | undefined {
+	switch (m.type) {
+		case MediaTypeE.tmdbMovie:
+			return "movie";
+		case MediaTypeE.tmdbShow:
+			return "tv";
+		case MediaTypeE.igdbGame:
+			return "game";
+	}
+	return;
+}
+
 export interface MediaGenre {
 	// ID Is for external db id.
 	id: number;
@@ -410,140 +411,6 @@ export interface PersonCreditsResponse {
 	credits?: Media[];
 }
 
-export interface TMDBContentDetails {
-	id: number;
-	backdrop_path: string;
-	genres: {
-		id: number;
-		name: string;
-	}[];
-	poster_path: string;
-	homepage: string;
-	popularity: number;
-	overview: string;
-	original_language: string;
-	production_companies: {
-		id: number;
-		logo_path: string;
-		name: string;
-		origin_country: string;
-	}[];
-	production_countries: {
-		iso_3166_1: string;
-		name: string;
-	}[];
-	status: string;
-	tagline: string;
-	vote_average: number;
-	vote_count: number;
-	spoken_languages: {
-		english_name: string;
-		iso_639_1: string;
-		name: string;
-	}[];
-}
-
-export interface TMDBMovieDetails extends TMDBContentDetails {
-	adult: boolean;
-	belongs_to_collection: object;
-	budget: number;
-	imdb_id: string;
-	original_title: string;
-	release_date: string;
-	revenue: number;
-	runtime: number;
-	title: string;
-	video: boolean;
-	videos: TMDBContentVideos;
-	"watch/providers": TMDBContentWatchProviders;
-	similar: TMDBMovieSimilar;
-	external_ids: TMDBExternalIdsMovie;
-}
-
-export interface TMDBShowDetails extends TMDBContentDetails {
-	created_by: {
-		id: number;
-		credit_id: string;
-		name: string;
-		gender: number;
-		profile_path: string;
-	}[];
-	episode_run_time: number[];
-	first_air_date: string;
-	in_production: boolean;
-	languages: string[];
-	last_air_date: string;
-	last_episode_to_air: {
-		air_date: string;
-		episode_number: number;
-		id: number;
-		name: string;
-		overview: string;
-		production_code: string;
-		season_number: number;
-		still_path: string;
-		vote_average: number;
-		vote_count: number;
-	};
-	name: string;
-	next_episode_to_air: object;
-	networks: {
-		name: string;
-		id: number;
-		logo_path: string;
-		origin_country: string;
-	}[];
-	number_of_episodes: number;
-	number_of_seasons: number;
-	origin_country: string[];
-	original_name: string;
-	seasons: TMDBShowSeason[];
-	type: string;
-	videos: TMDBContentVideos;
-	"watch/providers": TMDBContentWatchProviders;
-	similar: TMDBShowSimilar;
-	external_ids: TMDBExternalIdsShow;
-	keywords: TMDBKeywords;
-}
-
-export interface TMDBWatchProvider {
-	logo_path: string;
-	provider_id: string;
-	provider_name: string;
-	display_priority: string;
-}
-
-export interface TMDBContentWatchProviders {
-	link: string;
-	flatrate: TMDBWatchProvider[];
-	free: TMDBWatchProvider[];
-}
-
-export interface TMDBContentVideos {
-	id: number;
-	results: {
-		iso_639_1: string;
-		iso_3166_1: string;
-		name: string;
-		key: string;
-		site: string;
-		size: number;
-		type: string;
-		official: boolean;
-		published_at: string;
-		id: string;
-	}[];
-}
-
-export interface TMDBShowSeason {
-	air_date: string;
-	episode_count: number;
-	id: number;
-	name: string;
-	overview: string;
-	poster_path: string;
-	season_number: number;
-}
 
 export interface TMDBSeasonDetails {
 	_id: string;
@@ -630,350 +497,12 @@ export interface TMDBContentCreditsCrew {
 	job: string;
 }
 
-// TODO use this type everywhere needed to simplify
-export interface TMDBPaginatedResponse<T> {
-	page: number;
-	total_pages: number;
-	total_results: number;
-	results: T[];
-}
-
-export interface TMDBShowSimilarResult extends WatchedAddedToContent {
-	adult: boolean;
-	backdrop_path: string;
-	genre_ids: number[];
-	id: number;
-	origin_country: string[];
-	original_language: string;
-	original_name: string;
-	overview: string;
-	popularity: number;
-	poster_path: string;
-	first_air_date: string;
-	name: string;
-	vote_average: number;
-	vote_count: number;
-}
-
-export type TMDBShowSimilar = TMDBPaginatedResponse<TMDBShowSimilarResult>;
-
-export interface TMDBMovieSimilarResult extends WatchedAddedToContent {
-	adult: boolean;
-	backdrop_path: string;
-	genre_ids: number[];
-	id: number;
-	original_language: string;
-	original_title: string;
-	overview: string;
-	popularity: number;
-	poster_path: string;
-	release_date: string;
-	title: string;
-	video: boolean;
-	vote_average: number;
-	vote_count: number;
-}
-
-export type TMDBMovieSimilar = TMDBPaginatedResponse<TMDBMovieSimilarResult>;
-
-export interface TMDBDiscoverMovies {
-	page: number;
-	results: {
-		adult: boolean;
-		backdrop_path: string;
-		genre_ids: number[];
-		id: number;
-		original_language: string;
-		original_title: string;
-		overview: string;
-		popularity: number;
-		poster_path: string;
-		release_date: string;
-		title: string;
-		video: boolean;
-		vote_average: number;
-		vote_count: number;
-	}[];
-	total_pages: number;
-	total_results: number;
-}
-
-export interface TMDBDiscoverShows {
-	page: number;
-	results: {
-		backdrop_path: string;
-		first_air_date: string;
-		genre_ids: number[];
-		id: number;
-		name: string;
-		origin_country: string[];
-		original_language: string;
-		original_name: string;
-		overview: string;
-		popularity: number;
-		poster_path: string;
-		vote_average: number;
-		vote_count: number;
-	}[];
-	total_pages: number;
-	total_results: number;
-}
-
-export interface TMDBTrendingAll {
-	page: number;
-	results: {
-		adult: boolean;
-		backdrop_path: string;
-		id: number;
-		title?: string;
-		original_language: string;
-		original_title?: string;
-		overview: string;
-		poster_path: string;
-		media_type: MediaType;
-		genre_ids: number[];
-		popularity: number;
-		release_date?: string;
-		video?: boolean;
-		vote_average: number;
-		vote_count: number;
-		name?: string;
-		original_name?: string;
-		first_air_date?: string;
-		origin_country?: string[];
-	}[];
-	total_pages: number;
-	total_results: number;
-}
-
-export interface TMDBUpcomingMovies {
-	dates: {
-		maximum: string;
-		minimum: string;
-	};
-	page: number;
-	results: {
-		adult: boolean;
-		backdrop_path: string;
-		genre_ids: number[];
-		id: number;
-		original_language: string;
-		original_title: string;
-		overview: string;
-		popularity: number;
-		poster_path: string;
-		release_date: string;
-		title: string;
-		video: boolean;
-		vote_average: number;
-		vote_count: number;
-	}[];
-	total_pages: number;
-	total_results: number;
-}
-
-export interface TMDBUpcomingShows {
-	page: number;
-	results: {
-		backdrop_path: string;
-		first_air_date: string;
-		genre_ids: number[];
-		id: number;
-		name: string;
-		origin_country: string[];
-		original_language: string;
-		original_name: string;
-		overview: string;
-		popularity: number;
-		poster_path: string;
-		vote_average: number;
-		vote_count: number;
-	}[];
-	total_pages: number;
-	total_results: number;
-}
-
-export interface TMDBExternalIds {
-	id: number;
-	imdb_id: string;
-	wikidata_id: string;
-	facebook_id: string;
-	instagram_id: string;
-	twitter_id: string;
-}
-
-export interface TMDBExternalIdsMovie extends TMDBExternalIds {}
-
-export interface TMDBExternalIdsShow extends TMDBExternalIds {
-	freebase_mid: string;
-	freebase_id: string;
-	tvdb_id: number;
-	tvrage_id: number;
-}
-
-export interface TMDBKeywords {
-	results: {
-		name: string;
-		id: number;
-	}[];
-}
-
 export interface TMDBRegions {
 	results: {
 		iso_3166_1: string;
 		english_name: string;
 		native_name: string;
 	}[];
-}
-
-// ContentSearch* interfaces are for tmdb 'multi' search results.
-export interface ContentSearch {
-	page: number;
-	results: (ContentSearchMovie | ContentSearchTv | ContentSearchPerson)[];
-	total_pages: number;
-	total_results: number;
-}
-
-export interface ContentSearchMovie {
-	poster_path?: string;
-	adult?: boolean;
-	overview?: string;
-	release_date?: string;
-	original_title?: string;
-	genre_ids?: number[];
-	id: number;
-	media_type: "movie";
-	original_language?: string;
-	title?: string;
-	backdrop_path?: string;
-	popularity?: number;
-	vote_count?: number;
-	video?: boolean;
-	vote_average?: number;
-	watched?: Watched;
-}
-
-export interface ContentSearchTv {
-	poster_path?: string;
-	popularity?: number;
-	id: number;
-	overview?: string;
-	backdrop_path?: string;
-	vote_average?: number;
-	media_type: "tv";
-	first_air_date?: string;
-	origin_country?: string[];
-	genre_ids?: number[];
-	original_language?: string;
-	vote_count?: number;
-	name?: string;
-	original_name?: string;
-	watched?: Watched;
-}
-
-export interface ContentSearchPerson {
-	profile_path?: string;
-	adult?: boolean;
-	id?: number;
-	media_type: "person";
-	known_for?: ContentSearchMovie | ContentSearchTv;
-	name?: string;
-	popularity?: number;
-}
-
-export interface MoviesSearchResponse {
-	page: number;
-	results: {
-		adult: boolean;
-		backdrop_path: string;
-		genre_ids: number[];
-		id: number;
-		original_language: string;
-		original_title: string;
-		overview: string;
-		popularity: number;
-		poster_path: string;
-		release_date: string;
-		title: string;
-		video: boolean;
-		vote_average: number;
-		vote_count: number;
-		media_type: "movie";
-		watched?: Watched;
-	}[];
-	total_pages: number;
-	total_results: number;
-}
-
-export interface ShowsSearchResponse {
-	page: number;
-	results: {
-		adult: boolean;
-		backdrop_path: string;
-		genre_ids: number[];
-		id: number;
-		origin_country: string[];
-		original_language: string;
-		original_name: string;
-		overview: string;
-		popularity: number;
-		poster_path: string;
-		first_air_date: string;
-		name: string;
-		vote_average: number;
-		vote_count: number;
-		media_type: "tv";
-		watched?: Watched;
-	}[];
-	total_pages: number;
-	total_results: number;
-}
-
-export interface PeopleSearchResponse {
-	page: number;
-	results: {
-		adult: boolean;
-		gender: number;
-		id: number;
-		known_for_department: string;
-		name: string;
-		original_name: string;
-		popularity: number;
-		profile_path: string;
-		media_type: "person";
-		known_for: {
-			adult: boolean;
-			backdrop_path: string;
-			id: number;
-			title: string;
-			original_language: string;
-			original_title: string;
-			overview: string;
-			poster_path: string;
-			media_type: string;
-			genre_ids: number[];
-			popularity: number;
-			release_date: string;
-			video: boolean;
-			vote_average: number;
-			vote_count: number;
-		}[];
-	}[];
-	total_pages: number;
-	total_results: number;
-}
-
-export interface GameSearch {
-	id: number;
-	cover: {
-		id: number;
-		image_id: string;
-	};
-	first_release_date: string;
-	name: string;
-	summary?: string;
-	version_title?: string;
-	watched?: Watched;
 }
 
 export enum ImportResponseType {
@@ -986,8 +515,8 @@ export enum ImportResponseType {
 
 export interface ImportResponse {
 	type: ImportResponseType;
-	results: (ContentSearchMovie | ContentSearchTv)[];
-	match?: ContentSearchMovie | ContentSearchTv;
+	results?: Media[];
+	match?: Media;
 	watchedEntry?: Watched;
 }
 
@@ -1247,109 +776,6 @@ export interface TodoMoviesCustomList {
 		};
 	};
 	ObjectID: string;
-}
-
-export interface Game {
-	id: number;
-	updatedAt: string;
-	igdbId: number;
-	name: string;
-	coverId: string;
-	summary: string;
-	storyline: string;
-	releaseDate?: string;
-	rating: number;
-	ratingCount: number;
-	status: number;
-	category: number;
-	poster?: Image;
-}
-
-export interface GameDetailsResponse {
-	id: number;
-	artworks: {
-		width: number;
-		height: number;
-		image_id: string;
-	}[];
-	category: number;
-	cover: {
-		id: number;
-		image_id: string;
-	};
-	first_release_date: number;
-	game_modes: {
-		id: number;
-		name: string;
-	}[];
-	genres: {
-		id: number;
-		name: string;
-	}[];
-	involved_companies: {
-		id: number;
-		company: {
-			id: number;
-			description: string;
-			name: string;
-			slug: string;
-			websites: {
-				id: number;
-				category: number;
-				trusted: boolean;
-				url: string;
-			}[];
-		};
-		developer: boolean;
-		porting: boolean;
-		publisher: boolean;
-		supporting: boolean;
-	}[];
-	name: string;
-	platforms: {
-		id: number;
-		name: string;
-	}[];
-	rating: number;
-	rating_count: number;
-	summary: string;
-	storyline: string;
-	url: string;
-	videos: {
-		id: number;
-		name: string;
-		video_id: string;
-	}[];
-	websites: {
-		id: number;
-		category: number;
-		trusted: boolean;
-		url: string;
-	}[];
-	similar_games: GameSimilar[];
-}
-
-// HACK wasn't bothered making more types so that this is correct (should be new type for adding watched data for this to match server because this type wont always have watched added)... do it later
-interface GameSimilar extends WatchedAddedToContent {
-	id: number;
-	name: string;
-	summary: string;
-	first_release_date: number;
-	cover: {
-		id: number;
-		image_id: string;
-	};
-}
-
-export type GameDetailsResponseWithWatched = WatchedAddedToContent &
-	GameDetailsResponse;
-
-export enum GameWebsiteCategory {
-	Official = 1,
-	Wikipedia = 3,
-	Twitch = 6,
-	Steam = 13,
-	Reddit = 14,
 }
 
 // General interface for all requests that return a job that was started.

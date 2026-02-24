@@ -18,46 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type ImportResponseType string
-
-var (
-	// Successful import
-	IMPORT_SUCCESS ImportResponseType = "IMPORT_SUCCESS"
-	// Import failed for reasons user cant fix
-	IMPORT_FAILED ImportResponseType = "IMPORT_FAILED"
-	// Import query returned multiple results, user must decide
-	IMPORT_MULTI ImportResponseType = "IMPORT_MULTI"
-	// Import query returned zero results, user must provide more info
-	IMPORT_NOTFOUND ImportResponseType = "IMPORT_NOTFOUND"
-	// Item already exists so couldn't import (unique constraint hit when adding)
-	IMPORT_EXISTS ImportResponseType = "IMPORT_EXISTS"
-)
-
-type ImportRequest struct {
-	Name             string                  `json:"name"`
-	Year             int                     `json:"year"`
-	TmdbID           int                     `json:"tmdbId"`
-	Type             entity.ContentType      `json:"type"`
-	Rating           float64                 `json:"rating" binding:"max=10"`
-	RatingCustomDate *time.Time              `json:"ratingCustomDate"`
-	Status           entity.WatchedStatus    `json:"status"`
-	Thoughts         string                  `json:"thoughts"`
-	DatesWatched     []time.Time             `json:"datesWatched"`
-	Activity         []entity.Activity       `json:"activity"`
-	WatchedEpisodes  []entity.WatchedEpisode `json:"watchedEpisodes"`
-	WatchedSeason    []entity.WatchedSeason  `json:"watchedSeasons"`
-	Tags             []domain.TagAddRequest  `json:"tags"`
-	ImdbID           string                  `json:"imdbId"`
-}
-
-type ImportResponse struct {
-	Type    ImportResponseType           `json:"type"`
-	Results []tmdb.TMDBSearchMultiResult `json:"results"`
-	Match   tmdb.TMDBSearchMultiResult   `json:"match"`
-	// On success this will be filled with the new watched entry
-	WatchedEntry entity.Watched `json:"watchedEntry"`
-}
-
 type WatchedProvider interface {
 	AddWatched(userId uint, ar domain.WatchedAddRequest, at entity.ActivityType) (entity.Watched, error)
 	GetWatchedItemByTmdbId(userId uint, tmdbId uint, contentType entity.ContentType) (entity.Watched, error)
@@ -113,7 +73,12 @@ func NewService(
 	}
 }
 
-func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, error) {
+// TODO Support game importing
+
+func (s *Service) ImportContent(
+	userId uint,
+	ar domain.ImportRequest,
+) (domain.ImportResponse, error) {
 	slog.Debug("import: Processing request:", "request", ar)
 	// If tmdbId and type passed in request body
 	// we dont need to use a search tmdb request.
@@ -123,14 +88,14 @@ func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, 
 		if ar.Type == entity.MOVIE {
 			cr, err := s.cp.MovieDetails(tid, "", map[string]string{})
 			if err != nil {
-				return ImportResponse{}, errors.New("movie details request failed")
+				return domain.ImportResponse{}, errors.New("movie details request failed")
 			}
 			slog.Debug("import: by tmdbid of movie", "cr", cr)
 			return s.SuccessfulImport(userId, cr.ID, util.SupportedMediaMovie, ar)
 		} else if ar.Type == entity.SHOW {
 			cr, err := s.cp.TvDetails(tid, "", map[string]string{})
 			if err != nil {
-				return ImportResponse{}, errors.New("tv details request failed")
+				return domain.ImportResponse{}, errors.New("tv details request failed")
 			}
 			slog.Debug("import: by tmdbid of tv", "cr", cr)
 			return s.SuccessfulImport(userId, cr.ID, util.SupportedMediaShow, ar)
@@ -152,7 +117,7 @@ func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, 
 					w, e := s.wp.GetWatchedItemByTmdbId(userId, uint(onlyResult.ShowId), "tv")
 					if e != nil {
 						slog.Error("import: imdb match: Failed to add watched episode (failed to find watched item, it must exist!).", "rq", ar, "error", err)
-						return ImportResponse{Type: IMPORT_FAILED}, nil
+						return domain.ImportResponse{Type: domain.IMPORT_FAILED}, nil
 					}
 					ws, err := s.wep.AddWatchedEpisodes(userId, episode.WatchedEpisodeAddRequest{
 						WatchedID:       w.ID,
@@ -164,14 +129,14 @@ func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, 
 					})
 					if err != nil {
 						slog.Error("import: imdb match: Failed to add watched episode.", "rq", ar, "error", err)
-						return ImportResponse{Type: IMPORT_FAILED}, nil
+						return domain.ImportResponse{Type: domain.IMPORT_FAILED}, nil
 					} else {
 						w.WatchedEpisodes = ws.WatchedEpisodes
-						return ImportResponse{Type: IMPORT_SUCCESS, WatchedEntry: w}, nil
+						return domain.ImportResponse{Type: domain.IMPORT_SUCCESS, WatchedEntry: w}, nil
 					}
 				} else {
 					slog.Error("import: imdb match has unsupported media type.", "media_type", imdbResp.Results[0].MediaType, "rq", ar)
-					return ImportResponse{Type: IMPORT_FAILED}, nil
+					return domain.ImportResponse{Type: domain.IMPORT_FAILED}, nil
 				}
 			} else {
 				// Content in tmdb may just be missing a related imdb id, so allow search to continue by name below.
@@ -185,45 +150,39 @@ func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, 
 	sr, err := s.cp.SearchContent(ar.Name, 1)
 	if err != nil {
 		slog.Error("import: content search failed", "error", err)
-		return ImportResponse{}, errors.New("content search failed")
+		return domain.ImportResponse{}, errors.New("content search failed")
 	}
-	pMatches := []tmdb.TMDBSearchMultiResult{}
+	// potential matches
+	pMatches := []domain.Media{}
 	for _, r := range sr.Results {
 		if r.MediaType != "person" {
-			pMatches = append(pMatches, r)
+			pMatches = append(pMatches, r.AsMedia())
 		}
 	}
 	resLen := len(pMatches)
 	slog.Debug("import: potential matches", "num_found", resLen)
 	if resLen <= 0 {
 		slog.Debug("import: returning IMPORT_NOTFOUND")
-		return ImportResponse{Type: IMPORT_NOTFOUND}, nil
+		return domain.ImportResponse{Type: domain.IMPORT_NOTFOUND}, nil
 	} else if resLen > 1 {
 		slog.Debug("import: multiple results found")
 		// If there are multiple responses, but only one item
 		// from the results is a 100% match for the imported
 		// items name, then consider successful match with that.
-		perfectMatches := []tmdb.TMDBSearchMultiResult{}
+		perfectMatches := []domain.Media{}
 		for _, r := range pMatches {
-			itemName := r.Name
-			if itemName == "" {
-				itemName = r.Title
-			}
 			itemReleaseYear := 0
 			// Only parse dates to find year if the import request has provided
 			// a year to comparisons.. otherwise don't do it to save some performance juice.
 			if ar.Year != 0 {
-				itemReleaseDateStr := r.ReleaseDate
-				if itemReleaseDateStr == "" {
-					itemReleaseDateStr = r.FirstAirDate
-				}
-				if itemReleaseDate, err := time.Parse("2006-01-02", itemReleaseDateStr); err == nil {
-					itemReleaseYear = itemReleaseDate.Year()
+				if !r.ReleaseDate.IsZero() {
+					itemReleaseYear = r.ReleaseDate.Year()
 				} else {
-					slog.Error("import: failed to check item release year, it can't be used for matching", "error", err, "item", r)
+					slog.Error("import: failed to check item release year, it can't be used for matching",
+						"error", err, "item", r)
 				}
 			}
-			if strings.EqualFold(itemName, ar.Name) {
+			if strings.EqualFold(r.Name, ar.Name) {
 				slog.Debug("import: multiple results processing: found a perfect name match", "itemReleaseYear", itemReleaseYear, "ar.Year", ar.Year, "match", r)
 				// If we have a year for comparison, force a check to compare them for a
 				// match to be deemed perfect.
@@ -245,19 +204,32 @@ func (s *Service) ImportContent(userId uint, ar ImportRequest) (ImportResponse, 
 		}
 		// If one perfect match found, import it
 		pmLen := len(perfectMatches)
-		if pmLen == 1 && perfectMatches[0].ID != 0 {
+		if pmLen == 1 && perfectMatches[0].IDs.TMDB != 0 {
 			slog.Debug("import: importing from perfect match")
-			return s.SuccessfulImport(userId, perfectMatches[0].ID, util.SupportedMedia(perfectMatches[0].MediaType), ar)
+			return s.SuccessfulImport(
+				userId,
+				perfectMatches[0].IDs.TMDB,
+				perfectMatches[0].GetMediaType(),
+				ar)
 		}
 		slog.Debug("import: returning all potential matches")
-		return ImportResponse{Type: IMPORT_MULTI, Results: pMatches}, nil
+		return domain.ImportResponse{Type: domain.IMPORT_MULTI, Results: pMatches}, nil
 	} else {
 		slog.Debug("import: success.. only found one result")
-		return s.SuccessfulImport(userId, pMatches[0].ID, util.SupportedMedia(pMatches[0].MediaType), ar)
+		return s.SuccessfulImport(
+			userId,
+			pMatches[0].IDs.TMDB,
+			pMatches[0].GetMediaType(),
+			ar)
 	}
 }
 
-func (s *Service) SuccessfulImport(userId uint, contentId int, contentType util.SupportedMedia, ar ImportRequest) (ImportResponse, error) {
+func (s *Service) SuccessfulImport(
+	userId uint,
+	contentId int,
+	contentType util.SupportedMedia,
+	ar domain.ImportRequest,
+) (domain.ImportResponse, error) {
 	status := entity.FINISHED
 	if ar.Status != "" {
 		status = ar.Status
@@ -282,16 +254,20 @@ func (s *Service) SuccessfulImport(userId uint, contentId int, contentType util.
 	if err != nil {
 		if err.Error() == "content already on watched list" {
 			slog.Error("successfulImport: unique constraint hit.. show must already be on watch list", "error", err)
-			return ImportResponse{Type: IMPORT_EXISTS}, nil
+			return domain.ImportResponse{Type: domain.IMPORT_EXISTS}, nil
 		}
 		slog.Error("successfulImport: Failed to add content as watched", "error", err)
-		return ImportResponse{Type: IMPORT_FAILED}, nil
+		return domain.ImportResponse{Type: domain.IMPORT_FAILED}, nil
 	}
-	// Add activity of the original time the show was added to the users watchlist on whichever platform they are coming from.
+	// Add activity of the original time the show was added to the users
+	// watchlist on whichever platform they are coming from.
 	if ar.RatingCustomDate != nil {
 		var addedActivity entity.Activity
 		if len(w.Activity) > 0 {
-			activityJson, _ := json.Marshal(map[string]interface{}{"rating": ar.Rating, "linkedActivity": w.Activity[0].ID})
+			activityJson, _ := json.Marshal(map[string]interface{}{
+				"rating":         ar.Rating,
+				"linkedActivity": w.Activity[0].ID,
+			})
 			addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_RATING, Data: string(activityJson), CustomDate: ar.RatingCustomDate})
 		} else {
 			addedActivity, _ = s.activityProvider.AddActivity(userId, domain.ActivityAddRequest{WatchedID: w.ID, Type: entity.IMPORTED_RATING, Data: strconv.Itoa(int(ar.Rating)), CustomDate: ar.RatingCustomDate})
@@ -398,5 +374,5 @@ func (s *Service) SuccessfulImport(userId uint, contentId int, contentType util.
 			w.Tags = append(w.Tags, t)
 		}
 	}
-	return ImportResponse{Type: IMPORT_SUCCESS, WatchedEntry: w}, nil
+	return domain.ImportResponse{Type: domain.IMPORT_SUCCESS, WatchedEntry: w}, nil
 }

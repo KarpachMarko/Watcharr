@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/router"
 )
@@ -32,7 +33,7 @@ func (r *Router) AddRoutes() {
 // Import content (the client handle processing data and sends it to us in a uniform way).
 func (r *Router) ImportContent(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
-	var ar ImportRequest
+	var ar domain.ImportRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
 		response, err := r.service.ImportContent(userId, ar)

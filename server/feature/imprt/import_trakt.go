@@ -15,6 +15,7 @@ import (
 
 	"github.com/sbondCo/Watcharr/database/dbmodel"
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/job"
 )
 
@@ -125,7 +126,7 @@ func (t *TraktService) startTraktImport(jobId string, userId uint, traktUsername
 	}
 	userSlug := traktUser.IDs.Slug
 	// Everything will be added to this map for importing at the end.
-	toImport := map[string]ImportRequest{}
+	toImport := map[string]domain.ImportRequest{}
 	// Process all history for this user (in chunks of 1000).
 	var history []TraktHistory
 	slog.Debug("startTraktImport: Getting first history page")
@@ -249,7 +250,7 @@ func (t *TraktService) startTraktImport(jobId string, userId uint, traktUsername
 				}
 			} else {
 				// If the item does not exist in toImport, create it and set it to planned.
-				ti := ImportRequest{
+				ti := domain.ImportRequest{
 					Type:   contentType,
 					TmdbID: tmdbId,
 					Status: entity.PLANNED,
@@ -343,7 +344,7 @@ func (t *TraktService) startTraktImport(jobId string, userId uint, traktUsername
 	job.UpdateJobStatus(jobId, userId, job.JOB_DONE)
 }
 
-func (t *TraktService) processTraktHistoryItem(v TraktHistory, toImport map[string]ImportRequest) error {
+func (t *TraktService) processTraktHistoryItem(v TraktHistory, toImport map[string]domain.ImportRequest) error {
 	var (
 		title          string
 		traktId        int
@@ -387,7 +388,7 @@ func (t *TraktService) processTraktHistoryItem(v TraktHistory, toImport map[stri
 		e.WatchedEpisodes = append(toImport[mapKey].WatchedEpisodes, watchedEpisode)
 		toImport[mapKey] = e
 	} else {
-		toImport[mapKey] = ImportRequest{
+		toImport[mapKey] = domain.ImportRequest{
 			Type:            contentType,
 			TmdbID:          tmdbId,
 			Status:          entity.FINISHED,
