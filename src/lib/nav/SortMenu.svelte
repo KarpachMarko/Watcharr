@@ -53,6 +53,12 @@
 	>
 		Alphabetical
 	</button>
+	<button
+		class={`plain ${store.activeSort[0] == "DATERELEASED" ? store.activeSort[1].toLowerCase() : ""}`}
+		onclick={() => sortClicked("DATERELEASED")}
+	>
+		Release Date
+	</button>
 </Menu>
 
 <style lang="scss">

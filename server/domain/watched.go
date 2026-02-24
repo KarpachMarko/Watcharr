@@ -15,6 +15,7 @@ const (
 	WatchedSortLastFinished WatchedSort = "LASTFIN"
 	WatchedSortRating       WatchedSort = "RATING"
 	WatchedSortAlphabetical WatchedSort = "ALPHA"
+	WatchedSortDateReleased WatchedSort = "DATERELEASED"
 )
 
 type SortDirection string

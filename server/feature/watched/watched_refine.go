@@ -92,6 +92,11 @@ func refineSort(db *gorm.DB, sort domain.WatchedSort, dir domain.SortDirection) 
 			Name: "COALESCE(`Content`.`title`, `Game`.`name`)",
 			Raw:  true,
 		}))
+	case domain.WatchedSortDateReleased:
+		db.Order(obc(clause.Column{
+			Name: "COALESCE(`Content`.`release_date`, `Game`.`release_date`)",
+			Raw:  true,
+		}))
 	}
 }
 
