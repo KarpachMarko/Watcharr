@@ -18,6 +18,7 @@
 	import ProvidersList from "@/lib/content/ProvidersList.svelte";
 	import PosterImage from "@/lib/content/PosterImage.svelte";
 	import Poster from "@/lib/poster/Poster.svelte";
+	import ExpandableText from "@/lib/content/ExpandableText.svelte";
 
 	let { data } = $props();
 
@@ -146,7 +147,7 @@
 							</div>
 						</span>
 
-						<p>{game.summary}</p>
+						<ExpandableText text={game.summary} style="margin-bottom: 18px;" />
 
 						<div class="btns">
 							<ViewTrailerButton videos={game.videos} />
@@ -235,11 +236,6 @@
 				display: flex;
 				gap: 10px;
 				margin-bottom: 8px;
-			}
-
-			p {
-				font-size: 16px;
-				margin-bottom: 18px;
 			}
 
 			.btns {

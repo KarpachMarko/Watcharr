@@ -33,6 +33,7 @@
 	import MyReview from "@/lib/content/MyReview.svelte";
 	import ViewTrailerButton from "@/lib/content/ViewTrailerButton.svelte";
 	import PosterImage from "@/lib/content/PosterImage.svelte";
+	import ExpandableText from "@/lib/content/ExpandableText.svelte";
 
 	let { data } = $props();
 
@@ -176,7 +177,7 @@
 							{/if}
 						</span>
 
-						<p>{show.summary}</p>
+						<ExpandableText text={show.summary} style="margin-bottom: 18px;" />
 
 						<div class="btns">
 							<ViewTrailerButton videos={show.videos} />
@@ -330,11 +331,6 @@
 				display: flex;
 				gap: 10px;
 				margin-bottom: 8px;
-			}
-
-			p {
-				font-size: 16px;
-				margin-bottom: 18px;
 			}
 
 			.btns {

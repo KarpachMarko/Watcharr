@@ -142,6 +142,8 @@ export interface Watched extends dbModel {
 	thoughts: string;
 	pinned: boolean;
 
+	activity?: Activity[];
+
 	media?: Media;
 }
 
@@ -410,7 +412,6 @@ export interface PersonDetailsResponse {
 export interface PersonCreditsResponse {
 	credits?: Media[];
 }
-
 
 export interface TMDBSeasonDetails {
 	_id: string;

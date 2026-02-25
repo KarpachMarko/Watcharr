@@ -14,8 +14,8 @@
 	import Checkbox from "@/lib/Checkbox.svelte";
 	import Icon from "@/lib/Icon.svelte";
 	import PageBackdrop from "@/lib/generic/PageBackdrop.svelte";
-	import Bio from "./Bio.svelte";
 	import PosterImage from "@/lib/content/PosterImage.svelte";
+	import ExpandableText from "@/lib/content/ExpandableText.svelte";
 
 	let { data } = $props();
 
@@ -146,7 +146,7 @@
 								<span></span>
 							</span>
 
-							<Bio bio={person.biography} />
+							<ExpandableText title="Biography" text={person.biography} />
 
 							<div class="detail-info">
 								{#if person.knownForDepartment}
