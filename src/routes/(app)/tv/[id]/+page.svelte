@@ -310,7 +310,13 @@
 				<SeasonsList
 					tvId={data.tvId}
 					seasons={show.seasons}
-					bind:watchedItem={show.watched}
+					watchedItem={show.watched}
+					lastViewedSeason={show.watched?.lastViewedSeason}
+					lastViewedSeasonChanged={(wid, lvs) => {
+						if (show?.watched && show.watched.id === wid) {
+							show.watched.lastViewedSeason = lvs;
+						}
+					}}
 				/>
 			{/if}
 		</div>

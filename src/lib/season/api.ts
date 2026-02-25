@@ -35,7 +35,7 @@ export async function updateWatchedSeason(
 			rating: opts.rating,
 		});
 		watchedItem.watchedSeasons = r.data.watchedSeasons;
-		if (watchedItem.activity?.length > 0) {
+		if (watchedItem.activity && watchedItem.activity?.length > 0) {
 			watchedItem.activity.push(r.data.addedActivity);
 		} else {
 			watchedItem.activity = [r.data.addedActivity];
@@ -55,7 +55,7 @@ export async function removeWatchedSeason(watchedItem: Watched, id: number) {
 			(s) => s.id !== id,
 		);
 		if (r.data) {
-			if (watchedItem.activity?.length > 0) {
+			if (watchedItem.activity && watchedItem.activity?.length > 0) {
 				watchedItem.activity.push(r.data);
 			} else {
 				watchedItem.activity = [r.data];
@@ -88,7 +88,7 @@ export async function updateWatchedEpisode(
 			rating: opts.rating,
 		});
 		watchedItem.watchedEpisodes = r.data.watchedEpisodes;
-		if (watchedItem.activity?.length > 0) {
+		if (watchedItem.activity && watchedItem.activity?.length > 0) {
 			watchedItem.activity.push(r.data.addedActivity);
 		} else {
 			watchedItem.activity = [r.data.addedActivity];
@@ -153,7 +153,7 @@ export async function removeWatchedEpisode(watchedItem: Watched, id: number) {
 			(s) => s.id !== id,
 		);
 		if (r.data) {
-			if (watchedItem.activity?.length > 0) {
+			if (watchedItem.activity && watchedItem.activity?.length > 0) {
 				watchedItem.activity.push(r.data);
 			} else {
 				watchedItem.activity = [r.data];

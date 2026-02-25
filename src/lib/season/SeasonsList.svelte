@@ -16,38 +16,46 @@
 	import Icon from "@/lib/Icon.svelte";
 	import { watchedStatuses } from "@/lib/util/helpers";
 	import { removeWatchedSeason, updateWatchedSeason } from "./api";
+	import { onMount } from "svelte";
 
 	interface Props {
 		tvId: number;
 		seasons: MediaSeason[];
 		watchedItem: Watched | undefined;
+		lastViewedSeason: number | undefined;
+		lastViewedSeasonChanged: (wid: number, lvs: number) => void;
 	}
 
-	let { tvId, seasons, watchedItem = $bindable() }: Props = $props();
+	let {
+		tvId,
+		seasons,
+		watchedItem,
+		lastViewedSeason,
+		lastViewedSeasonChanged,
+	}: Props = $props();
 
-	let activeSeason = $state(
-		typeof watchedItem?.lastViewedSeason === "number"
-			? watchedItem?.lastViewedSeason
-			: 1,
-	);
-	let seasonDetailsReq: Promise<TMDBSeasonDetails> = $derived(
-		sdr(activeSeason),
-	);
+	let activeSeason = $state(lastViewedSeason ?? 1);
+	let seasonDetailsReq: Promise<TMDBSeasonDetails> | undefined = $state();
+
+	onMount(() => {
+		console.debug("SeasonsList: Mounted.");
+		seasonDetailsReq = sdr(activeSeason);
+	});
 
 	async function sdr(seasonNum: number) {
-		console.debug("SeasonList: sdr: Called.", tvId, seasonNum);
+		const wid = watchedItem?.id;
+		console.debug("SeasonList: sdr: Called.", tvId, seasonNum, wid);
 		const resp = await axios.get(`/content/tv/${tvId}/season/${seasonNum}`, {
 			params: {
-				watchedId: watchedItem?.id,
+				watchedId: wid,
 			},
 		});
 		try {
-			if (watchedItem?.id) {
+			if (wid) {
 				// If we sent a watched id, expect a 'watcharr-lastviewedseason-saved' header in the response.
 				const hVal = resp.headers["watcharr-lastviewedseason-saved"];
 				if (hVal) {
-					watchedItem.lastViewedSeason = seasonNum;
-					// watchedList.update((w) => w);
+					lastViewedSeasonChanged(wid, seasonNum);
 				} else {
 					console.error(
 						"SeasonList: sdr: No header in response indicating that the lastviewedseason was saved.",
@@ -123,9 +131,12 @@
 	<ul class="seasons">
 		{#each seasons as season}
 			<button
-				class={`plain${activeSeason === season.number ? " active" : ""}`}
+				class="plain"
+				class:active={activeSeason === season.number}
 				onclick={() => {
+					console.debug("SeasonsList: Season button pressed", season.number);
 					activeSeason = season.number;
+					seasonDetailsReq = sdr(activeSeason);
 				}}
 			>
 				<div>
@@ -164,54 +175,58 @@
 		<div class="last"></div>
 	</ul>
 
-	<div class="episodes">
-		{#await seasonDetailsReq}
-			<Spinner />
-		{:then season}
-			<div class="episodes-topbar">
-				<h3>{season.name}</h3>
-				{#if watchedItem}
-					{@const ws = watchedItem?.watchedSeasons?.find(
-						(s) => s.seasonNumber === season.season_number,
-					)}
-					{#if ws}
-						<div class="rating">
-							<PosterRating
-								rating={ws?.rating}
-								btnTooltip="Season Rating"
-								handleStarClick={(r) =>
-									handleStarClick(r, season.season_number)}
-								minimal={true}
+	{#if seasonDetailsReq}
+		<div class="episodes">
+			{#await seasonDetailsReq}
+				<Spinner />
+			{:then season}
+				<div class="episodes-topbar">
+					<h3>{season.name}</h3>
+					{#if watchedItem}
+						{@const ws = watchedItem?.watchedSeasons?.find(
+							(s) => s.seasonNumber === season.season_number,
+						)}
+						{#if ws}
+							<div class="rating">
+								<PosterRating
+									rating={ws?.rating}
+									btnTooltip="Season Rating"
+									handleStarClick={(r) =>
+										handleStarClick(r, season.season_number)}
+									minimal={true}
+									direction="bot"
+								/>
+							</div>
+						{/if}
+						<div class="status">
+							<PosterStatus
+								status={ws?.status}
+								btnTooltip="Season Status"
+								handleStatusClick={(t) =>
+									handleStatusClick(t, season.season_number)}
 								direction="bot"
+								width="100%"
+								small
 							/>
 						</div>
 					{/if}
-					<div class="status">
-						<PosterStatus
-							status={ws?.status}
-							btnTooltip="Season Status"
-							handleStatusClick={(t) =>
-								handleStatusClick(t, season.season_number)}
-							direction="bot"
-							width="100%"
-							small
-						/>
-					</div>
+				</div>
+				{#if season?.episodes?.length > 0}
+					<ul>
+						{#each season.episodes as ep}
+							<SeasonsListEpisode {ep} {watchedItem} />
+						{/each}
+					</ul>
+				{:else}
+					<h3 class="norm">No episodes in this season yet!</h3>
 				{/if}
-			</div>
-			{#if season?.episodes?.length > 0}
-				<ul>
-					{#each season.episodes as ep}
-						<SeasonsListEpisode {ep} bind:watchedItem />
-					{/each}
-				</ul>
-			{:else}
-				<h3 class="norm">No episodes in this season yet!</h3>
-			{/if}
-		{:catch err}
-			<Error pretty="Failed to load season details!" error={err} />
-		{/await}
-	</div>
+			{:catch err}
+				<Error pretty="Failed to load season details!" error={err} />
+			{/await}
+		</div>
+	{:else}
+		<h3 class="norm">Try selecting a season.</h3>
+	{/if}
 </div>
 
 <style lang="scss">

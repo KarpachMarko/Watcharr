@@ -132,7 +132,7 @@ export interface WatchedEpisode {
 	episodeNumber: number;
 }
 
-export interface Watched extends dbModel {
+export interface Watched {
 	id: number;
 	createdAt: string;
 	updatedAt: string;
@@ -143,6 +143,10 @@ export interface Watched extends dbModel {
 	pinned: boolean;
 
 	activity?: Activity[];
+	watchedSeasons?: WatchedSeason[];
+	watchedEpisodes?: WatchedEpisode[];
+	tags?: Tag[];
+	lastViewedSeason?: number;
 
 	media?: Media;
 }
