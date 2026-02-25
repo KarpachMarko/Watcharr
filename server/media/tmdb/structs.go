@@ -538,6 +538,10 @@ func (t *TMDBShowDetails) AsMedia() domain.Media {
 	m.IDs.IMDB = t.ExternalIds.ImdbID
 	m.IDs.Wikidata = t.ExternalIds.WikidataID
 	m.IDs.TVDB = t.ExternalIds.TvdbID
+	// Convert similar items to media too.
+	for i := range t.Similar.Results {
+		m.Similar = append(m.Similar, t.Similar.Results[i].AsMedia())
+	}
 	// Seasons
 	for _, v := range t.Seasons {
 		ms := domain.MediaSeason{
@@ -643,7 +647,7 @@ func (t *TMDBShowSimilarResult) AsMedia() domain.Media {
 		IDs: domain.MediaIDs{
 			TMDB: t.ID,
 		},
-		Type:          domain.MediaTypeTMDBMovie,
+		Type:          domain.MediaTypeTMDBShow,
 		Name:          t.Name,
 		Summary:       t.Overview,
 		ExtPosterPath: t.PosterPath,
