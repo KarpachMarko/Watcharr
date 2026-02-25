@@ -16,7 +16,7 @@
 		watchedItem: Watched | undefined;
 	}
 
-	let { ep, watchedItem = $bindable() }: Props = $props();
+	let { ep, watchedItem }: Props = $props();
 
 	let isHidden: boolean = $state(!!store?.userSettings?.hideSpoilers);
 
