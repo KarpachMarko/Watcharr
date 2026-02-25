@@ -14,7 +14,7 @@
 {#if providers?.length > 0}
 	<div class="streaming-providers">
 		{#each providers as provider}
-			<ProviderIcon i={provider.name} wh={40} />
+			<ProviderIcon i={provider.name} href={provider.link} wh={40} />
 		{/each}
 		{#if fullListLink}
 			<!-- The fullListLink is important for TMDB data, we always show it

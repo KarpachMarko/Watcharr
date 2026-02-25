@@ -108,7 +108,7 @@ type GameDetailsResponse struct {
 		Height  int    `json:"height"`
 		ImageID string `json:"image_id"`
 	} `json:"artworks"`
-	Category int `json:"category"`
+	GameType int `json:"game_type"`
 	Cover    struct {
 		ID      int    `json:"id"`
 		ImageID string `json:"image_id"`
@@ -130,10 +130,10 @@ type GameDetailsResponse struct {
 			Name        string `json:"name"`
 			Slug        string `json:"slug"`
 			Websites    []struct {
-				ID       int    `json:"id"`
-				Category int    `json:"category"`
-				Trusted  bool   `json:"trusted"`
-				URL      string `json:"url"`
+				ID      int    `json:"id"`
+				Type    int    `json:"type"`
+				Trusted bool   `json:"trusted"`
+				URL     string `json:"url"`
 			} `json:"websites"`
 		} `json:"company"`
 		Developer  bool `json:"developer"`
