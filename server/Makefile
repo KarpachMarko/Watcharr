@@ -3,3 +3,6 @@ run:
 
 plainrun:
 	go run .
+
+test:
+	go test ./...
