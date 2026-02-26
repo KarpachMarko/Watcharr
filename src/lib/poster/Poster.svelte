@@ -32,7 +32,6 @@
 		disableInteraction?: boolean;
 		hideButtons?: boolean;
 		fluidSize?: boolean;
-		pinned?: boolean;
 		/**
 		 * If the poster should be hidden if not on users watched list (no `id`).
 		 * Doing it this way so we can quickly hide posters with css and avoid
@@ -61,7 +60,6 @@
 		disableInteraction = false,
 		hideButtons = false,
 		fluidSize = false,
-		pinned = false,
 		hideIfNotOnList = false,
 		onClick = undefined,
 		onUpdated = undefined,
@@ -296,7 +294,7 @@
 		}
 	}}
 	onkeypress={() => console.log("on kpress")}
-	class={`${posterActive ? "active " : ""}${pinned ? "pinned " : ""}${hideIfNotOnList && !watched ? "hidden " : ""}`}
+	class={`${posterActive ? "active " : ""}${watched?.pinned ? "pinned " : ""}${hideIfNotOnList && !watched ? "hidden " : ""}`}
 >
 	<div
 		class={`container${!poster ? " details-shown" : ""}`}

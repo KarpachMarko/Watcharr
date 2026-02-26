@@ -40,7 +40,7 @@ type Media struct {
 	// The amount of votes that made up the rating.
 	RatingCount uint `json:"ratingCount,omitempty"`
 	// Watched data.
-	Watched *entity.Watched `json:"watched,omitempty"`
+	Watched WatchedDto `json:"watched,omitzero"`
 	// Similar media.
 	Similar []Media `json:"similar,omitempty"`
 	// Release date / first air date.
@@ -143,6 +143,21 @@ type MediaSeason struct {
 	ReleaseDate time.Time `json:"releaseDate,omitzero"`
 	// Number of episodes in season.
 	EpisodeCount int `json:"episodeCount"`
+}
+
+// Create Media dto from Watched entity.
+func NewMediaFromWatched(w *entity.Watched, watchedDto *WatchedDto) Media {
+	var media Media
+
+	if w.Content != nil {
+		media = NewMediaFromContent(w.Content)
+	} else if w.Game != nil {
+		media = NewMediaFromGame(w.Game)
+	}
+
+	media.Watched = *watchedDto
+
+	return media
 }
 
 // Converter for Content (tv/movie) entity to Media

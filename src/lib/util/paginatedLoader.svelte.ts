@@ -43,6 +43,10 @@ export default function paginatedLoader<T>(
 		state.pageMax = 1;
 		state.reqLoading = false;
 		state.reqLoadError = undefined;
+		// Abort any existing request to ensure we don't end up having multiple
+		// at same time.
+		abortReq("state reset");
+		console.log("paginatedLoader->reset(): Finished.");
 	};
 
 	/**
@@ -112,6 +116,12 @@ export default function paginatedLoader<T>(
 		} catch (err: any) {
 			if (err?.code === "ERR_CANCELED") {
 				console.warn("loadWatchedList: Cancelled, not showing error.");
+				// If request cancelled (likely by us aborting), then return
+				// here to avoid updating reqLoading state to false below.
+				// This fixes the case where we abort a request and start the
+				// next one before this one throws, which sets reqLoading to
+				// false for our next request (race condition).
+				return;
 			} else {
 				console.error("loadWatchedList: failed!", err);
 				state.reqLoadError = err;

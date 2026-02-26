@@ -70,7 +70,7 @@ type PublicUser struct {
 	ID       uint   `json:"id"`
 	Username string `json:"username"`
 	AvatarID uint   `json:"-"`
-	Avatar   Image  `json:"avatar"`
+	Avatar   Image  `json:"avatar,omitzero"`
 	Bio      string `json:"bio,omitempty"`
 }
 

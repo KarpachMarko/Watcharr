@@ -78,13 +78,13 @@ func (r *Router) GetGameDetails(c *gin.Context) {
 		userId,
 		contentAsMedia,
 		func(w *entity.Watched) {
-			contentAsMedia.Watched = w
+			contentAsMedia.Watched = domain.NewWatchedDtoForContentPage(w)
 		},
 		[]*addedtocontent.AddListCall[domain.Media]{
 			addedtocontent.NewAddListCall(
 				contentAsMedia.Similar,
 				func(i int, w *entity.Watched) {
-					contentAsMedia.Similar[i].Watched = w
+					contentAsMedia.Similar[i].Watched = domain.NewWatchedDtoForLists(w)
 				},
 			),
 		},

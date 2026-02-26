@@ -85,13 +85,13 @@ func (r *Router) GetMovieDetails(c *gin.Context) {
 		userId,
 		contentAsMedia,
 		func(w *entity.Watched) {
-			contentAsMedia.Watched = w
+			contentAsMedia.Watched = domain.NewWatchedDtoForContentPage(w)
 		},
 		[]*addedtocontent.AddListCall[domain.Media]{
 			addedtocontent.NewAddListCall(
 				contentAsMedia.Similar,
 				func(i int, w *entity.Watched) {
-					contentAsMedia.Similar[i].Watched = w
+					contentAsMedia.Similar[i].Watched = domain.NewWatchedDtoForLists(w)
 				},
 			),
 		},
@@ -143,13 +143,13 @@ func (r *Router) GetTvDetails(c *gin.Context) {
 		userId,
 		contentAsMedia,
 		func(w *entity.Watched) {
-			contentAsMedia.Watched = w
+			contentAsMedia.Watched = domain.NewWatchedDtoForContentPage(w)
 		},
 		[]*addedtocontent.AddListCall[domain.Media]{
 			addedtocontent.NewAddListCall(
 				contentAsMedia.Similar,
 				func(i int, w *entity.Watched) {
-					contentAsMedia.Similar[i].Watched = w
+					contentAsMedia.Similar[i].Watched = domain.NewWatchedDtoForLists(w)
 				},
 			),
 		},
@@ -248,7 +248,7 @@ func (r *Router) GetPersonCredits(c *gin.Context) {
 		userId,
 		resp.Credits,
 		func(i int, w *entity.Watched) {
-			resp.Credits[i].Watched = w
+			resp.Credits[i].Watched = domain.NewWatchedDtoForLists(w)
 		},
 	); err != nil {
 		slog.Error("GetPersonCredits: Failed to add watched to content!", "error", err)

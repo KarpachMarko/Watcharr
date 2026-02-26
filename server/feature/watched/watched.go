@@ -114,6 +114,68 @@ func (s *Service) GetWatchedPage(
 	return *pRes, nil
 }
 
+// Get a users **public** watchlist.
+func (s *Service) getPublicWatched(
+	userId uint,
+	username string,
+	pp util.PaginationParams,
+	wr domain.WatchedGetPageRequest,
+) (util.PaginationResponse[entity.Watched], error) {
+	slog.Debug("getPublicWatched: running",
+		"user_id", userId, "username", username)
+
+	// First we need to make sure the users list is public
+	user := new(entity.User)
+	// I figure we require knowlege of the users id and name to make it
+	// harder to just type in random ids and see someones list.. dunno
+	// if this is a thing we need but its here.. for now at least.
+	res := s.db.
+		Where("id = ? AND username = ?", userId, username).
+		Take(&user)
+	if res.Error != nil {
+		slog.Error("getPublicWatched: Failed to get user.",
+			"user_id", userId)
+		return util.PaginationResponse[entity.Watched]{}, errors.New("failed to check privacy settings")
+	}
+	if user.Private != nil && *user.Private {
+		slog.Error("getPublicWatched: This users list is private.",
+			"user_id", userId)
+		return util.PaginationResponse[entity.Watched]{}, errors.New("this watched list is private")
+	}
+
+	// Now we know the user is public, return their list
+	watched := new([]entity.Watched)
+	pRes := &util.PaginationResponse[entity.Watched]{}
+	res = s.db.
+		Model(&entity.Watched{}).
+		Where(&entity.Watched{UserID: userId}).
+		Joins("Content").
+		Joins("Game").
+		Preload("Game.Poster").
+		Preload("Tags").
+		Preload("WatchedSeasons").
+		Preload("WatchedEpisodes").
+		// Refine our results first (filters, sort);
+		Scopes(
+			watchedRefine(wr),
+		).
+		// Then count results (after filter);
+		Count(&pRes.TotalResults).
+		// Now calculate pagination properties with a TotalResults
+		// that takes filtered out items into account.
+		Scopes(
+			util.Paginate(pp, pRes),
+		).
+		Find(&watched)
+	if res.Error != nil {
+		slog.Error("getPublicWatched: Failed!", "error", res.Error)
+		return util.PaginationResponse[entity.Watched]{}, errors.New("failed fetching the list")
+	}
+	pRes.Results = *watched
+	pRes.Finished(pp)
+	return *pRes, nil
+}
+
 // Get a watched list item by id (must be for `userId`).
 func (s *Service) GetWatchedItemById(userId uint, id uint) (entity.Watched, error) {
 	watched := new(entity.Watched)
@@ -268,38 +330,6 @@ func (s *Service) GetWatchedItemsBySupportedMediaIds(userId uint, c []addedtocon
 		}
 	}
 	return watcheds, nil
-}
-
-// Get another users **public** watchlist.
-func (s *Service) getPublicWatched(userId uint, username string) ([]entity.Watched, error) {
-	slog.Debug("getPublicWatched running", "user_id", userId, "username", username)
-	// First we need to make sure the users list is public
-	user := new(entity.User)
-	// Figure we require knowlege of the users id and name to make it
-	// harder to just type in random ids and see someones list.. dunno
-	// if this is a thing we need but its here.. for now at least.
-	res := s.db.Where("id = ? AND username = ?", userId, username).Take(&user)
-	if res.Error != nil {
-		slog.Error("Failed to get user for getPublicWatched request", "user_id", userId)
-		return []entity.Watched{}, errors.New("failed to check privacy settings")
-	}
-	if user.Private != nil && *user.Private {
-		slog.Error("getPublicWatched attempted to get a private list", "user_id", userId)
-		return []entity.Watched{}, errors.New("this watched list is private")
-	}
-	// Now we know the user is public, return their list
-	watched := new([]entity.Watched)
-	res = s.db.Model(&entity.Watched{}).
-		Preload("Content").
-		Preload("Game").
-		Preload("Game.Poster").
-		Preload("Activity").
-		Where("user_id = ?", userId).
-		Find(&watched)
-	if res.Error != nil {
-		return []entity.Watched{}, errors.New("failed fetching the list")
-	}
-	return *watched, nil
 }
 
 func (s *Service) AddWatched(

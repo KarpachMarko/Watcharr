@@ -83,7 +83,7 @@ func (r *Router) GetSearch(c *gin.Context) {
 		userId,
 		ww.Results,
 		func(i int, w *entity.Watched) {
-			ww.Results[i].Watched = w
+			ww.Results[i].Watched = domain.NewWatchedDtoForLists(w)
 		},
 	); err != nil {
 		slog.Error("GetSearch: Failed to add watched to content!", "error", err)

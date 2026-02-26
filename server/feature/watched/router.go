@@ -36,7 +36,7 @@ func (r *Router) AddRoutes() {
 	watched := r.br.Router.Group("/watched").Use(authmiddleware.AuthRequired(nil, r.br.Cfg))
 
 	watched.GET("", router.PaginatedRequest(false), r.GetWatchedList)
-	watched.GET(":id/:username", r.GetPublicWatchedList)
+	watched.GET(":id/:username", router.PaginatedRequest(true), r.GetPublicWatchedList)
 	watched.POST("", r.AddWatched)
 	watched.PUT(":id", r.UpdateWatched)
 	watched.DELETE(":id", r.DeleteWatched)
@@ -64,7 +64,7 @@ func (r *Router) GetWatchedList(c *gin.Context) {
 		if err != nil {
 			c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get page"})
 		}
-		dto := util.PaginationResponse[domain.WatchedGetPageResponseResult]{
+		dto := util.PaginationResponse[domain.Media]{
 			PaginationParams: wp.PaginationParams,
 			TotalPages:       wp.TotalPages,
 			TotalResults:     wp.TotalResults,
@@ -85,18 +85,34 @@ func (r *Router) GetWatchedList(c *gin.Context) {
 
 // Get another users watched list (if its public).
 func (r *Router) GetPublicWatchedList(c *gin.Context) {
+	pp := c.MustGet("paginationParams").(util.PaginationParams)
+	wpr := domain.WatchedGetPageRequest{
+		// Defaults..
+		Sort:    domain.WatchedSortDateAdded,
+		SortDir: domain.WatchedSortDirAsc,
+	}
+	if err := c.ShouldBind(&wpr); err != nil {
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get request parameters"})
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		slog.Error("getPublicWatched route failed to convert id param to uint", "id", id)
 		c.Status(400)
 		return
 	}
-	response, err := r.s.getPublicWatched(uint(id), c.Param("username"))
+	wp, err := r.s.getPublicWatched(uint(id), c.Param("username"), pp, wpr)
 	if err != nil {
 		c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, response)
+	dto := util.PaginationResponse[domain.Media]{
+		PaginationParams: wp.PaginationParams,
+		TotalPages:       wp.TotalPages,
+		TotalResults:     wp.TotalResults,
+		Results:          domain.NewWatchedGetPageResponse(wp.Results),
+	}
+	c.JSON(http.StatusOK, dto)
 }
 
 func (r *Router) AddWatched(c *gin.Context) {

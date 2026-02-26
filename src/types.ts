@@ -132,6 +132,9 @@ export interface WatchedEpisode {
 	episodeNumber: number;
 }
 
+/**
+ * Same as `WatchedDto` on server.
+ */
 export interface Watched {
 	id: number;
 	createdAt: string;
@@ -147,6 +150,9 @@ export interface Watched {
 	watchedEpisodes?: WatchedEpisode[];
 	tags?: Tag[];
 	lastViewedSeason?: number;
+
+	// 'Watching Season/Ep' Extra detail.
+	watchingSeason?: string;
 
 	media?: Media;
 }
@@ -240,8 +246,8 @@ export interface ChangePasswordForm {
 export interface PublicUser {
 	id: number;
 	username: string;
-	avatar: Image;
-	bio: string;
+	avatar?: Image;
+	bio?: string;
 }
 
 // PrivateUser - Current users info

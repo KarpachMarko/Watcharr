@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/feature/watched/watchedutil"
 	"github.com/sbondCo/Watcharr/util"
 )
 
@@ -42,18 +43,31 @@ type WatchedGetPageExtraProps struct {
 	WatchedIds []int
 }
 
-type WatchedGetPageResponseResult struct {
+type WatchedDto struct {
+	// Properties that always exist in every watched dto below.
+
 	ID        uint                 `json:"id"`
 	CreatedAt time.Time            `json:"createdAt"`
 	UpdatedAt time.Time            `json:"updatedAt"`
 	Status    entity.WatchedStatus `json:"status"`
 	Rating    float64              `json:"rating"`
 	Pinned    bool                 `json:"pinned"`
-	Media     Media                `json:"media"`
+
+	// Properties that may not be included in all watched dtos
+	// (depending on where we are making the dto for)
+
+	// Watching Season extra detail for list.
+	WatchingSeason   string                  `json:"watchingSeason,omitempty"`
+	Activity         []entity.Activity       `json:"activity,omitempty"`
+	WatchedSeasons   []entity.WatchedSeason  `json:"watchedSeasons,omitempty"`
+	WatchedEpisodes  []entity.WatchedEpisode `json:"watchedEpisodes,omitempty"`
+	Tags             []entity.Tag            `json:"tags,omitempty"`
+	LastViewedSeason *int                    `json:"lastViewedSeason,omitempty"`
 }
 
-func NewWatchedGetPageResponseResult(w *entity.Watched) WatchedGetPageResponseResult {
-	r := WatchedGetPageResponseResult{
+// New dto with base properties that we have for all WatchedDtos.
+func NewWatchedDtoWithBaseProps(w *entity.Watched) WatchedDto {
+	return WatchedDto{
 		ID:        w.ID,
 		CreatedAt: w.CreatedAt,
 		UpdatedAt: w.UpdatedAt,
@@ -61,20 +75,40 @@ func NewWatchedGetPageResponseResult(w *entity.Watched) WatchedGetPageResponseRe
 		Rating:    w.Rating,
 		Pinned:    w.Pinned,
 	}
-	if w.Content != nil {
-		r.Media = NewMediaFromContent(w.Content)
-	} else if w.Game != nil {
-		r.Media = NewMediaFromGame(w.Game)
-	}
-	return r
 }
 
-type WatchedGetPageResponse []WatchedGetPageResponseResult
+func NewWatchedDtoForLists(w *entity.Watched) WatchedDto {
+	dto := NewWatchedDtoWithBaseProps(w)
+
+	if w.Content != nil && w.Content.Type == entity.SHOW {
+		dto.WatchingSeason = watchedutil.GetLatestWatchedInTv(
+			w.WatchedSeasons, w.WatchedEpisodes)
+	}
+
+	return dto
+}
+
+// A fuller dto with all details needed for a content details page.
+func NewWatchedDtoForContentPage(w *entity.Watched) WatchedDto {
+	dto := NewWatchedDtoWithBaseProps(w)
+
+	dto.Activity = w.Activity
+	dto.WatchedSeasons = w.WatchedSeasons
+	dto.WatchedEpisodes = w.WatchedEpisodes
+	dto.Tags = w.Tags
+	dto.LastViewedSeason = w.LastViewedSeason
+
+	return dto
+}
+
+type WatchedGetPageResponse []Media
 
 func NewWatchedGetPageResponse(w []entity.Watched) WatchedGetPageResponse {
 	r := WatchedGetPageResponse{}
-	for _, v := range w {
-		r = append(r, NewWatchedGetPageResponseResult(&v))
+	for i := range w {
+		v := &w[i]
+		d := NewWatchedDtoForLists(v)
+		r = append(r, NewMediaFromWatched(v, &d))
 	}
 	return r
 }

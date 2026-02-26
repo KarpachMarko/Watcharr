@@ -1,5 +1,4 @@
 import type { SupportedMedia, Watched, WatchedStatus } from "@/types";
-import { getLatestWatchedInTv } from "../util/helpers";
 
 export type PosterExtraDetails = {
 	rating: number | undefined;
@@ -21,9 +20,7 @@ export function buildExtraDetails(
 		status: w.status,
 		dateAdded: w.createdAt,
 		dateModified: w.updatedAt,
+		lastWatched: w.watchingSeason,
 	} as PosterExtraDetails;
-	if (t === "tv") {
-		obj.lastWatched = getLatestWatchedInTv(w.watchedSeasons, w.watchedEpisodes);
-	}
 	return obj;
 }

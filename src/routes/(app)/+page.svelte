@@ -1,15 +1,19 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import Error from "@/lib/Error.svelte";
+	import Icon from "@/lib/Icon.svelte";
+	import Poster from "@/lib/poster/Poster.svelte";
+	import PosterList from "@/lib/poster/PosterList.svelte";
+	import Spinner from "@/lib/Spinner.svelte";
 	import infScroll from "@/lib/util/infScroll";
 	import paginatedLoader from "@/lib/util/paginatedLoader.svelte";
-	import WatchedList from "@/lib/WatchedList.svelte";
-	import { store } from "@/store.svelte";
-	import type { Watched } from "@/types";
+	import { clearActiveFilters, store } from "@/store.svelte";
+	import type { Media } from "@/types";
 	import axios, { type GenericAbortSignal } from "axios";
 	import { onDestroy, untrack } from "svelte";
 
 	const scroll = infScroll({ callback: onScrollToBottom });
-	const dataLoader = paginatedLoader<Watched>(load);
+	const dataLoader = paginatedLoader<Media>(load);
 
 	let nextLoadParams: {
 		page: number;
@@ -41,6 +45,7 @@
 		dataLoader.runFn();
 	}
 
+	// NOTE: This effect also handles initial load of data.
 	$effect(() => {
 		// When our sort/filter query params change,
 		// load our list again.
@@ -77,15 +82,39 @@
 	{JSON.stringify(store.sortAndFiltersForQueryParams)}</span
 > -->
 
-{#if dataLoader.state.data.length >= 0 && !dataLoader.state.reqLoadError}
-	<!-- Hide WatchedList if there is a load error and we have no
-	 	 items in our list array. WatchedList stays rendered if we
-		 do have items because we could get a load error loading
-		 the second page for example. -->
-	<WatchedList
-		list={dataLoader.state.data}
-		isLoading={dataLoader.state.reqLoading}
-	/>
+<PosterList>
+	{#if dataLoader.state.data?.length > 0}
+		{#each dataLoader.state.data as w, i (`${i}-${w.type}`)}
+			{#if w}
+				<Poster
+					bind:watched={dataLoader.state.data[i].watched}
+					media={w}
+					fluidSize={true}
+				/>
+			{/if}
+		{/each}
+	{:else if !dataLoader.state.reqLoading && !dataLoader.state.reqLoadError}
+		<div class="empty-list">
+			<Icon i={store.hasActiveFilters ? "filter-circle" : "reel"} wh={80} />
+			<h2 class="norm">Your list looks empty!</h2>
+			<h4 class="norm">
+				Try {`${store.hasActiveFilters ? "removing your active filters or" : ""}`}
+				searching for something you would like to add.
+			</h4>
+			{#if !store.hasActiveFilters}
+				<button onclick={() => goto("/import")}>Import</button>
+			{/if}
+			{#if store.hasActiveFilters}
+				<button onclick={() => clearActiveFilters()}>Clear Filters</button>
+			{/if}
+		</div>
+	{/if}
+</PosterList>
+
+{#if dataLoader.state.reqLoading}
+	<div style="margin-bottom: 60px;">
+		<Spinner />
+	</div>
 {/if}
 
 {#if dataLoader.state.reqLoadError}
@@ -101,8 +130,33 @@
 	</div>
 {/if}
 
-<!-- TODO: A 'Thats It! All {watcheds_count} of your records.' message
- or similar message to indicate that we are now at the bottom of the
- users list (only show when listPage === listPageMax & we have any items.. etc
- probs best adding this to WatchedList component.. but message probs needs to be
- a bit different depending on viewing own list or someone elses). -->
+<!-- TODO: A 'That's it' message when you reach bottom of your list? -->
+<!-- {#if !dataLoader.state.reqLoadError && dataLoader.state.page === dataLoader.state.pageMax}
+	<b>That's it!</b>
+{/if} -->
+
+<style lang="scss">
+	.empty-list {
+		display: flex;
+		flex-flow: column;
+		gap: 5px;
+		align-items: center;
+		max-width: 400px;
+
+		h2 {
+			margin-top: 10px;
+		}
+
+		h4 {
+			font-weight: normal;
+			text-align: center;
+		}
+
+		button {
+			width: max-content;
+			padding-left: 20px;
+			padding-right: 20px;
+			margin-top: 15px;
+		}
+	}
+</style>
