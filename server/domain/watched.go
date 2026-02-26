@@ -88,6 +88,18 @@ func NewWatchedDtoForLists(w *entity.Watched) WatchedDto {
 	return dto
 }
 
+// For public lists showing other users watched data.
+func NewWatchedDtoForPublicLists(w *entity.Watched) WatchedDto {
+	dto := NewWatchedDtoWithBaseProps(w)
+
+	if w.Content != nil && w.Content.Type == entity.SHOW {
+		dto.WatchingSeason = watchedutil.GetLatestWatchedInTv(
+			w.WatchedSeasons, w.WatchedEpisodes)
+	}
+
+	return dto
+}
+
 // A fuller dto with all details needed for a content details page.
 func NewWatchedDtoForContentPage(w *entity.Watched) WatchedDto {
 	dto := NewWatchedDtoWithBaseProps(w)
@@ -101,6 +113,7 @@ func NewWatchedDtoForContentPage(w *entity.Watched) WatchedDto {
 	return dto
 }
 
+// Get our watched page response.
 type WatchedGetPageResponse []Media
 
 func NewWatchedGetPageResponse(w []entity.Watched) WatchedGetPageResponse {
@@ -108,6 +121,19 @@ func NewWatchedGetPageResponse(w []entity.Watched) WatchedGetPageResponse {
 	for i := range w {
 		v := &w[i]
 		d := NewWatchedDtoForLists(v)
+		r = append(r, NewMediaFromWatched(v, &d))
+	}
+	return r
+}
+
+// Get a public users list response.
+type WatchedPublicGetPageResponse []Media
+
+func NewWatchedPublicGetPageResponse(w []entity.Watched) WatchedPublicGetPageResponse {
+	r := WatchedPublicGetPageResponse{}
+	for i := range w {
+		v := &w[i]
+		d := NewWatchedDtoForPublicLists(v)
 		r = append(r, NewMediaFromWatched(v, &d))
 	}
 	return r

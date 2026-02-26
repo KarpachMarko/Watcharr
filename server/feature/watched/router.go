@@ -110,7 +110,7 @@ func (r *Router) GetPublicWatchedList(c *gin.Context) {
 		PaginationParams: wp.PaginationParams,
 		TotalPages:       wp.TotalPages,
 		TotalResults:     wp.TotalResults,
-		Results:          domain.NewWatchedGetPageResponse(wp.Results),
+		Results:          domain.NewWatchedPublicGetPageResponse(wp.Results),
 	}
 	c.JSON(http.StatusOK, dto)
 }
