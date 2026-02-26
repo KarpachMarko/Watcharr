@@ -36,6 +36,7 @@ const (
 	WebsiteTypeOfficial WebsiteType = 1
 	WebsiteTypeSteam    WebsiteType = 13
 	WebsiteTypeGOG      WebsiteType = 17
+	WebsiteTypeItch     WebsiteType = 15
 )
 
 // Only the fields we request included in each struct
@@ -196,6 +197,11 @@ func (t *GameDetailsResponse) AsMedia() domain.Media {
 		case WebsiteTypeGOG:
 			m.Providers = append(m.Providers, domain.MediaProvider{
 				Name: "GOG",
+				Link: v.URL,
+			})
+		case WebsiteTypeItch:
+			m.Providers = append(m.Providers, domain.MediaProvider{
+				Name: "Itch",
 				Link: v.URL,
 			})
 		}
