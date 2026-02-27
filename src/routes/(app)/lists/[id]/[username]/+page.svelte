@@ -120,7 +120,8 @@
 			// Ensure afterNavigate can only runFn when we are coming
 			// from another list page.
 			// OnMount of a list page we don't want to have this also run
-			// because that breaks our loader.
+			// because that breaks our loader and our effect will handle loading
+			// in that case already.
 			return;
 		}
 		console.log("afterNavigate.");
