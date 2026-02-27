@@ -66,6 +66,7 @@ type WatchedDto struct {
 }
 
 // New dto with base properties that we have for all WatchedDtos.
+// Note: If this is updated, ensure whatever uses this still makes sense.
 func NewWatchedDtoWithBaseProps(w *entity.Watched) WatchedDto {
 	return WatchedDto{
 		ID:        w.ID,

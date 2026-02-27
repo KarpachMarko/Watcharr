@@ -63,7 +63,7 @@ func (r *Router) GetTag(c *gin.Context) {
 	c.JSON(http.StatusOK, tags)
 }
 
-// Get watched items in a tag with pagination.
+// Get watched items in our tag with pagination.
 func (r *Router) GetTagWatched(c *gin.Context) {
 	userId := c.MustGet("userId").(uint)
 	id, err := strconv.Atoi(c.Param("id"))
@@ -83,7 +83,13 @@ func (r *Router) GetTagWatched(c *gin.Context) {
 		return
 	}
 	if wp, err := r.service.GetTagPage(userId, uint(id), pp, wp); err == nil {
-		c.JSON(http.StatusOK, wp)
+		dto := util.PaginationResponse[domain.Media]{
+			PaginationParams: wp.PaginationParams,
+			TotalPages:       wp.TotalPages,
+			TotalResults:     wp.TotalResults,
+			Results:          domain.NewWatchedGetPageResponse(wp.Results),
+		}
+		c.JSON(http.StatusOK, dto)
 	} else {
 		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to get page"})
 	}
