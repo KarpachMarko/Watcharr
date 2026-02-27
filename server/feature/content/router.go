@@ -201,7 +201,9 @@ func (r *Router) GetSeasonDetails(c *gin.Context) {
 			slog.Error("get season details route: Processing watchedId param failed", "error", err.Error(), "id", watchedIdQ)
 		} else {
 			if seasonNum, err := strconv.ParseInt(c.Param("num"), 10, 64); err == nil {
-				if err = r.wp.UpdateWatchedLastViewedSeason(userId, uint(watchedId), int(seasonNum)); err == nil {
+				if err = r.wp.UpdateWatchedLastViewedSeason(
+					userId, uint(watchedId), int(seasonNum),
+				); err == nil {
 					c.Header("watcharr-lastviewedseason-saved", "1")
 				}
 			} else {

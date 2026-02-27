@@ -562,14 +562,22 @@ func (s *Service) updateWatched(
 	return domain.WatchedUpdateResponse{NewActivity: addedActivity}, nil
 }
 
-func (s *Service) UpdateWatchedLastViewedSeason(userId uint, id uint, seasonNum int) error {
-	slog.Debug("UpdateWatchedLastViewedSeason", "user_id", userId, "id", id, "season_num", seasonNum)
+func (s *Service) UpdateWatchedLastViewedSeason(
+	userId uint,
+	id uint,
+	seasonNum int,
+) error {
+	slog.Debug("UpdateWatchedLastViewedSeason",
+		"user_id", userId,
+		"id", id,
+		"season_num", seasonNum)
 	res := s.db.
 		Model(&entity.Watched{}).
 		Where("id = ? AND user_id = ?", id, userId).
 		Update("last_viewed_season", seasonNum)
 	if res.Error != nil {
-		slog.Error("updateWatchedLastViewedSeason: Failed when updating.", "error", res.Error)
+		slog.Error("updateWatchedLastViewedSeason: Failed when updating.",
+			"error", res.Error)
 		return errors.New("failed to update db")
 	}
 	if res.RowsAffected == 0 {
