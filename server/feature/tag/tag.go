@@ -93,6 +93,10 @@ func (s *Service) GetTagPage(
 		slog.Error("GetTagPage: Getting watched ids failed!", "error", err)
 		return util.PaginationResponse[entity.Watched]{}, err
 	}
+	if len(*wids) <= 0 {
+		slog.Debug("GetTagPage: The requested tag has no watched items!")
+		return util.PaginationResponse[entity.Watched]{}, nil
+	}
 
 	// Now get a watched page, passing in our fetched watched ids
 	// so that only our watched items in this tag are retrieved.
