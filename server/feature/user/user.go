@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"log"
 	"log/slog"
 	"path"
 	"path/filepath"
@@ -149,7 +148,8 @@ func (s *Service) UploadUserAvatar(c *gin.Context, userId uint) (entity.Image, e
 	}
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		log.Fatal(err) // TODO nu le fatal
+		slog.Error("uploadUserAvatar: Copy failed!", "error", err)
+		return entity.Image{}, errors.New("copy failed")
 	}
 	hs := hex.EncodeToString(h.Sum(nil))
 
