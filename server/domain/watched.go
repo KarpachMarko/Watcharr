@@ -146,6 +146,11 @@ type WatchedAddRequest struct {
 	ContentType util.SupportedMedia `json:"contentType" binding:"required,oneof=movie tv game"`
 	// ID of content from tmdb (if ContentType is movie or tv).
 	TMDBID int `json:"tmdbId"`
+	// DEPRECATED!! This will be removed soon, I've left it in only so any third
+	// party scripts can migrate pain-free. This will work as if you have passed
+	// the id for `tmdbId`, please replace 'contentId' properties in requests
+	// with `tmdbId`.
+	Deprecated_ContentID int `json:"contentId"`
 	// ID of content from igdb (if ContentType is game).
 	IGDBID int `json:"igdbId"`
 

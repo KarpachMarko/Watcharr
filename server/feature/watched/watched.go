@@ -349,12 +349,20 @@ func (s *Service) AddWatched(
 	// content to attach to the Watched entry we are creating.
 	switch ar.ContentType {
 	case "movie", "tv":
-		if ar.TMDBID == 0 {
+		tmdbId := ar.TMDBID
+		if tmdbId == 0 && ar.Deprecated_ContentID != 0 {
+			// This if provides support for a now deprecated field.
+			// When the property is removed, this if will be gone and we can
+			// use `ar.TMDBID` directly for below.
+			tmdbId = ar.Deprecated_ContentID
+			slog.Error("AddWatched: You are using a deprecated field 'contentId', please replace it with 'tmdbId' to keep the same functionality for future releases of Watcharr.")
+		}
+		if tmdbId == 0 {
 			return entity.Watched{}, errors.New("missing tmdb id")
 		}
 		// Get content cache (or cache it if we don't have it locally)
 		content, err := s.cp.GetOrCacheContent(
-			entity.ContentType(ar.ContentType), ar.TMDBID)
+			entity.ContentType(ar.ContentType), tmdbId)
 		if err != nil {
 			return entity.Watched{}, err
 		}
