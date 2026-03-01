@@ -4,6 +4,9 @@
 FROM golang:1.25-alpine AS server
 
 WORKDIR /server
+
+# We can copy the whole server folder, since our .dockerignore file
+# will filter out stuff we don't want in the final image.
 COPY server/ ./
 
 # Required so we can build with cgo
