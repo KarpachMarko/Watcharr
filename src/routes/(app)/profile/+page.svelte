@@ -297,7 +297,7 @@
 
 			<Setting
 				title="Include Previously Watched"
-				desc="Do you want to include previously watched content in the 'finished' filter, even if their status has now been changed?"
+				desc="Deprecated: This setting is due to be removed because I think TRUE is the only useful value (the removal will go through soon, please give feedback if you have any opinions!)."
 				row
 			>
 				<Checkbox
