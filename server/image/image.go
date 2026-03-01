@@ -10,7 +10,6 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"log"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
@@ -140,7 +139,8 @@ func DownloadAndInsertImage(db *gorm.DB, url string, imgSubPath string) (entity.
 
 	h := sha256.New()
 	if _, err := io.Copy(h, br); err != nil {
-		log.Fatal(err) // TODO nu le fatal
+		slog.Error("DownloadAndInsertImage: Copy failed!", "error", err)
+		return entity.Image{}, errors.New("copy failed")
 	}
 	hs := hex.EncodeToString(h.Sum(nil))
 
