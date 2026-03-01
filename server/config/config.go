@@ -214,33 +214,35 @@ func (c *ServerConfig) SaveTwitchConfig(newt igdb.IGDB) error {
 
 // Read config file
 // Calls generateConfig if file doesn't exist
-func readInto(c *ServerConfig) error {
-	cfg, err := os.Open(path.Join(DataPath, "watcharr.json"))
+func read() (*ServerConfig, error) {
+	cfgFile, err := os.Open(path.Join(DataPath, "watcharr.json"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			slog.Info("Config file doesn't exist... generating.")
 			if genCfg, err := generateConfig(); err == nil {
-				c = genCfg
-				return nil
+				return genCfg, nil
 			}
 		}
-		return err
+		return nil, err
 	}
-	defer cfg.Close()
-	dec := json.NewDecoder(cfg)
-	if err = dec.Decode(&c); err != nil {
-		return err
+	defer cfgFile.Close()
+
+	c := new(ServerConfig)
+	dec := json.NewDecoder(cfgFile)
+	if err = dec.Decode(c); err != nil {
+		return nil, err
 	}
+
 	initFromConfig(c)
-	return nil
+
+	return c, nil
 }
 
 // Ensure required config is provided
-func initFromConfig(c *ServerConfig) error {
+func initFromConfig(c *ServerConfig) {
 	if c.JWT_SECRET == "" {
 		log.Fatal("JWT_SECRET missing from config!")
 	}
-	return nil
 }
 
 // Generate new barebones watcharr.json config file.
@@ -266,9 +268,9 @@ func generateConfig() (*ServerConfig, error) {
 // Get server config.
 // Reads from config file.
 func Get() (*ServerConfig, error) {
-	c := new(ServerConfig)
-	if err := readInto(c); err != nil {
+	cfg, err := read()
+	if err != nil {
 		return nil, err
 	}
-	return c, nil
+	return cfg, nil
 }
