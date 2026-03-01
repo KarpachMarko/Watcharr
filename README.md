@@ -72,6 +72,10 @@ If something isn't working for you or you are stuck, [creating an issue](https:/
 
 You can also [join our space on Matrix](https://matrix.to/#/#watcharr:matrix.org) for support.
 
+# License
+
+This project is licensed under the GPLv3 license. You should see the [LICENSE](LICENSE) file located in the root folder of this project for the full license text, if not, see <https://www.gnu.org/licenses/>.
+
 # Contributing
 
 Please continue to our [contributing guide](CONTRIBUTING.md).

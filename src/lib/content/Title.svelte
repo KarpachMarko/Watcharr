@@ -1,32 +1,39 @@
 <script lang="ts">
 	interface Props {
-		homepage: string | undefined;
-		title: string;
-		releaseYear: string | number;
-		voteAverage: number;
-		voteCount: number;
+		homepage?: string;
+		title?: string;
+		releaseDate?: Date;
+		voteAverage?: number;
+		voteCount?: number;
 	}
 
-	let { homepage, title, releaseYear, voteAverage, voteCount }: Props =
+	let { homepage, title, releaseDate, voteAverage, voteCount }: Props =
 		$props();
 
 	// if voteAvg bigger than 10, it is out of 100, so no need to * by 10
-	const vote =
-		Math.round(voteAverage > 10 ? voteAverage : voteAverage * 10) / 10;
+	const vote = voteAverage
+		? Math.round(voteAverage > 10 ? voteAverage : voteAverage * 10) / 10
+		: 0;
+	const titleSafe = $derived(title ? title : "Unknown Title");
+	const releaseYear = $derived(
+		releaseDate ? releaseDate.getFullYear() : undefined,
+	);
 </script>
 
 <span class="title-container">
 	<span class="title">
 		{#if homepage}
-			<a href={homepage} target="_blank">{title}</a>
+			<a href={homepage} target="_blank">{titleSafe}</a>
 		{:else}
-			<span class="t">{title}</span>
+			<span class="t">{titleSafe}</span>
 		{/if}
-		<span class="year">{releaseYear}</span>
+		{#if releaseYear}
+			<span class="year">{releaseYear}</span>
+		{/if}
 	</span>
 	<span
 		class="rating"
-		title={`TMDB Rating: ${vote} out of 10 (based on ${voteCount} votes)`}
+		title={`Rating: ${vote} out of 10 (based on ${voteCount ?? 0} votes)`}
 	>
 		<span>*</span>
 		{vote}

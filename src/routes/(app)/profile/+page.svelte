@@ -18,6 +18,7 @@
 	import RegionDropDown from "@/lib/RegionDropDown.svelte";
 	import RatingSetting from "@/lib/rating/RatingSetting.svelte";
 	import { toggleTheme } from "@/lib/util/theme";
+	import ExportListModal from "./modals/ExportListModal.svelte";
 
 	let user = $derived(store.userInfo);
 	let settings = $derived(store.userSettings);
@@ -25,7 +26,7 @@
 
 	let privateDisabled = $state(false);
 	let privateThoughtsDisabled = $state(false);
-	let exportDisabled = $state(false);
+	let exportModalOpen = $state(false);
 	let hideSpoilersDisabled = $state(false);
 	let countryDisabled = $state(false);
 	let includePreviouslyWatchedDisabled = $state(false);
@@ -102,38 +103,6 @@
 					type: "error",
 				});
 			});
-	}
-
-	async function downloadWatchedList() {
-		const nid = notify({ text: "Exporting", type: "loading" });
-		try {
-			exportDisabled = true;
-			// We re-fetch, to ensure data we export is up to date.
-			const r = await axios.get("/watched");
-			console.log(r.data);
-			if (!r.data || r.data?.length <= 0) {
-				notify({
-					id: nid,
-					text: "Can't export an empty watch list!",
-					type: "error",
-					time: 10000,
-				});
-				exportDisabled = false;
-				return;
-			}
-			const file = new Blob([JSON.stringify(r.data, undefined, 2)], {
-				type: "application/json",
-			});
-			const a = document.createElement("a");
-			a.href = URL.createObjectURL(file);
-			a.download = "watcharr-export.json";
-			a.click();
-			exportDisabled = false;
-			notify({ id: nid, text: "Successfully Exported", type: "success" });
-		} catch (err) {
-			console.error("downloadWatchedList failed!", err);
-			notify({ id: nid, text: "Export Failed!", type: "error" });
-		}
 	}
 
 	/**
@@ -328,7 +297,7 @@
 
 			<Setting
 				title="Include Previously Watched"
-				desc="Do you want to include previously watched content in the 'finished' filter, even if their status has now been changed?"
+				desc="Deprecated: This setting is due to be removed because I think TRUE is the only useful value (the removal will go through soon, please give feedback if you have any opinions!)."
 				row
 			>
 				<Checkbox
@@ -350,9 +319,7 @@
 
 			<div class="row btns">
 				<button onclick={() => goto("/import")}>Import</button>
-				<button onclick={() => downloadWatchedList()} disabled={exportDisabled}
-					>Export</button
-				>
+				<button onclick={() => (exportModalOpen = true)}>Export</button>
 				{#if user?.type !== UserType.Plex && user?.type !== UserType.Jellyfin}
 					<button
 						onclick={() => {
@@ -361,22 +328,23 @@
 					>
 				{/if}
 				{#if user?.type === UserType?.Jellyfin}
-					<button
-						onclick={() => (jellyfinSyncModalOpen = true)}
-						disabled={exportDisabled}
-					>
+					<button onclick={() => (jellyfinSyncModalOpen = true)}>
 						Sync With {localStorage.getItem("useEmby") ? "Emby" : "Jellyfin"}
 					</button>
 				{/if}
 				{#if user?.type === UserType?.Plex}
-					<button
-						onclick={() => (plexSyncModalOpen = true)}
-						disabled={exportDisabled}
-					>
+					<button onclick={() => (plexSyncModalOpen = true)}>
 						Sync With Plex
 					</button>
 				{/if}
 			</div>
+			{#if exportModalOpen}
+				<ExportListModal
+					onClose={() => {
+						exportModalOpen = false;
+					}}
+				/>
+			{/if}
 			{#if pwChangeModalOpen}
 				<PwChangeModal
 					userName={user?.username}
@@ -457,10 +425,6 @@
 			font-variant: small-caps;
 		}
 
-		& > div {
-			margin: 0 15px;
-		}
-
 		div {
 			&.row {
 				display: flex;
@@ -478,6 +442,10 @@
 			display: flex;
 			flex-flow: column;
 			gap: 10px;
+
+			& .row {
+				margin: 0 5px;
+			}
 
 			& button {
 				width: 50%;

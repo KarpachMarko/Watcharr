@@ -5,14 +5,11 @@
 	import Icon from "@/lib/Icon.svelte";
 	import PageError from "@/lib/PageError.svelte";
 	import PersonPoster from "@/lib/poster/PersonPoster.svelte";
-	import Rating from "@/lib/rating/Rating.svelte";
-	import SeasonsList from "@/lib/SeasonsList.svelte";
+	import SeasonsList from "@/lib/season/SeasonsList.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
-	import Status from "@/lib/Status.svelte";
 	import ProvidersList from "@/lib/content/ProvidersList.svelte";
 	import SimilarContent from "@/lib/content/SimilarContent.svelte";
 	import Title from "@/lib/content/Title.svelte";
-	import VideoEmbedModal from "@/lib/content/VideoEmbedModal.svelte";
 	import {
 		contentExistsOnJellyfin,
 		removeWatched,
@@ -21,9 +18,9 @@
 	import { getTopCrew } from "@/lib/util/helpers.js";
 	import { store } from "@/store.svelte.js";
 	import type {
+		Media,
 		TMDBContentCredits,
 		TMDBContentCreditsCrew,
-		TMDBShowDetails,
 		WatchedStatus,
 	} from "@/types";
 	import axios from "axios";
@@ -31,22 +28,19 @@
 	import FollowedThoughts from "@/lib/content/FollowedThoughts.svelte";
 	import ArrRequestButton from "@/lib/request/ArrRequestButton.svelte";
 	import tooltip from "@/lib/actions/tooltip.js";
-	import MyThoughts from "@/lib/content/MyThoughts.svelte";
 	import AddToTagButton from "@/lib/tag/AddToTagButton.svelte";
+	import PageBackdrop from "@/lib/generic/PageBackdrop.svelte";
+	import MyReview from "@/lib/content/MyReview.svelte";
+	import ViewTrailerButton from "@/lib/content/ViewTrailerButton.svelte";
+	import PosterImage from "@/lib/content/PosterImage.svelte";
+	import ExpandableText from "@/lib/content/ExpandableText.svelte";
 
 	let { data } = $props();
 
-	let wListItem = $derived(
-		store.watchedList.find(
-			(w) => w.content?.type === "tv" && w.content?.tmdbId === data.tvId,
-		),
-	);
-	let trailer: string | undefined = $state();
-	let trailerShown = $state(false);
 	let requestModalShown = $state(false);
 	let jellyfinUrl: string | undefined = $state();
 	let arrRequestButtonComp: ArrRequestButton | undefined = $state();
-	let show: TMDBShowDetails | undefined = $state();
+	let show: Media | undefined = $state();
 	let pageError: Error | undefined = $state();
 
 	$effect(() => {
@@ -61,23 +55,21 @@
 					await axios.get(`/content/tv/${data.tvId}`, {
 						params: { region: store.userSettings?.country },
 					})
-				).data as TMDBShowDetails;
-				if (resp.videos?.results?.length > 0) {
-					const t = resp.videos.results.find(
-						(v) => v.type?.toLowerCase() === "trailer",
-					);
-					if (t?.key) {
-						if (t?.site?.toLowerCase() === "youtube") {
-							trailer = `https://www.youtube.com/embed/${t?.key}`;
-						}
+				).data as Media;
+				if (resp) {
+					if (resp.name && resp.ids.tmdb) {
+						contentExistsOnJellyfin("tv", resp.name, resp.ids.tmdb).then(
+							(j) => {
+								if (j?.hasContent && j?.url !== "") {
+									jellyfinUrl = j.url;
+								}
+							},
+						);
 					}
+					show = resp;
+				} else {
+					show = undefined;
 				}
-				contentExistsOnJellyfin("tv", resp.name, resp.id).then((j) => {
-					if (j?.hasContent && j?.url !== "") {
-						jellyfinUrl = j.url;
-					}
-				});
-				show = resp;
 			} catch (err: any) {
 				show = undefined;
 				pageError = err;
@@ -99,19 +91,41 @@
 		newRating?: number,
 		newThoughts?: string,
 		pinned?: boolean,
-	): Promise<boolean> {
+	) {
 		if (!data.tvId) {
 			console.error("contentChanged: no tvId");
-			return false;
+			return;
 		}
-		return await updateWatched(
-			data.tvId,
-			"tv",
-			newStatus,
-			newRating,
-			newThoughts,
-			pinned,
-		);
+		if (!show) {
+			console.error("contentChanged: no show");
+			return;
+		}
+		await updateWatched(show.watched, {
+			contentId: data.tvId,
+			contentType: "tv",
+			status: newStatus,
+			rating: newRating,
+			thoughts: newThoughts,
+			pinned: pinned,
+		})
+			.then((w) => {
+				if (show) {
+					show.watched = w;
+				}
+			})
+			.catch(() => {
+				/* Default handling inside updateWatched is good enough here */
+			});
+	}
+
+	async function deleteWatched() {
+		if (show?.watched) {
+			if (await removeWatched(show.watched.id)) {
+				show.watched = undefined;
+			}
+			return;
+		}
+		console.error("deleteWatched: no wlistItem.. can't delete");
 	}
 </script>
 
@@ -124,116 +138,116 @@
 {:else if !show}
 	<Spinner />
 {:else if Object.keys(show).length > 0}
+	{#if show?.extBackdropPath}
+		<PageBackdrop
+			src={"https://www.themoviedb.org/t/p/w1920_and_h800_multi_faces" +
+				show.extBackdropPath}
+		/>
+	{/if}
 	<div>
 		<div class="content">
-			{#if show?.backdrop_path}
-				<img
-					class="backdrop"
-					src={"https://www.themoviedb.org/t/p/w1920_and_h800_multi_faces" +
-						show.backdrop_path}
-					alt=""
-				/>
-			{/if}
-			<div class="vignette"></div>
-
-			<div class="details-container">
-				<img
-					class="poster"
-					src={"https://image.tmdb.org/t/p/w500" + show.poster_path}
-					alt=""
-				/>
-
-				<div class="details">
-					<Title
-						title={show.name}
-						homepage={show.homepage}
-						releaseYear={new Date(
-							Date.parse(show.first_air_date),
-						).getFullYear()}
-						voteAverage={show.vote_average}
-						voteCount={show.vote_count}
+			<div class="details-wrap">
+				<div class="details-container">
+					<PosterImage
+						src={"https://image.tmdb.org/t/p/w500" + show.extPosterPath}
 					/>
 
-					<span class="quick-info">
-						{#if show?.episode_run_time?.length > 0}
-							<span>{show.episode_run_time.join(",")} min</span>
-						{/if}
+					<div class="details">
+						<Title
+							title={show.name}
+							homepage={show.homepage}
+							releaseDate={show.releaseDate
+								? new Date(show.releaseDate)
+								: undefined}
+							voteAverage={show.rating}
+							voteCount={show.ratingCount}
+						/>
 
-						<div>
-							{#each show.genres as g, i}
-								<span>{g.name}{i !== show.genres.length - 1 ? ", " : ""}</span>
-							{/each}
-						</div>
-					</span>
+						<span class="quick-info">
+							{#if show.genres && show.genres?.length > 0}
+								<div>
+									{#each show.genres as g, i}
+										<span
+											>{g.name}{i !== show.genres.length - 1 ? ", " : ""}</span
+										>
+									{/each}
+								</div>
+							{:else}
+								<span>Unknown Genres</span>
+							{/if}
+						</span>
 
-					<span style="font-weight: bold; font-size: 14px;">Overview</span>
-					<p>{show.overview}</p>
+						<ExpandableText text={show.summary} style="margin-bottom: 18px;" />
 
-					<div class="btns">
-						{#if trailer}
-							<button onclick={() => (trailerShown = !trailerShown)}
-								>View Trailer</button
-							>
-							{#if trailerShown}
-								<VideoEmbedModal
-									embed={trailer}
-									closed={() => (trailerShown = false)}
+						<div class="btns">
+							<ViewTrailerButton videos={show.videos} />
+							{#if jellyfinUrl}
+								<a class="btn" href={jellyfinUrl} target="_blank">
+									{#if localStorage.getItem("useEmby")}
+										<Icon i="emby" wh={14} />Play On Emby
+									{:else}
+										<Icon i="jellyfin" wh={14} />Play On Jellyfin
+									{/if}
+								</a>
+							{/if}
+							{#if store.serverFeatures?.sonarr && data.tvId}
+								<ArrRequestButton
+									type="tv"
+									tmdbId={data.tvId}
+									openRequestModal={() =>
+										(requestModalShown = !requestModalShown)}
+									bind:this={arrRequestButtonComp}
 								/>
 							{/if}
-						{/if}
-						{#if jellyfinUrl}
-							<a class="btn" href={jellyfinUrl} target="_blank">
-								{#if localStorage.getItem("useEmby")}
-									<Icon i="emby" wh={14} />Play On Emby
-								{:else}
-									<Icon i="jellyfin" wh={14} />Play On Jellyfin
-								{/if}
-							</a>
-						{/if}
-						{#if store.serverFeatures?.sonarr && data.tvId}
-							<ArrRequestButton
-								type="tv"
-								tmdbId={data.tvId}
-								openRequestModal={() =>
-									(requestModalShown = !requestModalShown)}
-								bind:this={arrRequestButtonComp}
+							{#if show.watched}
+								<div class="other-side">
+									<AddToTagButton watchedItem={show.watched} />
+									<button
+										onclick={() => {
+											if (show?.watched?.pinned) {
+												contentChanged(undefined, undefined, undefined, false);
+											} else {
+												contentChanged(undefined, undefined, undefined, true);
+											}
+										}}
+										use:tooltip={{
+											text: `${show.watched?.pinned ? "Unpin from" : "Pin to"} top of list`,
+											pos: "bot",
+										}}
+									>
+										<Icon i={show.watched?.pinned ? "unpin" : "pin"} wh={19} />
+									</button>
+									<button
+										class="delete-btn"
+										onclick={() => deleteWatched()}
+										use:tooltip={{ text: "Delete", pos: "bot" }}
+									>
+										<Icon i="trash" wh={19} />
+									</button>
+								</div>
+							{/if}
+						</div>
+
+						{#if show.providers}
+							<ProvidersList
+								providers={show.providers}
+								fullListLink={show.providersFullListLink}
+								fullListLinkText="JustWatch"
 							/>
 						{/if}
-						{#if wListItem}
-							<div class="other-side">
-								<AddToTagButton watchedItem={wListItem} />
-								<button
-									onclick={() => {
-										if (wListItem?.pinned) {
-											contentChanged(undefined, undefined, undefined, false);
-										} else {
-											contentChanged(undefined, undefined, undefined, true);
-										}
-									}}
-									use:tooltip={{
-										text: `${wListItem?.pinned ? "Unpin from" : "Pin to"} top of list`,
-										pos: "bot",
-									}}
-								>
-									<Icon i={wListItem?.pinned ? "unpin" : "pin"} wh={19} />
-								</button>
-								<button
-									class="delete-btn"
-									onclick={() =>
-										wListItem
-											? removeWatched(wListItem.id)
-											: console.error("no wlistItem.. can't delete")}
-									use:tooltip={{ text: "Delete", pos: "bot" }}
-								>
-									<Icon i="trash" wh={19} />
-								</button>
-							</div>
-						{/if}
 					</div>
-
-					<ProvidersList providers={show["watch/providers"]} />
 				</div>
 			</div>
+
+			<MyReview
+				watched={show.watched}
+				contentTitle={show.name}
+				onRatingChanged={(n) => contentChanged(undefined, n)}
+				onStatusChanged={(n) => contentChanged(n)}
+				onThoughtsChanged={(newThoughts) => {
+					return contentChanged(undefined, undefined, newThoughts);
+				}}
+			/>
 		</div>
 
 		{#if requestModalShown}
@@ -249,27 +263,6 @@
 		{/if}
 
 		<div class="page">
-			<div class="review">
-				<!-- <span>What did you think?</span> -->
-				<Rating
-					rating={wListItem?.rating}
-					onChange={(n) => contentChanged(undefined, n)}
-				/>
-				<Status
-					status={wListItem?.status}
-					onChange={(n) => contentChanged(n)}
-				/>
-				{#if wListItem}
-					<MyThoughts
-						contentTitle={show.name}
-						thoughts={wListItem?.thoughts}
-						onChange={(newThoughts) => {
-							return contentChanged(undefined, undefined, newThoughts);
-						}}
-					/>
-				{/if}
-			</div>
-
 			{#if data.tvId}
 				<FollowedThoughts mediaType="tv" mediaId={data.tvId} />
 			{/if}
@@ -305,16 +298,25 @@
 				<Error error={err} pretty="Failed to load cast!" />
 			{/await}
 
-			<SimilarContent type="tv" similar={show.similar} />
-
-			{#if wListItem}
-				<Activity wListId={wListItem.id} activity={wListItem.activity} />
+			{#if show.similar}
+				<SimilarContent similar={show.similar} />
 			{/if}
-			{#if data?.tvId}
+
+			{#if show.watched}
+				<Activity bind:activity={show.watched.activity} />
+			{/if}
+
+			{#if data?.tvId && show.seasons}
 				<SeasonsList
 					tvId={data.tvId}
 					seasons={show.seasons}
-					watchedItem={wListItem}
+					watchedItem={show.watched}
+					lastViewedSeason={show.watched?.lastViewedSeason}
+					lastViewedSeasonChanged={(wid, lvs) => {
+						if (show?.watched && show.watched.id === wid) {
+							show.watched.lastViewedSeason = lvs;
+						}
+					}}
 				/>
 			{/if}
 		</div>
@@ -324,125 +326,61 @@
 {/if}
 
 <style lang="scss">
+	@use "../../../../lib/content/page.scss";
+
 	.content {
 		position: relative;
 		color: white;
 
-		img.provider {
-			width: 45px;
-			height: 45px;
-			box-shadow: 0px 0px 8px -4px #9c8080;
-			border-radius: 50px;
-		}
-
-		img.backdrop {
-			position: absolute;
-			left: 0;
-			top: 0;
-			z-index: -2;
-			width: 100%;
-			height: 100%;
-			object-fit: cover;
-			filter: $backdrop-filter;
-			mix-blend-mode: $backdrop-mix-blend-mode;
-			mask-image: $backdrop-mask-image;
-		}
-
-		.vignette {
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			background-color: rgba($color: #000000, $alpha: 0.7);
-			z-index: -1;
-			mask-image: $backdrop-mask-image;
-		}
-
-		.details-container {
-			display: flex;
-			flex-flow: row;
-			gap: 35px;
-			max-width: 1100px;
-			padding: 40px 80px;
-			margin-left: auto;
-			margin-right: auto;
-
-			img.poster {
-				width: 235px;
-				height: 100%;
-				box-shadow: 0px 0px 14px -4px #9c8080;
-				border-radius: 12px;
+		.details-container .details {
+			.quick-info {
+				display: flex;
+				gap: 10px;
+				margin-bottom: 8px;
 			}
 
-			.details {
+			.btns {
 				display: flex;
-				flex-flow: column;
-				gap: 5px;
+				flex-flow: row;
+				flex-wrap: wrap;
+				gap: 8px;
+				margin-top: auto;
 
-				.quick-info {
-					display: flex;
-					gap: 10px;
-					margin-bottom: 8px;
-				}
-
-				p {
+				a.btn,
+				button {
+					max-width: fit-content;
+					overflow: hidden;
+					animation: 50ms cubic-bezier(0.86, 0, 0.07, 1) forwards otherbtn;
+					white-space: nowrap;
+					gap: 6px;
+					justify-content: flex-start;
 					font-size: 14px;
-					margin-bottom: 18px;
+
+					@keyframes otherbtn {
+						from {
+							width: 0px;
+						}
+						to {
+							width: 100%;
+						}
+					}
 				}
 
-				.btns {
+				.other-side {
 					display: flex;
 					flex-flow: row;
-					flex-wrap: wrap;
 					gap: 8px;
-					margin-top: auto;
 
-					a.btn,
-					button {
-						max-width: fit-content;
-						overflow: hidden;
-						animation: 50ms cubic-bezier(0.86, 0, 0.07, 1) forwards otherbtn;
-						white-space: nowrap;
-						gap: 6px;
-						justify-content: flex-start;
-						font-size: 14px;
-
-						@keyframes otherbtn {
-							from {
-								width: 0px;
-							}
-							to {
-								width: 100%;
-							}
-						}
-					}
-
-					.other-side {
-						display: flex;
-						flex-flow: row;
-						gap: 8px;
-
-						@media screen and (min-width: 900px) {
-							margin-left: auto;
-						}
-					}
-
-					.delete-btn {
-						&:hover {
-							color: $error;
-						}
+					@media screen and (min-width: 900px) {
+						margin-left: auto;
 					}
 				}
-			}
 
-			@media screen and (max-width: 700px) {
-				padding: 40px;
-			}
-
-			@media screen and (max-width: 590px) {
-				flex-flow: column;
-				align-items: center;
+				.delete-btn {
+					&:hover {
+						color: $error;
+					}
+				}
 			}
 		}
 	}
@@ -459,18 +397,6 @@
 
 		@media screen and (max-width: 500px) {
 			padding: 20px;
-		}
-	}
-
-	.review {
-		display: flex;
-		flex-flow: column;
-		gap: 10px;
-		width: 100%;
-		max-width: 380px;
-
-		@media screen and (max-width: 420px) {
-			max-width: 340px;
 		}
 	}
 

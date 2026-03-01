@@ -19,10 +19,10 @@
 	import { store } from "@/store.svelte";
 	import {
 		ImportResponseType,
+		getContentTypeFromMedia,
 		type ImportResponse,
-		type ContentSearchTv,
-		type ContentSearchMovie,
 		type ImportedList,
+		type Media,
 		type WatchedStatus,
 	} from "@/types";
 	import axios from "axios";
@@ -32,7 +32,7 @@
 
 	interface ImportedListItemMultiProblem {
 		original: ImportedList;
-		results: (ContentSearchMovie | ContentSearchTv)[];
+		results: Media[];
 		callback: (err: Error | string | undefined) => void;
 	}
 
@@ -469,16 +469,19 @@
 			if (resp.data.type === ImportResponseType.IMPORT_MULTI) {
 				console.log("Import found multiple responses for content", resp.data);
 				let results = resp.data.results;
+				if (!results || results.length <= 0) {
+					item.state = ImportResponseType.IMPORT_NOTFOUND;
+					rList = rList;
+					return;
+				}
 				if (item.year) {
-					results = results.sort((a, b) => {
+					results.sort((a, b) => {
 						try {
-							const ar =
-								a.media_type === "movie" ? a.release_date : a.first_air_date;
+							const ar = a.releaseDate;
 							const ay = ar
 								? new Date(Date.parse(ar)).getFullYear()
 								: undefined;
-							const br =
-								b.media_type === "movie" ? b.release_date : b.first_air_date;
+							const br = b.releaseDate;
 							const by = br
 								? new Date(Date.parse(br)).getFullYear()
 								: undefined;
@@ -492,7 +495,7 @@
 				}
 				importMultiItem = {
 					original: item,
-					results: resp.data.results,
+					results: results,
 					callback: (err) => {
 						if (err) {
 							item.state = ImportResponseType.IMPORT_NOTFOUND;
@@ -507,13 +510,10 @@
 				item.state = ImportResponseType.IMPORT_SUCCESS;
 				const w = resp.data.watchedEntry;
 				if (w) {
-					const release =
-						w.content?.type === "movie"
-							? w.content?.release_date
-							: w.content?.first_air_date;
+					const release = w.media?.releaseDate;
 					if (release) item.year = new Date(Date.parse(release)).getFullYear();
-					item.type = w.content?.type;
-					store.watchedList.push(w);
+					const t = w.media ? getContentTypeFromMedia(w.media) : undefined;
+					if (t) item.type = t;
 				}
 				rList = rList;
 				res(0);
@@ -744,8 +744,8 @@
 								(i) => i.name === importMultiItem?.original.name,
 							);
 							if (item) {
-								item.tmdbId = r.id;
-								item.type = r.media_type;
+								item.tmdbId = r.ids.tmdb;
+								item.type = getContentTypeFromMedia(r);
 								try {
 									await doImport(item);
 									importMultiItem?.callback(undefined);

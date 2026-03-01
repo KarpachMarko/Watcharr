@@ -6,22 +6,18 @@
 	import { baseURL } from "@/lib/util/api";
 	import { toRelativeDate } from "@/lib/util/helpers";
 	import { notify } from "@/lib/util/notify";
-	import {
-		type ArrRequestResponse,
-		type TMDBMovieDetails,
-		type TMDBShowDetails,
-	} from "@/types";
+	import { type ArrRequestResponse, type Media } from "@/types";
 	import axios from "axios";
 
-	let allRequests: ArrRequestResponse[] = $state();
-	let showBeingApproved: TMDBShowDetails | undefined = $state();
-	let movieBeingApproved: TMDBMovieDetails | undefined = $state();
+	let allRequests: ArrRequestResponse[] | undefined = $state();
+	let showBeingApproved: Media | undefined = $state();
+	let movieBeingApproved: Media | undefined = $state();
 	let beingApprovedOriginalRequest: ArrRequestResponse | undefined = $state();
 
 	async function getRequests() {
 		try {
-			allRequests = (await axios.get(`/arr/request/`))
-				.data as ArrRequestResponse[];
+			allRequests = (await axios.get<ArrRequestResponse[]>(`/arr/request/`))
+				.data;
 			if (allRequests?.length > 0) {
 				allRequests = allRequests?.sort((a, b) => {
 					if (b.status === "PENDING") return 1;
@@ -48,12 +44,13 @@
 	async function approve(r: ArrRequestResponse) {
 		console.debug("Approving request:", r);
 		if (r.content.type === "tv") {
-			showBeingApproved = (await axios.get(`/content/tv/${r.content.tmdbId}`))
-				.data as TMDBShowDetails;
+			showBeingApproved = (
+				await axios.get<Media>(`/content/tv/${r.content.tmdbId}`)
+			).data;
 		} else if (r.content.type === "movie") {
 			movieBeingApproved = (
-				await axios.get(`/content/movie/${r.content.tmdbId}`)
-			).data as TMDBMovieDetails;
+				await axios.get<Media>(`/content/movie/${r.content.tmdbId}`)
+			).data;
 		} else {
 			notify({
 				type: "error",

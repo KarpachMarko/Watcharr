@@ -1,7 +1,12 @@
 <script lang="ts">
-	import type { PosterExtraDetails, MediaType, WatchedStatus } from "@/types";
 	import {
-		addClassToParent,
+		type WatchedStatus,
+		type Watched,
+		type Media,
+		MediaTypeE,
+		type SupportedMedia,
+	} from "@/types";
+	import {
 		calculateTransformOrigin,
 		isTouch,
 		mouseOverEl,
@@ -13,27 +18,20 @@
 	import PosterStatus from "./PosterStatus.svelte";
 	import PosterRating from "./PosterRating.svelte";
 	import ExtraDetails from "./ExtraDetails.svelte";
+	import { buildExtraDetails } from "./lib";
+	import { decode } from "blurhash";
 
 	interface Props {
-		id?: number | undefined; // Watched list id
-		media: {
-			poster_path?: string;
-			title?: string;
-			name?: string;
-			overview?: string;
-			id: number; // tmdb id
-			media_type: MediaType;
-			release_date?: string;
-			first_air_date?: string;
-		};
-		rating?: number | undefined;
-		status?: WatchedStatus | undefined;
+		media: Media;
+		/**
+		 * If this content is on our watched list,
+		 * the entry should be provided in full.
+		 */
+		watched?: Watched;
 		small?: boolean;
 		disableInteraction?: boolean;
 		hideButtons?: boolean;
-		extraDetails?: PosterExtraDetails | undefined;
 		fluidSize?: boolean;
-		pinned?: boolean;
 		/**
 		 * If the poster should be hidden if not on users watched list (no `id`).
 		 * Doing it this way so we can quickly hide posters with css and avoid
@@ -52,16 +50,16 @@
 	}
 
 	let {
-		id = undefined,
 		media,
-		rating = undefined,
-		status = undefined,
+		// The `watched` prop is bindable so that when we update
+		// or add content to our list, we can let the update flow
+		// back to our parent that passed it in (so state is in sync
+		// between parent and this component).
+		watched = $bindable(undefined),
 		small = false,
 		disableInteraction = false,
 		hideButtons = false,
-		extraDetails = undefined,
 		fluidSize = false,
-		pinned = false,
 		hideIfNotOnList = false,
 		onClick = undefined,
 		onUpdated = undefined,
@@ -71,52 +69,113 @@
 	let posterActive = $state(false);
 	// If mouse in on poster. Added to fix #656.
 	let mouseOverPoster = $state(false);
+	// If the image is loaded or failed. -1 = fail, 0 = false, 1 = true
+	let posterImgLoaded = $state(0);
 
 	let containerEl: HTMLDivElement | undefined = $state();
+	let bhCanvas: HTMLCanvasElement | undefined = $state();
 
-	let title = $derived(media.title || media.name);
-	// For now, if the content is on watched list, we can assume we have a local
-	// cached image. Could be improved, since we could have a cached image for
-	// show not on someone elses watched list.
-	let poster = $derived(
-		id
-			? `${baseURL}/img${media.poster_path}`
-			: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
+	const meta:
+		| {
+				id: number | undefined;
+				type: SupportedMedia;
+		  }
+		| undefined = $derived.by(() => {
+		let id: number | undefined;
+		let type: SupportedMedia;
+		switch (media.type) {
+			case MediaTypeE.tmdbMovie:
+				id = media.ids.tmdb;
+				type = "movie";
+				break;
+			case MediaTypeE.tmdbShow:
+				id = media.ids.tmdb;
+				type = "tv";
+				break;
+			case MediaTypeE.igdbGame:
+				id = media.ids.igdb;
+				type = "game";
+				break;
+			default:
+				return;
+		}
+		return {
+			id,
+			type,
+		};
+	});
+	const poster = $derived.by(() => {
+		if (media.poster?.path) {
+			return `${baseURL}/${media.poster.path}`;
+		}
+
+		if (
+			media.type == MediaTypeE.tmdbMovie ||
+			media.type == MediaTypeE.tmdbShow
+		) {
+			if (watched) {
+				// For now, if the content is on watched list, we can assume we have a local
+				// cached image. Could be improved, since we could have a cached image for
+				// show not on someone elses watched list.
+				return `${baseURL}/img${media.extPosterPath}`;
+			} else {
+				return `https://image.tmdb.org/t/p/w500${media.extPosterPath}`;
+			}
+		} else if (media.type == MediaTypeE.igdbGame) {
+			return `https://images.igdb.com/igdb/image/upload/t_cover_big/${media.extPosterPath}.jpg`;
+		}
+	});
+	const link = $derived(meta?.id ? `/${meta.type}/${meta.id}` : undefined);
+	const year = $derived(
+		media.releaseDate ? new Date(media.releaseDate).getFullYear() : undefined,
 	);
-	let link = $derived(
-		media.id ? `/${media.media_type}/${media.id}` : undefined,
-	);
-	let dateStr = $derived(media.release_date || media.first_air_date);
-	let year = $derived(dateStr ? new Date(dateStr).getFullYear() : undefined);
 
 	function handleStarClick(r: number) {
-		if (r == rating) return;
-		updateWatched(media.id, media.media_type, undefined, r).then(() => {
+		if (r == watched?.rating || !meta?.id) return;
+		updateWatched(watched, {
+			contentId: meta.id,
+			contentType: meta.type,
+			rating: r,
+		}).then((w) => {
 			if (typeof onUpdated === "function") {
 				onUpdated();
 				runPosterMouseLeaveIfNeeded();
 			}
+			// If watched was just added, we need to assign
+			// it to our `watched` var to get the update.
+			watched = w;
 		});
 	}
 
 	function handleStatusClick(type: WatchedStatus | "DELETE") {
 		if (type === "DELETE") {
-			if (!id) {
+			if (!watched) {
 				notify({
-					text: "Content has no watched list id, can't delete.",
+					text: "Content has no watched list entry, can't delete.",
 					type: "error",
 				});
 				return;
 			}
-			removeWatched(id);
+			removeWatched(watched.id).then((removed) => {
+				if (removed) {
+					watched = undefined;
+				}
+			});
 			return;
 		}
-		if (type == status) return;
-		updateWatched(media.id, media.media_type, type).then(() => {
+		if (type == watched?.status || !meta?.id) return;
+		updateWatched(watched, {
+			contentId: meta.id,
+			contentType: meta.type,
+			status: type,
+		}).then((w) => {
 			if (typeof onUpdated === "function") {
 				onUpdated();
 				runPosterMouseLeaveIfNeeded();
 			}
+			// If watched was just added, we need to assign
+			// it to our `watched` var to get the update.
+			watched = w;
 		});
 	}
 
@@ -152,7 +211,8 @@
 	 */
 	function runPosterMouseLeaveIfNeeded() {
 		// Timeout to give enough time for the element to
-		// actually move if it needs to.
+		// actually move if it needs to (which can happen if
+		// certain filters/sorts are applied).
 		setTimeout(() => {
 			if (!mouseOverEl(containerEl)) {
 				posterOnMouseLeave();
@@ -178,6 +238,28 @@
 			ae.blur();
 		}
 	}
+
+	onMount(() => {
+		if (containerEl) {
+			if (small) {
+				containerEl.classList.add("small");
+			}
+			if (fluidSize) {
+				containerEl.classList.add("fluid-size");
+			}
+		}
+
+		// Show blurhash if we can
+		if (media.poster?.path && media.poster?.blurHash && bhCanvas) {
+			const pixels = decode(media.poster.blurHash, 170, 256);
+			const ctx = bhCanvas.getContext("2d");
+			if (ctx) {
+				const imageData = ctx.createImageData(170, 256);
+				imageData.data.set(pixels);
+				ctx.putImageData(imageData, 0, 0);
+			}
+		}
+	});
 </script>
 
 <!-- HACK: disabled this issue for now, it should probably be fixed properly -->
@@ -212,29 +294,42 @@
 		}
 	}}
 	onkeypress={() => console.log("on kpress")}
-	class={`${posterActive ? "active " : ""}${pinned ? "pinned " : ""}${hideIfNotOnList && !id ? "hidden " : ""}`}
+	class={`${posterActive ? "active " : ""}${watched?.pinned ? "pinned " : ""}${hideIfNotOnList && !watched ? "hidden " : ""}`}
 >
 	<div
-		class={`container${!poster || !media.poster_path ? " details-shown" : ""}`}
+		class={`container${!poster ? " details-shown" : ""}`}
 		bind:this={containerEl}
 	>
-		{#if poster && media.poster_path}
-			<div class="img-loader"></div>
+		{#if poster}
+			{#if posterImgLoaded == 0}
+				<!-- We only show the loader (or blurhash) while the image
+				  is still loading. -->
+				{#if media?.poster?.blurHash}
+					<canvas
+						width="170"
+						height="256"
+						bind:this={bhCanvas}
+						class="img-loader"
+					></canvas>
+				{:else}
+					<div class="img-loader"></div>
+				{/if}
+			{/if}
 			<img
 				loading="lazy"
 				src={poster}
 				alt=""
 				onload={(e) => {
-					addClassToParent(e, "img-loaded");
+					posterImgLoaded = 1;
 				}}
 				onerror={(e) => {
-					addClassToParent(e, "details-shown");
+					posterImgLoaded = -1;
 				}}
 			/>
 		{/if}
-		{#if id && !posterActive}
+		{#if watched && meta && !posterActive}
 			<!-- Must be on watched list, and poster not hovered -->
-			<ExtraDetails details={extraDetails} {status} {rating} />
+			<ExtraDetails {...buildExtraDetails(meta.type, watched)} />
 		{/if}
 		<div
 			onclick={(e) => {
@@ -254,18 +349,26 @@
 		>
 			<a data-sveltekit-preload-data="tap" href={link} class="small-scrollbar">
 				<h2>
-					{title}
+					{media.name}
 					{#if year}
 						<time>{year}</time>
 					{/if}
 				</h2>
-				<span>{media.overview}</span>
+				<span>{media.summary}</span>
 			</a>
 
 			{#if !hideButtons}
 				<div class="buttons">
-					<PosterRating {rating} {handleStarClick} {disableInteraction} />
-					<PosterStatus {status} {handleStatusClick} {disableInteraction} />
+					<PosterRating
+						rating={watched?.rating}
+						{handleStarClick}
+						{disableInteraction}
+					/>
+					<PosterStatus
+						status={watched?.status}
+						{handleStatusClick}
+						{disableInteraction}
+					/>
 				</div>
 			{/if}
 		</div>
@@ -317,7 +420,6 @@
 			height: 100%;
 		}
 
-		&.img-loaded .img-loader,
 		&.details-shown .img-loader {
 			display: none;
 		}

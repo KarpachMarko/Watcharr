@@ -1,13 +1,11 @@
 <script lang="ts">
-	import { run } from "svelte/legacy";
-
 	import axios from "axios";
 	import Modal from "../Modal.svelte";
 	import type {
 		ArrRequestResponse,
-		RadarrSettings,
+		Media,
+		RadarrSettingsPublicResponseResult,
 		RadarrTestResponse,
-		TMDBMovieDetails,
 	} from "@/types";
 	import { notify } from "../util/notify";
 	import DropDown from "../DropDown.svelte";
@@ -15,7 +13,7 @@
 	import Spinner from "../Spinner.svelte";
 
 	interface Props {
-		content: TMDBMovieDetails;
+		content: Media;
 		onClose: (r: ArrRequestResponse | undefined) => void;
 		approveMode?: boolean;
 		originalRequest?: ArrRequestResponse | undefined;
@@ -28,8 +26,8 @@
 		originalRequest = undefined,
 	}: Props = $props();
 
-	let servarrs: RadarrSettings[] = $state();
-	let selectedServarrIndex: number = $state();
+	let servarrs: RadarrSettingsPublicResponseResult[] | undefined = $state();
+	let selectedServarrIndex: number = $state(0);
 	let inputsDisabled = true;
 	let selectedServerCfg: RadarrTestResponse | undefined = $state();
 	let addRequestRunning = $state(false);
@@ -95,9 +93,11 @@
 				`/arr/rad/request${approveMode && originalRequest ? `/approve/${originalRequest.id}` : ""}`,
 				{
 					serverName: server.name,
-					title: content.title,
-					year: new Date(content.release_date)?.getFullYear(),
-					tmdbId: content.id,
+					title: content.name,
+					year: content.releaseDate
+						? new Date(content.releaseDate)?.getFullYear()
+						: undefined,
+					tmdbId: content.ids.tmdb,
 					qualityProfile: server.qualityProfile,
 					rootFolder: rootFolder.path,
 				},
@@ -131,7 +131,7 @@
 						ogr?.serverName,
 					);
 					const idx = servarrs?.findIndex((s) => s.name === ogr?.serverName);
-					if (idx !== -1) {
+					if (idx !== undefined && idx !== -1) {
 						selectedServarrIndex = idx;
 					}
 				}
@@ -151,8 +151,12 @@
 		}
 	}
 
-	run(() => {
-		if (typeof selectedServarrIndex !== "undefined" && servarrs?.length > 0) {
+	$effect.pre(() => {
+		if (
+			typeof selectedServarrIndex !== "undefined" &&
+			servarrs &&
+			servarrs?.length > 0
+		) {
 			const s = servarrs[selectedServarrIndex];
 			if (!s) {
 				selectedServerCfg = undefined;
@@ -167,13 +171,12 @@
 
 <Modal
 	title={approveMode ? "Approve Request" : "Request"}
-	desc={content.title}
+	desc={content.name}
+	maxWidth="700px"
 	onClose={() => onClose(undefined)}
 >
 	<div class="req-ctr">
 		{#if servarrs}
-			{@const server = servarrs[selectedServarrIndex]}
-
 			{#if servarrs?.length > 1}
 				<Setting title="Select the server to use">
 					<DropDown

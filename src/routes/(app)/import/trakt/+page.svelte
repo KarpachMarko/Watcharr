@@ -5,6 +5,7 @@
 
 <script lang="ts">
 	import JobWatcherModal from "@/lib/JobWatcherModal.svelte";
+	import Setting from "@/lib/settings/Setting.svelte";
 	import { notify } from "@/lib/util/notify";
 	import { store } from "@/store.svelte";
 	import type { JobCreatedResponse } from "@/types";
@@ -12,10 +13,12 @@
 
 	let modalOpen = $state(false);
 	let traktUsername = $state("");
+	let traktApiKey = $state("");
 
 	async function startJob(): Promise<{ jobId: string } | undefined> {
 		const r = await axios.post<JobCreatedResponse>("/import/trakt", {
 			username: traktUsername,
+			apiKey: traktApiKey.trim(),
 		});
 		console.log("startSync: Response:", r.data);
 		if (!r.data.jobId) {
@@ -38,11 +41,29 @@
 		</h5>
 
 		<input
+			class="username"
 			type="text"
 			placeholder={store.userInfo?.username ?? "Trakt Username"}
 			bind:value={traktUsername}
 		/>
 		<button onclick={() => (modalOpen = true)}>Start Import</button>
+
+		<div class="settings-ctr">
+			<Setting
+				title="(Optional) API Key"
+				desc="Provide your own Trakt App Client ID if you are having trouble using our default key."
+			>
+				<input placeholder="Trakt Client ID" bind:value={traktApiKey} />
+			</Setting>
+		</div>
+
+		<a
+			class="help"
+			href="https://watcharr.app/docs/importing/trakt"
+			target="_blank"
+		>
+			Need help? See: https://watcharr.app/docs/importing/trakt
+		</a>
 	</div>
 
 	{#if modalOpen}
@@ -75,33 +96,16 @@
 		}
 	}
 
-	input,
+	input.username,
 	button {
 		margin-top: 15px;
 	}
 
-	ul {
-		display: flex;
-		flex-flow: column;
-		gap: 5px;
-		margin: 10px;
-		list-style: none;
+	.settings-ctr {
+		margin-top: 30px;
+	}
 
-		li {
-			display: flex;
-			flex-flow: row;
-			align-items: center;
-			padding: 10px;
-			background-color: $accent-color;
-			border-radius: 5px;
-
-			a {
-				margin-left: auto;
-
-				button {
-					width: max-content;
-				}
-			}
-		}
+	a.help {
+		margin-top: 20px;
 	}
 </style>

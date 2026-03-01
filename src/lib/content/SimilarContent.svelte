@@ -1,26 +1,19 @@
 <script lang="ts">
-	import type { ContentType, TMDBMovieSimilar, TMDBShowSimilar } from "@/types";
+	import type { Media } from "@/types";
 	import HorizontalList from "../HorizontalList.svelte";
-	import { store } from "@/store.svelte";
-	import { getWatchedDependedProps } from "@/lib/util/helpers";
 	import Poster from "../poster/Poster.svelte";
 
 	interface Props {
-		type: ContentType;
-		similar: TMDBShowSimilar | TMDBMovieSimilar;
+		similar: Media[];
 	}
 
-	let { type, similar }: Props = $props();
+	let { similar }: Props = $props();
 </script>
 
-{#if similar?.results?.length > 0}
+{#if similar?.length > 0}
 	<HorizontalList title="Similar">
-		{#each similar.results as content}
-			<Poster
-				media={{ ...content, media_type: type }}
-				{...getWatchedDependedProps(content.id, type, store.watchedList)}
-				small={true}
-			/>
+		{#each similar as content, i}
+			<Poster media={content} small={true} bind:watched={similar[i].watched} />
 		{/each}
 	</HorizontalList>
 {/if}

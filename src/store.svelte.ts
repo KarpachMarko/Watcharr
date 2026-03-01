@@ -8,7 +8,6 @@ import type {
 	Theme,
 	UserSettings,
 	WLDetailedViewOption,
-	Watched,
 } from "./types";
 import type { Notification } from "./lib/util/notify";
 import { browser } from "$app/environment";
@@ -19,10 +18,10 @@ export const defaultSort = ["DATEADDED", "DOWN"];
 interface Store {
 	userInfo: PrivateUser | undefined;
 	userSettings: UserSettings | undefined;
-	watchedList: Watched[];
 	notifications: Notification[];
 	activeSort: string[];
 	activeFilters: Filters;
+	sortAndFiltersForQueryParams: {};
 	appTheme: Theme;
 	importedList:
 		| {
@@ -50,11 +49,11 @@ interface Store {
  * This is our actual (private) store.
  */
 const _store: Store = $state({
-	watchedList: [],
 	notifications: [],
 	activeSort: defaultSort,
 	activeFilters: { type: [], status: [] },
 	appTheme: "system",
+	sortAndFiltersForQueryParams: {},
 	importedList: undefined,
 	parsedImportedList: undefined,
 	searchQuery: "",
@@ -66,6 +65,30 @@ const _store: Store = $state({
 	tags: [],
 });
 
+const updateSortAndFiltersForQueryParams = () => {
+	try {
+		const qp: any = {};
+		if (store.activeSort?.length === 2) {
+			qp.sort = store.activeSort[0];
+			qp.sortDir = store.activeSort[1] === "UP" ? "asc" : "desc";
+		}
+		if (store.activeFilters) {
+			const t = store.activeFilters?.type?.join(",");
+			if (t) {
+				qp["type"] = t;
+			}
+			const s = store.activeFilters?.status?.join(",");
+			if (s) {
+				qp["status"] = s;
+			}
+		}
+		_store.sortAndFiltersForQueryParams = qp;
+	} catch (err) {
+		console.error("updateSortAndFiltersForQueryParams: Failed!", err);
+		_store.sortAndFiltersForQueryParams = {};
+	}
+};
+
 /**
  * Expose store to app through getters/setters
  * to control what can and can't be accessed.
@@ -74,12 +97,6 @@ const _store: Store = $state({
  * they are updated.
  */
 export const store = {
-	get watchedList() {
-		return _store.watchedList;
-	},
-	set watchedList(w) {
-		_store.watchedList = w;
-	},
 	get notifications() {
 		return _store.notifications;
 	},
@@ -93,14 +110,31 @@ export const store = {
 		_store.activeSort = v;
 		localStorage.setItem("activeFilter", JSON.stringify(v));
 		console.debug("Store: Saved activeSort:", v);
+		updateSortAndFiltersForQueryParams();
 	},
 	get activeFilters() {
 		return _store.activeFilters;
+	},
+	get hasActiveFilters(): boolean {
+		return (
+			this.activeFilters &&
+			(this.activeFilters.status?.length > 0 ||
+				this.activeFilters.type?.length > 0)
+		);
 	},
 	set activeFilters(v) {
 		_store.activeFilters = v;
 		localStorage.setItem("activeFilterReal", JSON.stringify(v));
 		console.debug("Store: Saved activeFilters:", v);
+		updateSortAndFiltersForQueryParams();
+	},
+	/**
+	 * Return our `activeSort` and `activeFilters` in an object
+	 * that is in the correct format for our get watched page
+	 * requests (object that is given to axios for query params).
+	 */
+	get sortAndFiltersForQueryParams() {
+		return _store.sortAndFiltersForQueryParams;
 	},
 	get appTheme() {
 		return _store.appTheme;
@@ -183,7 +217,6 @@ export const store = {
  * Reset everything in `store` back to default values.
  */
 export const clearAllStores = () => {
-	store.watchedList = [];
 	store.notifications = [];
 	store.activeSort = defaultSort;
 	store.appTheme = "system";
@@ -234,6 +267,9 @@ function rehydrateStore() {
 			$state.snapshot(store.activeFilters),
 		);
 	}
+	// After restoring activeSort and activeFilter, set
+	// an initial value for our related query param state.
+	updateSortAndFiltersForQueryParams();
 	// Restore appTheme
 	const theme = localStorage.getItem("theme") as Theme;
 	if (theme) {

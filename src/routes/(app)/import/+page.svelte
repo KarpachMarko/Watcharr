@@ -18,7 +18,6 @@
 		MovaryHistory,
 		MovaryRatings,
 		MovaryWatchlist,
-		Watched,
 		WatchedStatus,
 		TodoMoviesExport,
 		TagAddRequest,
@@ -298,7 +297,7 @@
 			// Build toImport array
 			const toImport: ImportedList[] = [];
 			const fileText = await readFile(new FileReader(), file);
-			const jsonData = JSON.parse(fileText) as Watched[];
+			const jsonData = JSON.parse(fileText) as any[];
 			for (const v of jsonData) {
 				if (!v.content || !v.content.title) {
 					notify({

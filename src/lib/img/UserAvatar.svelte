@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from "svelte/legacy";
-
 	import { decode } from "blurhash";
 	import Icon from "../Icon.svelte";
 	import { baseURL } from "../util/api";
@@ -17,15 +15,19 @@
 
 	let { img, avatarDropped = undefined }: Props = $props();
 
+	let avatarImgLoaded = $state(false);
 	let bhCanvas: HTMLCanvasElement | undefined = $state();
 	let avatarInput: HTMLInputElement | undefined = $state();
 
 	function avatarLoaded() {
-		console.log("avatar loaded.. removing canvas");
-		bhCanvas?.remove();
+		console.log("avatar img loaded..");
+		avatarImgLoaded = true;
 	}
 
-	run(() => {
+	onMount(() => {
+		avatarImgLoaded = false;
+
+		// Decode blurhash
 		if (img?.path && img?.blurHash && bhCanvas) {
 			const pixels = decode(img.blurHash, 80, 80);
 			const ctx = bhCanvas.getContext("2d");
@@ -35,9 +37,7 @@
 				ctx.putImageData(imageData, 0, 0);
 			}
 		}
-	});
 
-	onMount(() => {
 		// Ignore rest if avatarDropped not defined
 		if (typeof avatarDropped !== "function") return;
 
@@ -56,7 +56,9 @@
 	].join(" ")}
 >
 	{#if img?.path}
-		<canvas bind:this={bhCanvas}></canvas>
+		{#if !avatarImgLoaded}
+			<canvas bind:this={bhCanvas}></canvas>
+		{/if}
 		<img src={`${baseURL}/${img.path}`} alt="" onload={avatarLoaded} />
 	{:else}
 		<Icon i="person" wh="100%" />

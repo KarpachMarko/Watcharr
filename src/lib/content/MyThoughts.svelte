@@ -4,12 +4,12 @@
 	import { notify } from "../util/notify";
 
 	interface Props {
-		contentTitle: string;
+		contentTitle?: string;
 		thoughts: string;
-		onChange: (newThoughts: string) => Promise<boolean>;
+		onChange: (newThoughts: string) => Promise<void>;
 	}
 
-	let { contentTitle, thoughts, onChange }: Props = $props();
+	let { contentTitle = "this", thoughts, onChange }: Props = $props();
 
 	let modalOpen = $state(false);
 	let textarea: HTMLTextAreaElement | undefined = $state();

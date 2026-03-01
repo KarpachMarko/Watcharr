@@ -1,0 +1,440 @@
+@use "./mixins.scss" as *;
+@use "./vars.scss" as *;
+
+:root {
+	--bg-color: white;
+	--bg-color-accent: rgb(180, 180, 180);
+	--nav-color: rgba(255, 255, 255, 0.8);
+	--text-color: black;
+	--text-color-accent: rgb(90, 90, 90);
+	--accent-color: rgba(128, 128, 128, 0.226);
+	--accent-color-hover: rgba(46, 46, 46);
+	--rating-color: black;
+	--placeholder-color: #8e8e8e;
+	--poster-rating-color: gold;
+	--img-blend-multiply-bg-col: rgba(0, 0, 0, 0.85);
+}
+
+:root.theme-dark {
+	--bg-color: rgb(15, 15, 15);
+	--bg-color-accent: rgb(70, 70, 70);
+	--nav-color: rgba(15, 15, 15, 0.438);
+	--text-color: white;
+	--text-color-accent: rgb(180, 180, 180);
+	--accent-color: rgba(46, 46, 46);
+	--accent-color-hover: rgba(255, 255, 255, 0.8);
+	--rating-color: gold;
+	--placeholder-color: #8e8e8e;
+	--poster-rating-color: black;
+	--img-blend-multiply-bg-col: rgba(255, 255, 255, 0.03);
+}
+
+@font-face {
+	font-family: "Shrikhand";
+	src:
+		local("Shrikhand Regular"),
+		local("Shrikhand-Regular"),
+		url("/Shrikhand-Regular.woff2") format("woff2");
+	font-weight: normal;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Rampart One";
+	src:
+		local("Rampart One Regular"),
+		local("RampartOne-Regular"),
+		url("/RampartOne-Regular.woff2") format("woff2");
+	font-weight: normal;
+	font-style: normal;
+	font-display: swap;
+}
+
+:global {
+	* {
+		padding: 0;
+		margin: 0;
+		box-sizing: border-box;
+	}
+
+	body {
+		font-family:
+			sans-serif,
+			system-ui,
+			-apple-system,
+			BlinkMacSystemFont;
+		background-color: $bg-color;
+		color: $text-color;
+	}
+}
+
+:global {
+	h1:not(.norm),
+	h2:not(.norm),
+	h3:not(.norm),
+	h4:not(.norm),
+	h5:not(.norm) {
+		font-family:
+			"Shrikhand",
+			system-ui,
+			-apple-system,
+			BlinkMacSystemFont;
+	}
+}
+
+:global {
+	.sm-caps {
+		font-variant: small-caps;
+	}
+}
+
+:global {
+	a {
+		text-decoration: none;
+		color: $text-color;
+	}
+}
+
+:global {
+	input,
+	textarea {
+		padding: 7px 10px;
+		border: 2px solid black;
+		border-radius: 5px;
+		width: 100%;
+	}
+}
+
+:global {
+	input.invalid {
+		border: 3px solid $error;
+	}
+}
+
+:global {
+	textarea {
+		padding: 5px;
+		max-width: 100%;
+		color: $text-color;
+		background-color: transparent;
+		border-color: $text-color;
+	}
+}
+
+:global {
+	button {
+		cursor: pointer;
+	}
+}
+
+:global {
+	button:not(.plain),
+	a.btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 7px 10px;
+		border: 2px solid $text-color;
+		border-radius: 5px;
+		background-color: $bg-color;
+		color: $text-color;
+		fill: $text-color;
+		font-weight: bold;
+		width: 100%;
+		transition:
+			background-color 100ms ease,
+			opacity 100ms ease;
+
+		& svg {
+			height: 100%;
+			width: auto;
+		}
+
+		&:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
+		&:not(:disabled) {
+			&:hover,
+			&:focus-visible,
+			&.active {
+				background-color: $text-color;
+				color: $bg-color;
+				fill: $bg-color;
+				opacity: 1;
+			}
+
+			&.active {
+				border-color: $bg-color;
+			}
+		}
+	}
+}
+
+:global {
+	button.secondary {
+		border: 2px solid transparent;
+
+		&:hover,
+		&:focus-visible {
+			background-color: white;
+			color: black;
+			border: 2px solid black;
+		}
+	}
+}
+
+:global {
+	button.danger {
+		border: 2px solid $error;
+		color: $error;
+
+		&:not(:disabled) {
+			&:hover,
+			&:focus-visible {
+				background-color: $error;
+				color: white;
+			}
+		}
+	}
+}
+
+:global {
+	button.plain,
+	a.plain-btn {
+		background-color: transparent;
+		color: $text-color;
+		border: 0;
+	}
+}
+
+:global {
+	button.not-active {
+		opacity: 0.5;
+	}
+}
+
+:global {
+	#tooltip {
+		visibility: hidden;
+		position: absolute;
+		padding: 8px 5px;
+		background-color: black;
+		color: white;
+		border: 1px solid white;
+		border-radius: 6px;
+		text-transform: capitalize;
+		z-index: 99999;
+		transition:
+			top 100ms ease,
+			left 100ms ease;
+		pointer-events: none;
+	}
+}
+
+:global {
+	#notifications {
+		display: flex;
+		flex-flow: column;
+		gap: 10px;
+		position: fixed;
+		bottom: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		margin-bottom: 8px;
+		z-index: 99999;
+
+		.notif {
+			display: flex;
+			flex-flow: row;
+			align-items: center;
+			min-width: 200px;
+			color: black;
+			background-color: white;
+			border-radius: 8px;
+			border: 1px solid rgba($color: #000000, $alpha: 0.2);
+			box-shadow: 0 4px 10px rgba($color: #000000, $alpha: 0.2);
+			animation: comein 250ms ease forwards;
+			position: relative;
+
+			&.loading {
+				padding-left: 10px;
+			}
+
+			@keyframes comein {
+				from {
+					opacity: 0;
+				}
+
+				to {
+					opacity: 1;
+				}
+			}
+
+			&.error {
+				color: white;
+				background-color: $error;
+				border: 1px solid $error;
+
+				span {
+					border-color: rgba($color: white, $alpha: 0.5);
+				}
+			}
+
+			&.success {
+				color: white;
+				background-color: $success;
+				border: 1px solid $success;
+
+				span {
+					border-color: rgba($color: white, $alpha: 0.5);
+				}
+			}
+
+			span {
+				width: 100%;
+				height: 100%;
+				padding-right: 12px;
+				border-right: 1px solid rgba($color: black, $alpha: 0.2);
+				padding: 10px 12px;
+				padding-left: 9px;
+
+				a {
+					color: white;
+					text-decoration: underline;
+				}
+			}
+
+			button {
+				display: flex;
+				align-items: center;
+				margin: 8px;
+				width: 22px;
+				height: 100%;
+				color: inherit;
+			}
+		}
+	}
+
+	.small-scrollbar {
+		@supports selector(::-webkit-scrollbar) {
+			&::-webkit-scrollbar {
+				width: 4.5px;
+			}
+
+			&::-webkit-scrollbar-track {
+				background: transparent;
+			}
+
+			&::-webkit-scrollbar-thumb {
+				background-color: rgba(155, 155, 155, 0.5);
+				border-radius: 20px;
+				border: transparent;
+			}
+
+			// The scrollbar-width property will always override
+			// -webkit-scrollbar, but since the scrollbars in
+			// chromium look ugly af, we will try to unset scrollbar-width
+			// in these cases and use our manual styling instead to try
+			// mimicking beatiful firefox.
+			scrollbar-width: auto !important;
+		}
+	}
+}
+
+:global {
+	table {
+		margin-top: 20px;
+		width: 100%;
+		border-spacing: 0px;
+		border: 1px solid $accent-color;
+		border-radius: 10px;
+		font-size: 16px;
+
+		th {
+			padding: 12px 15px;
+			text-align: left;
+			transition: padding 100ms ease;
+
+			&:first-of-type {
+				border-top-left-radius: 10px;
+			}
+
+			&:last-of-type {
+				border-top-right-radius: 10px;
+			}
+
+			&.loading-col {
+				width: 28px;
+				padding: 0;
+			}
+		}
+
+		tr {
+			th {
+				background-color: $accent-color;
+			}
+
+			&:last-child {
+				td:first-of-type {
+					border-bottom-left-radius: 10px;
+				}
+
+				td:last-of-type {
+					border-bottom-right-radius: 10px;
+				}
+			}
+
+			&:nth-child(odd) td {
+				background-color: $accent-color;
+			}
+		}
+
+		td {
+			padding: 5px;
+
+			&.icon-cell {
+				padding-right: 3px;
+
+				& > div {
+					display: flex;
+					padding-left: 4px;
+				}
+			}
+
+			input {
+				background: transparent;
+				color: $text-color;
+				border: 0;
+				font-size: 16px;
+				padding: 0;
+				padding: 7px 10px;
+				transition: padding 100ms ease;
+
+				&[type="number"] {
+					appearance: textfield;
+
+					&::-webkit-outer-spin-button,
+					&::-webkit-inner-spin-button {
+						-webkit-appearance: none;
+						margin: 0;
+					}
+				}
+			}
+
+			button {
+				&.delete {
+					display: flex;
+					justify-content: center;
+					color: $placeholder-color;
+
+					&:hover {
+						color: $error;
+					}
+				}
+			}
+		}
+	}
+}

@@ -59,3 +59,7 @@
 </div>
 
 {@render children?.()}
+
+<style lang="scss">
+	@use "../styles/norm.scss";
+</style>
