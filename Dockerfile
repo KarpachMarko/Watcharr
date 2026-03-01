@@ -33,7 +33,7 @@ FROM node:20-alpine AS runner
 
 COPY --from=server /server/watcharr /
 COPY --from=ui /app/build /ui
-COPY --from=ui /app/package.json /app/package-lock.json /ui
+COPY --from=ui /app/package.json /app/package-lock.json /ui/
 
 # Install just the prod dependencies for final step.
 # We --ignore-scripts, to stop the `prepare` script from auto-
