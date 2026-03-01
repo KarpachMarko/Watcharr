@@ -425,10 +425,6 @@
 			font-variant: small-caps;
 		}
 
-		& > div {
-			margin: 0 15px;
-		}
-
 		div {
 			&.row {
 				display: flex;
@@ -446,6 +442,10 @@
 			display: flex;
 			flex-flow: column;
 			gap: 10px;
+
+			& .row {
+				margin: 0 5px;
+			}
 
 			& button {
 				width: 50%;
