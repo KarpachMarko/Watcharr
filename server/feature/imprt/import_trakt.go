@@ -22,6 +22,8 @@ import (
 type TraktImportRequest struct {
 	// Username of public trakt user to import from.
 	Username string `json:"username" binding:"required"`
+	// An optional custom api key to use for the requests.
+	ApiKey string `json:"apiKey"`
 }
 
 type TraktUser struct {
@@ -107,13 +109,19 @@ func NewTraktService(s *Service) *TraktService {
 }
 
 // TODO we could support trakt list imports when we support a similar feature (tags will function as custom lists when done #199)
-func (t *TraktService) startTraktImport(jobId string, userId uint, traktUsername string) {
+func (t *TraktService) startTraktImport(jobId string, userId uint, req TraktImportRequest) {
 	// Get trakt user. We want to get their profile `slug` for use in
 	// next requests and we can check their profile isn't private while here.
 	var traktUser TraktUser
-	_, err := t.traktAPIRequest("users/"+traktUsername, map[string]string{}, &traktUser)
+	_, err := t.traktAPIRequest(
+		"users/"+req.Username,
+		map[string]string{},
+		&traktUser,
+		req.ApiKey)
 	if err != nil {
-		slog.Error("startTraktImport: Failed to get users profile", "error", err, "trakt_user", traktUser)
+		slog.Error("startTraktImport: Failed to get users profile",
+			"error", err,
+			"trakt_user", traktUser)
 		job.AddJobError(jobId, userId, "failed to request trakt profile from api")
 		job.UpdateJobStatus(jobId, userId, job.JOB_CANCELLED)
 		return
@@ -130,9 +138,14 @@ func (t *TraktService) startTraktImport(jobId string, userId uint, traktUsername
 	// Process all history for this user (in chunks of 1000).
 	var history []TraktHistory
 	slog.Debug("startTraktImport: Getting first history page")
-	historyHeaders, err := t.traktAPIRequest("users/"+userSlug+"/history", map[string]string{"limit": "1000"}, &history)
+	historyHeaders, err := t.traktAPIRequest(
+		"users/"+userSlug+"/history",
+		map[string]string{"limit": "1000"},
+		&history,
+		req.ApiKey)
 	if err != nil {
-		// FATAL if we can't get the users history, we probably shouldn't continue (to ratings/watchlist below).
+		// FATAL if we can't get the users history, we probably shouldn't continue
+		// (to ratings/watchlist below).
 		slog.Error("startTraktImport: Failed to get users history", "error", err)
 		job.AddJobError(jobId, userId, "failed to get your history")
 		return
@@ -173,7 +186,11 @@ func (t *TraktService) startTraktImport(jobId string, userId uint, traktUsername
 		}
 		for i := range pageCountNum {
 			slog.Debug("startTraktImport: Getting history page", "page_num", i)
-			_, err := t.traktAPIRequest("users/"+userSlug+"/history", map[string]string{"limit": "1000", "page": strconv.Itoa(i)}, &history)
+			_, err := t.traktAPIRequest(
+				"users/"+userSlug+"/history",
+				map[string]string{"limit": "1000", "page": strconv.Itoa(i)},
+				&history,
+				req.ApiKey)
 			if err != nil {
 				slog.Error("startTraktImport: Failed to get a history page", "page_num", i, "error", err)
 				job.AddJobError(jobId, userId, "Failed to get history page: "+strconv.Itoa(i))
@@ -189,7 +206,11 @@ func (t *TraktService) startTraktImport(jobId string, userId uint, traktUsername
 	// Get watchlist for PLANNED items
 	slog.Info("startTraktImport: Getting whole watchlist")
 	var watchlist TraktWatchlist
-	_, err = t.traktAPIRequest("users/"+userSlug+"/watchlist", map[string]string{}, &watchlist)
+	_, err = t.traktAPIRequest(
+		"users/"+userSlug+"/watchlist",
+		map[string]string{},
+		&watchlist,
+		req.ApiKey)
 	if err != nil {
 		slog.Error("startTraktImport: Failed to get users watchlist! Cannot import planned content.", "error", err)
 		job.AddJobError(jobId, userId, "failed to get your watchlist (planned items cannot be imported)")
@@ -275,7 +296,11 @@ func (t *TraktService) startTraktImport(jobId string, userId uint, traktUsername
 	// Process ratings
 	slog.Info("startTraktImport: Getting all ratings")
 	var ratings TraktRatings
-	_, err = t.traktAPIRequest("users/"+userSlug+"/ratings", map[string]string{}, &ratings)
+	_, err = t.traktAPIRequest(
+		"users/"+userSlug+"/ratings",
+		map[string]string{},
+		&ratings,
+		req.ApiKey)
 	if err != nil {
 		slog.Error("startTraktImport: Failed to get users ratings!", "error", err)
 		job.AddJobError(jobId, userId, "failed to get your ratings (content ratings cannot be imported)")
@@ -404,7 +429,13 @@ func (t *TraktService) makeTraktMapKey(ct entity.ContentType, tmdbId int) string
 	return string(ct) + strconv.Itoa(tmdbId)
 }
 
-func (t *TraktService) traktAPIRequest(ep string, p map[string]string, resp interface{}) (http.Header, error) {
+func (t *TraktService) traktAPIRequest(
+	ep string,
+	p map[string]string,
+	resp interface{},
+	// If not provided, a default key is used
+	apiKey string,
+) (http.Header, error) {
 	base, err := url.Parse("https://api.trakt.tv")
 	if err != nil {
 		return map[string][]string{}, errors.New("failed to parse api uri")
@@ -422,7 +453,12 @@ func (t *TraktService) traktAPIRequest(ep string, p map[string]string, resp inte
 	if err != nil {
 		return map[string][]string{}, err
 	}
-	req.Header.Add("trakt-api-key", "c481cb044dcd58d83f3fde113741d1e28d19c1bef1bcbfcb9acedee222f3a673")
+	traktApiKey := "1309b3a473f6718ba0586eddf4b8caccd8733ec74ac47aa6eadc23331d9c7ab4"
+	if apiKey != "" {
+		traktApiKey = apiKey
+	}
+	// trakt-api-key is your Trakt Apps 'Client ID'.
+	req.Header.Add("trakt-api-key", traktApiKey)
 	req.Header.Add("trakt-api-version", "2")
 	req.Header.Add("Content-type", "application/json")
 	res, err := http.DefaultClient.Do(req)
@@ -447,7 +483,7 @@ func (t *TraktService) traktAPIRequest(ep string, p map[string]string, resp inte
 
 func (t *TraktService) TraktImportWatched(
 	userId uint,
-	traktUsername string,
+	req TraktImportRequest,
 ) (TraktImportResponse, error) {
 	jobId, err := job.AddUniqueJob("trakt_import", userId)
 	if err != nil {
@@ -460,7 +496,7 @@ func (t *TraktService) TraktImportWatched(
 	go t.startTraktImport(
 		jobId,
 		userId,
-		traktUsername,
+		req,
 	)
 
 	return TraktImportResponse{JobId: jobId}, nil

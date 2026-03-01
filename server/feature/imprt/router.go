@@ -53,7 +53,7 @@ func (r *Router) ImportTrakt(c *gin.Context) {
 	var ar TraktImportRequest
 	err := c.ShouldBindJSON(&ar)
 	if err == nil {
-		response, err := r.traktService.TraktImportWatched(userId, ar.Username)
+		response, err := r.traktService.TraktImportWatched(userId, ar)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return
