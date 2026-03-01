@@ -7,11 +7,10 @@ import (
 	"github.com/sbondCo/Watcharr/feature/auth"
 	"github.com/sbondCo/Watcharr/feature/setup/setupglob"
 	"github.com/sbondCo/Watcharr/router"
-	"gorm.io/gorm"
 )
 
 type AuthProvider interface {
-	RegisterFirstUser(urr *auth.UserRegisterRequest, db *gorm.DB) (auth.AuthResponse, error)
+	RegisterFirstUser(urr *auth.UserRegisterRequest) (auth.AuthResponse, error)
 }
 
 type Router struct {
@@ -19,8 +18,11 @@ type Router struct {
 	authProvider AuthProvider
 }
 
-func NewRouter(br *router.BaseRouter) *Router {
-	return &Router{br: br}
+func NewRouter(br *router.BaseRouter, authProvider AuthProvider) *Router {
+	return &Router{
+		br,
+		authProvider,
+	}
 }
 
 // Since we cannot remove these setup routes after they are registered,
@@ -48,7 +50,7 @@ func (r *Router) CreateAdmin(c *gin.Context) {
 	}
 	var user auth.UserRegisterRequest
 	if c.ShouldBindJSON(&user) == nil {
-		response, err := r.authProvider.RegisterFirstUser(&user, r.br.DB)
+		response, err := r.authProvider.RegisterFirstUser(&user)
 		if err != nil {
 			c.JSON(http.StatusForbidden, router.ErrorResponse{Error: err.Error()})
 			return

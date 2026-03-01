@@ -185,18 +185,6 @@ func main() {
 	}
 	api := gine.Group("/api")
 	br := router.NewBaseRouter(db, api, cfg)
-	// Only add setup routes if there are no users found in db.
-	var userCount int64
-	if uresp := db.Model(&entity.User{}).Count(&userCount); uresp.Error == nil {
-		if userCount != 0 {
-			slog.Debug("registered users found.. skipped creating setup routes.")
-		} else {
-			slog.Info("No users found.. creating setup routes.")
-			setup.NewRouter(br).AddRoutes()
-		}
-	} else {
-		slog.Error("Failed to check if any users exist.. not registering setup routes", "error", uresp.Error)
-	}
 
 	t := tmdb.NewTMDB(cfg.TMDB_KEY)
 
@@ -268,6 +256,20 @@ func main() {
 	game.NewRouter(br, gameService, watchedService).AddRoutes()
 	search.NewRouter(br, searchService, watchedService).AddRoutes()
 	discover.NewRouter(br, discoverService, watchedService).AddRoutes()
+
+	// Only add setup routes if there are no users found in db.
+	var userCount int64
+	if uresp := db.Model(&entity.User{}).Count(&userCount); uresp.Error == nil {
+		if userCount != 0 {
+			slog.Debug("registered users found.. skipped creating setup routes.")
+		} else {
+			slog.Info("No users found.. creating setup routes.")
+			setup.NewRouter(br, authService).AddRoutes()
+		}
+	} else {
+		slog.Error("Failed to check if any users exist.. not registering setup routes",
+			"error", uresp.Error)
+	}
 
 	api.Static("/img", path.Join(config.DataPath, "img"))
 
