@@ -4,7 +4,7 @@
 	import type {
 		ArrRequestResponse,
 		Media,
-		RadarrSettings,
+		RadarrSettingsPublicResponseResult,
 		RadarrTestResponse,
 	} from "@/types";
 	import { notify } from "../util/notify";
@@ -26,7 +26,7 @@
 		originalRequest = undefined,
 	}: Props = $props();
 
-	let servarrs: RadarrSettings[] | undefined = $state();
+	let servarrs: RadarrSettingsPublicResponseResult[] | undefined = $state();
 	let selectedServarrIndex: number = $state(0);
 	let inputsDisabled = true;
 	let selectedServerCfg: RadarrTestResponse | undefined = $state();

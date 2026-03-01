@@ -600,6 +600,22 @@ export interface RadarrSettings {
 	automaticSearch?: boolean;
 }
 
+interface ArrSettingsPublicResponseBase {
+	name: string;
+	host?: string;
+	qualityProfile?: number;
+	rootFolder?: number;
+	automaticSearch: boolean;
+}
+
+export interface SonarrSettingsPublicResponseResult
+	extends ArrSettingsPublicResponseBase {
+	languageProfile?: number;
+}
+
+export interface RadarrSettingsPublicResponseResult
+	extends ArrSettingsPublicResponseBase {}
+
 export interface TwitchSettings {
 	clientId: string;
 	clientSecret: string;

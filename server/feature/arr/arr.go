@@ -9,21 +9,90 @@ import (
 	"github.com/sbondCo/Watcharr/config/cfgmodel"
 )
 
-type ArrTestParams struct {
-	Host string `json:"host,omitempty"`
-	Key  string `json:"key,omitempty"`
+type (
+	ArrTestParams struct {
+		Host string `json:"host,omitempty"`
+		Key  string `json:"key,omitempty"`
+	}
+
+	SonarrTestResponse struct {
+		QualityProfiles  []arr.QualityProfile  `json:"qualityProfiles"`
+		RootFolders      []arr.RootFolder      `json:"rootFolders"`
+		LanguageProfiles []arr.LanguageProfile `json:"languageProfiles"`
+	}
+
+	RadarrTestResponse struct {
+		QualityProfiles  []arr.QualityProfile  `json:"qualityProfiles"`
+		RootFolders      []arr.RootFolder      `json:"rootFolders"`
+		LanguageProfiles []arr.LanguageProfile `json:"languageProfiles"`
+	}
+)
+
+// Getting arr servers for public consumption!!!!
+// Nothing sensitive to be included!
+type arrSettingsPublicResponseBase struct {
+	Name string `json:"name"`
+	Host string `json:"host"`
+
+	QualityProfile  int  `json:"qualityProfile,omitempty"`
+	RootFolder      int  `json:"rootFolder,omitempty"`
+	AutomaticSearch bool `json:"automaticSearch"`
 }
 
-type SonarrTestResponse struct {
-	QualityProfiles  []arr.QualityProfile  `json:"qualityProfiles"`
-	RootFolders      []arr.RootFolder      `json:"rootFolders"`
-	LanguageProfiles []arr.LanguageProfile `json:"languageProfiles"`
+func newArrSettingsPublicResponseBaseSonarr(
+	cfg *cfgmodel.SonarrSettings,
+) *arrSettingsPublicResponseBase {
+	return &arrSettingsPublicResponseBase{
+		Name:            cfg.Name,
+		Host:            cfg.Host,
+		QualityProfile:  cfg.QualityProfile,
+		RootFolder:      cfg.RootFolder,
+		AutomaticSearch: cfg.AutomaticSearch,
+	}
 }
 
-type RadarrTestResponse struct {
-	QualityProfiles  []arr.QualityProfile  `json:"qualityProfiles"`
-	RootFolders      []arr.RootFolder      `json:"rootFolders"`
-	LanguageProfiles []arr.LanguageProfile `json:"languageProfiles"`
+func newArrSettingsPublicResponseBaseRadarr(
+	cfg *cfgmodel.RadarrSettings,
+) *arrSettingsPublicResponseBase {
+	return &arrSettingsPublicResponseBase{
+		Name:            cfg.Name,
+		Host:            cfg.Host,
+		QualityProfile:  cfg.QualityProfile,
+		RootFolder:      cfg.RootFolder,
+		AutomaticSearch: cfg.AutomaticSearch,
+	}
+}
+
+// Getting sonarr servers response for ALL USERS!
+// Nothing sensitive to be included!
+type SonarrSettingsPublicResponseResult struct {
+	arrSettingsPublicResponseBase
+	LanguageProfile int `json:"languageProfile,omitempty"`
+}
+
+func NewSonarrSettingsPublicResponse(
+	cfg *cfgmodel.SonarrSettings,
+) SonarrSettingsPublicResponseResult {
+	base := newArrSettingsPublicResponseBaseSonarr(cfg)
+	return SonarrSettingsPublicResponseResult{
+		arrSettingsPublicResponseBase: *base,
+		LanguageProfile:               cfg.LanguageProfile,
+	}
+}
+
+// Getting radarr servers response for ALL USERS!
+// Nothing sensitive to be included!
+type RadarrSettingsPublicResponseResult struct {
+	arrSettingsPublicResponseBase
+}
+
+func NewRadarrSettingsPublicResponse(
+	cfg *cfgmodel.RadarrSettings,
+) RadarrSettingsPublicResponseResult {
+	base := newArrSettingsPublicResponseBaseRadarr(cfg)
+	return RadarrSettingsPublicResponseResult{
+		arrSettingsPublicResponseBase: *base,
+	}
 }
 
 // Response given to users with PERM_REQUEST_CONTENT - should never include sensitive info
@@ -113,10 +182,10 @@ func getSonarr(cfg *config.ServerConfig, name string) (cfgmodel.SonarrSettings, 
 
 // Get list of sonarr servers without api keys.
 // Regular users with access to adding to sonarr will request this.
-func getSonarrsSafe(cfg *config.ServerConfig) []cfgmodel.SonarrSettings {
-	s := []cfgmodel.SonarrSettings{}
+func getSonarrsSafe(cfg *config.ServerConfig) []SonarrSettingsPublicResponseResult {
+	s := []SonarrSettingsPublicResponseResult{}
 	for _, v := range cfg.SONARR {
-		s = append(s, v.Safe())
+		s = append(s, NewSonarrSettingsPublicResponse(&v))
 	}
 	return s
 }
@@ -168,10 +237,10 @@ func getRadarr(cfg *config.ServerConfig, name string) (cfgmodel.RadarrSettings, 
 
 // Get list of radarr servers without api keys.
 // Regular users with access to adding to radarr will request this.
-func getRadarrsSafe(cfg *config.ServerConfig) []cfgmodel.RadarrSettings {
-	s := []cfgmodel.RadarrSettings{}
+func getRadarrsSafe(cfg *config.ServerConfig) []RadarrSettingsPublicResponseResult {
+	s := []RadarrSettingsPublicResponseResult{}
 	for _, v := range cfg.RADARR {
-		s = append(s, v.Safe())
+		s = append(s, NewRadarrSettingsPublicResponse(&v))
 	}
 	return s
 }

@@ -16,19 +16,9 @@ type SonarrSettings struct {
 	//  content (i can see diff language profile being useful)
 }
 
-func (s *SonarrSettings) Safe() SonarrSettings {
-	s.Key = ""
-	return *s
-}
-
 type RadarrSettings struct {
 	ArrSettings
 	QualityProfile  int  `json:"qualityProfile,omitempty"`
 	RootFolder      int  `json:"rootFolder,omitempty"`
 	AutomaticSearch bool `json:"automaticSearch"`
-}
-
-func (s *RadarrSettings) Safe() RadarrSettings {
-	s.Key = ""
-	return *s
 }

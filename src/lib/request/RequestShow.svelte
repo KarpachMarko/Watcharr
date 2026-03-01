@@ -5,7 +5,7 @@
 		ArrRequestResponse,
 		ListBoxItem,
 		Media,
-		SonarrSettings,
+		SonarrSettingsPublicResponseResult,
 		SonarrTestResponse,
 	} from "@/types";
 	import { notify } from "../util/notify";
@@ -28,7 +28,7 @@
 		originalRequest = undefined,
 	}: Props = $props();
 
-	let servarrs: SonarrSettings[] | undefined = $state();
+	let servarrs: SonarrSettingsPublicResponseResult[] | undefined = $state();
 	let selectedServarrIndex: number = $state(0);
 	let inputsDisabled = true;
 	let selectedServerCfg: SonarrTestResponse | undefined = $state();
