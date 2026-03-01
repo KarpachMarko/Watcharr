@@ -487,11 +487,16 @@ func (t *TraktService) TraktImportWatched(
 ) (TraktImportResponse, error) {
 	jobId, err := job.AddUniqueJob("trakt_import", userId)
 	if err != nil {
-		slog.Error("traktSyncWatched: Failed to create a job", "error", err)
+		slog.Error("TraktImportWatched: Failed to create a job",
+			"error", err)
 		return TraktImportResponse{}, err
 	}
 
 	job.UpdateJobStatus(jobId, userId, job.JOB_RUNNING)
+
+	if req.ApiKey != "" {
+		slog.Info("TraktImportWatched: A custom api key was provided for this import.")
+	}
 
 	go t.startTraktImport(
 		jobId,
