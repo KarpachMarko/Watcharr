@@ -58,6 +58,7 @@ type WatchedDto struct {
 	// Properties that may not be included in all watched dtos
 	// (depending on where we are making the dto for)
 
+	Thoughts string `json:"thoughts,omitempty"`
 	// Watching Season extra detail for list.
 	WatchingSeason   string                  `json:"watchingSeason,omitempty"`
 	Activity         []entity.Activity       `json:"activity,omitempty"`
@@ -107,6 +108,7 @@ func NewWatchedDtoForPublicLists(w *entity.Watched) WatchedDto {
 func NewWatchedDtoForContentPage(w *entity.Watched) WatchedDto {
 	dto := NewWatchedDtoWithBaseProps(w)
 
+	dto.Thoughts = w.Thoughts
 	dto.Activity = w.Activity
 	dto.WatchedSeasons = w.WatchedSeasons
 	dto.WatchedEpisodes = w.WatchedEpisodes
