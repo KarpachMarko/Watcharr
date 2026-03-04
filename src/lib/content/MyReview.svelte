@@ -7,9 +7,9 @@
 	interface Props {
 		watched?: Watched;
 		contentTitle?: string;
-		onRatingChanged: (newRating: number) => Promise<void>;
-		onStatusChanged: (newStatus: WatchedStatus) => void;
-		onThoughtsChanged: (newThoughts: string) => Promise<void>;
+		onRatingChanged: (newRating: number) => Promise<boolean>;
+		onStatusChanged: (newStatus: WatchedStatus) => Promise<boolean>;
+		onThoughtsChanged: (newThoughts: string) => Promise<boolean>;
 	}
 
 	let {

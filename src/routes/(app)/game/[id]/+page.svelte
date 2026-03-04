@@ -55,23 +55,28 @@
 		newRating?: number,
 		newThoughts?: string,
 		pinned?: boolean,
-	) {
-		if (!data.gameId) {
-			console.error("contentChanged: no tvId");
-			return;
+	): Promise<boolean> {
+		try {
+			if (!data.gameId) {
+				console.error("contentChanged: no gameId");
+				return false;
+			}
+			if (!game) {
+				console.error("contentChanged: no game");
+				return false;
+			}
+			game.watched = await updateWatched(game.watched, {
+				contentId: data.gameId,
+				contentType: "game",
+				status: newStatus,
+				rating: newRating,
+				thoughts: newThoughts,
+				pinned: pinned,
+			});
+			return true;
+		} catch {
+			return false;
 		}
-		if (!game) {
-			console.error("contentChanged: no show");
-			return;
-		}
-		game.watched = await updateWatched(game.watched, {
-			contentType: "game",
-			contentId: data.gameId,
-			status: newStatus,
-			rating: newRating,
-			thoughts: newThoughts,
-			pinned: pinned,
-		});
 	}
 
 	async function deleteWatched() {

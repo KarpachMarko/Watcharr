@@ -6,7 +6,7 @@
 	interface Props {
 		contentTitle?: string;
 		thoughts: string;
-		onChange: (newThoughts: string) => Promise<void>;
+		onChange: (newThoughts: string) => Promise<boolean>;
 	}
 
 	let { contentTitle = "this", thoughts, onChange }: Props = $props();

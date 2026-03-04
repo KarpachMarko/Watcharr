@@ -89,23 +89,28 @@
 		newRating?: number,
 		newThoughts?: string,
 		pinned?: boolean,
-	) {
-		if (!data.movieId) {
-			console.error("contentChanged: no movieId");
-			return;
+	): Promise<boolean> {
+		try {
+			if (!data.movieId) {
+				console.error("contentChanged: no movieId");
+				return false;
+			}
+			if (!movie) {
+				console.error("contentChanged: no movie");
+				return false;
+			}
+			movie.watched = await updateWatched(movie.watched, {
+				contentId: data.movieId,
+				contentType: "movie",
+				status: newStatus,
+				rating: newRating,
+				thoughts: newThoughts,
+				pinned: pinned,
+			});
+			return true;
+		} catch {
+			return false;
 		}
-		if (!movie) {
-			console.error("contentChanged: no movie");
-			return;
-		}
-		movie.watched = await updateWatched(movie.watched, {
-			contentId: data.movieId,
-			contentType: "movie",
-			status: newStatus,
-			rating: newRating,
-			thoughts: newThoughts,
-			pinned: pinned,
-		});
 	}
 
 	async function deleteWatched() {

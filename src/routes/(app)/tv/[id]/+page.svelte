@@ -90,31 +90,28 @@
 		newRating?: number,
 		newThoughts?: string,
 		pinned?: boolean,
-	) {
-		if (!data.tvId) {
-			console.error("contentChanged: no tvId");
-			return;
-		}
-		if (!show) {
-			console.error("contentChanged: no show");
-			return;
-		}
-		await updateWatched(show.watched, {
-			contentId: data.tvId,
-			contentType: "tv",
-			status: newStatus,
-			rating: newRating,
-			thoughts: newThoughts,
-			pinned: pinned,
-		})
-			.then((w) => {
-				if (show) {
-					show.watched = w;
-				}
-			})
-			.catch(() => {
-				/* Default handling inside updateWatched is good enough here */
+	): Promise<boolean> {
+		try {
+			if (!data.tvId) {
+				console.error("contentChanged: no tvId");
+				return false;
+			}
+			if (!show) {
+				console.error("contentChanged: no show");
+				return false;
+			}
+			show.watched = await updateWatched(show.watched, {
+				contentId: data.tvId,
+				contentType: "tv",
+				status: newStatus,
+				rating: newRating,
+				thoughts: newThoughts,
+				pinned: pinned,
 			});
+			return true;
+		} catch {
+			return false;
+		}
 	}
 
 	async function deleteWatched() {

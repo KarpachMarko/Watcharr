@@ -6,7 +6,7 @@
 
 	interface Props {
 		rating: number | undefined;
-		onChange: (newRating: number) => Promise<void>;
+		onChange: (newRating: number) => void;
 	}
 
 	let { rating, onChange }: Props = $props();
