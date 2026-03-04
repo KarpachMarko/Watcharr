@@ -58,6 +58,8 @@ type WatchedDto struct {
 	// Properties that may not be included in all watched dtos
 	// (depending on where we are making the dto for)
 
+	// Thoughts aren't always included (not needed on watched list pages
+	// & on public pages because they could be private).
 	Thoughts string `json:"thoughts,omitempty"`
 	// Watching Season extra detail for list.
 	WatchingSeason   string                  `json:"watchingSeason,omitempty"`
