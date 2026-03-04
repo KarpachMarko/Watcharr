@@ -14,6 +14,7 @@
 			store.activeFilters[type] = [...store.activeFilters[type], f];
 		}
 		store.activeFilters = store.activeFilters;
+		window.scrollTo({ top: 0 });
 	}
 </script>
 
@@ -24,7 +25,10 @@
 			<button
 				class="plain"
 				use:tooltip={{ text: "Clear", pos: "left" }}
-				onclick={() => clearActiveFilters()}
+				onclick={() => {
+					clearActiveFilters();
+					window.scrollTo({ top: 0 });
+				}}
 			>
 				<Icon i="close-circle" wh={18} />
 			</button>

@@ -3,6 +3,7 @@
 	import Menu from "../Menu.svelte";
 
 	function sortClicked(type: string) {
+		window.scrollTo({ top: 0 });
 		let mode = "UP";
 		// If this sort is already the `activeSort`
 		if (store.activeSort[0] == type) {
