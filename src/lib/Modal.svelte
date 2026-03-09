@@ -69,6 +69,7 @@
 			min-width: 300px;
 			width: 100%;
 			max-height: calc(100% - 20px);
+			color: $text-color;
 			background-color: $bg-color;
 			border-radius: 10px;
 			padding: 15px 20px;
