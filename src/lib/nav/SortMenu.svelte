@@ -2,26 +2,21 @@
 	import { store } from "@/store.svelte";
 	import Menu from "../Menu.svelte";
 
-	function sortClicked(type: string, modeType: string = "UPDOWN") {
-		let mode: string;
-		if (modeType === "UPDOWN") {
-			mode = "UP";
-			if (store.activeSort[0] == type) {
-				if (store.activeSort[1] === "UP") {
-					mode = "DOWN";
-				} else if (store.activeSort[1] === "DOWN") {
-					mode = "";
-				}
+	function sortClicked(type: string) {
+		window.scrollTo({ top: 0 });
+		let mode = "UP";
+		// If this sort is already the `activeSort`
+		if (store.activeSort[0] == type) {
+			if (store.activeSort[1] === "UP") {
+				mode = "DOWN";
+			} else if (store.activeSort[1] === "DOWN") {
+				mode = "";
 			}
-		} else if (modeType === "TOGGLE") {
-			mode = "ON";
-			if (store.activeSort[0] == type) {
-				if (store.activeSort[1] === "ON") {
-					mode = "OFF";
-				}
-			}
-		} else {
-			console.error("filterClicked() ran without a valid modeType:", modeType);
+		}
+		if (!mode) {
+			// If there is no mode, then we are turning this
+			// sort off, so reset the activeSort array.
+			store.activeSort = [];
 			return;
 		}
 		store.activeSort = [type, mode];
@@ -58,6 +53,12 @@
 		onclick={() => sortClicked("ALPHA")}
 	>
 		Alphabetical
+	</button>
+	<button
+		class={`plain ${store.activeSort[0] == "DATERELEASED" ? store.activeSort[1].toLowerCase() : ""}`}
+		onclick={() => sortClicked("DATERELEASED")}
+	>
+		Release Date
 	</button>
 </Menu>
 

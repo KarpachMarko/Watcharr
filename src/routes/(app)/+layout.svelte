@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { afterNavigate, goto } from "$app/navigation";
 	import { page } from "$app/state";
+	import Error from "@/lib/Error.svelte";
 	import Icon from "@/lib/Icon.svelte";
-	import PageError from "@/lib/PageError.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
 	import tooltip from "@/lib/actions/tooltip";
 	import DetailedMenu from "@/lib/nav/DetailedMenu.svelte";
@@ -70,26 +70,31 @@
 				const target = ev.target as HTMLInputElement;
 				const query = target?.value.trim();
 				if (!query) return;
-				if (query) {
-					// Enable autofocus before running `goto` because on chromium
-					// the .focus() call won't work, even after a timeout.
-					// Using autofocus seems to work. Disables after goto runs.
-					// https://github.com/sbondCo/Watcharr/issues/169
-					target.autofocus = true;
-					goto(`/search?q=${encodeURIComponent(query)}`).then(() => {
-						// Use mainSearchEl if nav not split, otherwise use ev target.
-						if (
-							!document.body.classList.contains("split-nav") &&
-							mainSearchEl
-						) {
-							mainSearchEl.focus();
-							mainSearchEl.autofocus = false;
-						} else {
-							target?.focus();
-						}
-						target.autofocus = false;
-					});
+				const currentSearchType = page.url.searchParams.get("type");
+				const searchParams = new URLSearchParams({
+					query: encodeURIComponent(query),
+					preferMyList: "true",
+				});
+				if (page.route?.id === "/(app)/search" && currentSearchType) {
+					// If we are already on the search page, we can attempt
+					// to keep any existing type filter on the next query.
+					searchParams.set("type", currentSearchType);
 				}
+				// Enable autofocus before running `goto` because on chromium
+				// the .focus() call won't work, even after a timeout.
+				// Using autofocus seems to work. Disables after goto runs.
+				// https://github.com/sbondCo/Watcharr/issues/169
+				target.autofocus = true;
+				goto(`/search?${searchParams.toString()}`).then(() => {
+					// Use mainSearchEl if nav not split, otherwise use ev target.
+					if (!document.body.classList.contains("split-nav") && mainSearchEl) {
+						mainSearchEl.focus();
+						mainSearchEl.autofocus = false;
+					} else {
+						target?.focus();
+					}
+					target.autofocus = false;
+				});
 			},
 			isTouch() ? 800 : 400,
 		);
@@ -97,17 +102,13 @@
 
 	async function getInitialData() {
 		if (localStorage.getItem("token")) {
-			const [w, u, s, f, fo, ts] = await Promise.all([
-				axios.get("/watched"),
+			const [u, s, f, fo, ts] = await Promise.all([
 				axios.get("/user"),
 				axios.get("/user/settings"),
 				axios.get("/features"),
 				axios.get("/follow"),
 				axios.get("/tag"),
 			]);
-			if (w?.data?.length > 0) {
-				store.watchedList = w.data;
-			}
 			if (u?.data) {
 				store.userInfo = u.data;
 			}
@@ -369,7 +370,13 @@
 {:then}
 	{@render children?.()}
 {:catch err}
-	<PageError pretty="Failed to retrieve user data!" error={err} />
+	<Error
+		pretty="Couldn't fetch app data!"
+		error={err}
+		onRetry={() => {
+			location.reload();
+		}}
+	/>
 {/await}
 
 <style lang="scss">
@@ -395,6 +402,14 @@
 			gap: 20px;
 			justify-content: space-between;
 			align-items: center;
+
+			a,
+			.btns {
+				/* This makes the logo on left and icons on right the same
+				width, ensuring the main search bar can stay truly centered
+				when possible. */
+				flex: 1;
+			}
 
 			@media screen and (max-width: 435px) {
 				gap: 15px;
@@ -509,6 +524,8 @@
 
 		:global(body.split-nav) & {
 			.search {
+				/* We hide with visibility: hidden, so the decideOnNavSplit can
+				still get the search width for it's decision logic. */
 				opacity: 0;
 				visibility: hidden;
 			}
@@ -549,6 +566,7 @@
 		.btns {
 			display: flex;
 			flex-flow: row;
+			justify-content: end;
 			/* gap: 20px; */
 
 			button.other {

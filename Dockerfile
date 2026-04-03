@@ -1,12 +1,13 @@
 #
 # Backend
 #
-FROM golang:1.24-alpine AS server
+FROM golang:1.25-alpine AS server
 
 WORKDIR /server
-COPY server/*.go server/go.* ./
-COPY server/arr/*.go ./arr/
-COPY server/game/*.go ./game/
+
+# We can copy the whole server folder, since our .dockerignore file
+# will filter out stuff we don't want in the final image.
+COPY server/ ./
 
 # Required so we can build with cgo
 RUN apk update && apk add --no-cache musl-dev gcc build-base
@@ -33,7 +34,7 @@ FROM node:20-alpine AS runner
 
 COPY --from=server /server/watcharr /
 COPY --from=ui /app/build /ui
-COPY --from=ui /app/package.json /app/package-lock.json /ui
+COPY --from=ui /app/package.json /app/package-lock.json /ui/
 
 # Install just the prod dependencies for final step.
 # We --ignore-scripts, to stop the `prepare` script from auto-

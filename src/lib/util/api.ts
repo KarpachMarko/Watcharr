@@ -10,8 +10,9 @@ import {
 	type WatchedUpdateResponse,
 	type UserSettings,
 	type Follow,
-	type PlayedAddRequest,
 	type ActivityUpdateRequest,
+	type Activity,
+	type SupportedMedia,
 } from "@/types";
 import axios from "axios";
 import { notify, unNotify } from "./notify";
@@ -26,9 +27,24 @@ export const baseURL =
 		: "/api";
 console.log("api: baseURL constructed:", baseURL);
 
+interface UpdateWatchedSharedOptions {
+	status?: WatchedStatus;
+	rating?: number;
+	thoughts?: string;
+	pinned?: boolean;
+}
+
+interface UpdateWatchedOptions extends UpdateWatchedSharedOptions {
+	/**
+	 * TMDB ID.
+	 */
+	contentId: number;
+	contentType: SupportedMedia;
+}
+
 /**
  * Updates watched item with new status, rating or thoughts.
- * @returns Was success?
+ * @param wEntry The watched entry to update. Updates properties in this object.
  */
 async function _updateWatched(
 	wEntry: Watched,
@@ -36,7 +52,7 @@ async function _updateWatched(
 	rating?: number,
 	thoughts?: string,
 	pinned?: boolean,
-): Promise<boolean> {
+) {
 	if (
 		!status &&
 		!rating &&
@@ -46,196 +62,148 @@ async function _updateWatched(
 		console.warn(
 			"_updateWatched: Nothing was provided, so nothing can be updated!!!!",
 		);
-		return false;
+		throw new Error("no updated values provided");
 	}
-	const nid = notify({ text: `Saving`, type: "loading" });
 	const obj = {} as WatchedUpdateRequest;
 	if (status) obj.status = status;
 	if (rating) obj.rating = rating;
 	if (typeof thoughts !== "undefined") obj.thoughts = thoughts;
 	if (thoughts === "") obj.removeThoughts = true;
 	if (typeof pinned !== "undefined") obj.pinned = pinned;
-	return await axios
-		.put<WatchedUpdateResponse>(`/watched/${wEntry.id}`, obj)
-		.then((resp) => {
-			if (status) wEntry.status = status;
-			if (rating) wEntry.rating = rating;
-			if (typeof thoughts !== "undefined") wEntry.thoughts = thoughts;
-			if (typeof pinned !== "undefined") wEntry.pinned = pinned;
-			if (resp?.data?.newActivity && resp?.data?.newActivity?.id) {
-				if (wEntry.activity?.length > 0) {
-					wEntry.activity.push(resp.data.newActivity);
-				} else {
-					wEntry.activity = [resp.data.newActivity];
-				}
-				// We want to update the updatedAt field too (so
-				// change is reflected when filtering modified at)
-				// We can piggy back from this data for now.
-				wEntry.updatedAt = resp.data.newActivity.createdAt;
-			}
-			// watchedList.update((w) => w);
-			notify({ id: nid, text: `Saved!`, type: "success" });
-			return true;
-		})
-		.catch((err) => {
-			console.error(err);
-			notify({ id: nid, text: "Failed To Update!", type: "error" });
-			return false;
-		});
+	const resp = await axios.put<WatchedUpdateResponse>(
+		`/watched/${wEntry.id}`,
+		obj,
+	);
+	if (status) wEntry.status = status;
+	if (rating) wEntry.rating = rating;
+	if (typeof thoughts !== "undefined") wEntry.thoughts = thoughts;
+	if (typeof pinned !== "undefined") wEntry.pinned = pinned;
+	if (resp?.data?.newActivity && resp?.data?.newActivity?.id) {
+		if (wEntry.activity?.length > 0) {
+			wEntry.activity.push(resp.data.newActivity);
+		} else {
+			wEntry.activity = [resp.data.newActivity];
+		}
+		// We want to update the updatedAt field too (so
+		// change is reflected when filtering modified at)
+		// We can piggy back from this data for now.
+		wEntry.updatedAt = resp.data.newActivity.createdAt;
+	}
 }
 
 /**
  * Add or update watched show/movie.
- * @param contentId TMDB ID
- * @param contentType show/movie
- * @param status
- * @param rating
- * @returns Was success?
+ * @param wEntry The watched entry (movie or tv only) we are updating.
+ * @param opts Update options.
+ * @returns Updated watched entry if request succeeded, otherwise will
+ * throw error after displaying updating the notification to "failed".
+ * We throw so callers can skip reassigning state when not necessary.
  */
 export async function updateWatched(
-	contentId: number,
-	contentType: MediaType,
-	status?: WatchedStatus,
-	rating?: number,
-	thoughts?: string,
-	pinned?: boolean,
-): Promise<boolean> {
-	// If item is already in watched store, run update request instead
-	const wEntry = store.watchedList.find(
-		(w) => w.content?.tmdbId === contentId && w.content?.type === contentType,
-	);
-	if (wEntry?.id) {
-		return await _updateWatched(wEntry, status, rating, thoughts, pinned);
+	wEntry: Watched | undefined,
+	opts: UpdateWatchedOptions,
+): Promise<Watched | undefined> {
+	const nid = notify({ text: `Saving`, type: "loading" });
+	try {
+		// If exists, run update request instead
+		if (wEntry?.id) {
+			try {
+				await _updateWatched(
+					wEntry,
+					opts.status,
+					opts.rating,
+					opts.thoughts,
+					opts.pinned,
+				);
+				notify({ id: nid, text: `Saved!`, type: "success" });
+			} catch (err) {
+				console.error("updateWatched: Failed to update!", err);
+				throw err;
+			}
+			// We are updating, so a wEntry exists here.
+			// So we will always return the existing entry.
+			return wEntry;
+		}
+
+		// Add new watched item
+		notify({ id: nid, text: `Adding`, type: "loading" });
+		let req: WatchedAddRequest = {
+			contentType: opts.contentType,
+			status: opts.status,
+			rating: opts.rating,
+		};
+		if (opts.contentType === "movie" || opts.contentType === "tv") {
+			req.tmdbId = opts.contentId;
+		} else if (opts.contentType === "game") {
+			req.igdbId = opts.contentId;
+		} else {
+			throw "invalid contentType";
+		}
+		const resp = await axios.post<Watched>("/watched", req);
+		console.log("Added watched:", resp.data);
+		notify({ id: nid, text: `Added!`, type: "success" });
+		return resp.data;
+	} catch (err) {
+		console.error("updateWatched: Failed!", err);
+		notify({ id: nid, text: `Failed!`, type: "error" });
+		throw err;
 	}
-	// Add new watched item
-	const nid = notify({ text: `Adding`, type: "loading" });
-	return await axios
-		.post("/watched", {
-			contentId,
-			contentType,
-			rating,
-			status,
-		} as WatchedAddRequest)
-		.then((resp) => {
-			console.log("Added watched:", resp.data);
-			store.watchedList.push(resp.data as Watched);
-			notify({ id: nid, text: `Added!`, type: "success" });
-			return true;
-		})
-		.catch((err) => {
-			console.error(err);
-			notify({ id: nid, text: "Failed To Add!", type: "error" });
-			return false;
-		});
 }
 
 /**
  * Delete an item from watched list.
  * @param id Watched Entry ID
+ * @returns Deleted?
  */
-export function removeWatched(id: number) {
-	const nid = notify({ text: `Removing`, type: "loading" });
-	const wEntry = store.watchedList.find((w) => w.id === id);
-	if (!wEntry) {
-		console.log("Watched entry does not exist!");
-		notify({ text: "Item Doesn't Exist On Watched List!", type: "error" });
-		return;
-	}
-	axios
-		.delete(`/watched/${id}`)
-		.then((resp) => {
-			console.log("Removed watched:", resp.data);
-			store.watchedList = store.watchedList.filter((w) => w.id !== id);
-			notify({ id: nid, text: "Removed!", type: "error" });
-		})
-		.catch((err) => {
-			console.error(err);
-			notify({ id: nid, text: "Failed To Remove!", type: "error" });
-		});
-}
-
-export async function updatePlayed(
-	igdbId: number,
-	status?: WatchedStatus,
-	rating?: number,
-	thoughts?: string,
-	pinned?: boolean,
-): Promise<boolean> {
-	// If item is already in watched store, run update request instead
-	const wEntry = store.watchedList.find((w) => w.game?.igdbId === igdbId);
-	if (wEntry?.id) {
-		return await _updateWatched(wEntry, status, rating, thoughts, pinned);
-	}
-	// Add new played item
-	const nid = notify({ text: `Adding`, type: "loading" });
-	return await axios
-		.post("/game/played", {
-			igdbId,
-			rating,
-			status,
-		} as PlayedAddRequest)
-		.then((resp) => {
-			console.log("Added watched(played) game:", resp.data);
-			store.watchedList.push(resp.data as Watched);
-			notify({ id: nid, text: `Added!`, type: "success" });
-			return true;
-		})
-		.catch((err) => {
-			console.error(err);
-			notify({ id: nid, text: "Failed To Add!", type: "error" });
-			return false;
-		});
-}
-
-export function updateActivity(
-	watchedId: number,
-	activityId: number,
-	date: Date,
-) {
-	const nid = notify({ text: "Updating", type: "loading" });
-	console.debug("updateActivity called", watchedId, activityId, date);
+export async function removeWatched(id: number): Promise<boolean> {
+	console.log("removeWatched: Removing:", id);
+	const nid = notify({ text: "Removing", type: "loading" });
 	try {
-		axios
-			.put("/activity/" + activityId, {
-				customDate: date.toISOString(),
-			} as ActivityUpdateRequest)
-			.then((resp) => {
-				console.log("Updated activity timestamp:", resp.status);
-				const activity = store.watchedList
-					.find((w) => w.id === watchedId)
-					?.activity.find((a) => a.id === activityId);
-				if (activity) {
-					activity.customDate = date.toISOString();
-				}
-				notify({ id: nid, text: "Updated!", type: "success" });
-			})
-			.catch((err) => {
-				console.error(err);
-				notify({ id: nid, text: "Failed to Update!", type: "error" });
-			});
+		const resp = await axios.delete(`/watched/${id}`);
+		console.log("removeWatched: Removed resp:", resp.data);
+		notify({ id: nid, text: "Removed!", type: "success" });
+		return true;
+	} catch (err) {
+		console.error("removeWatched: Failed!", err);
+		notify({ id: nid, text: "Failed To Remove!", type: "error" });
+	}
+	return false;
+}
+
+export async function updateActivity(
+	activity: Activity,
+	date: Date,
+): Promise<Activity | undefined> {
+	const nid = notify({ text: "Updating", type: "loading" });
+	console.debug("updateActivity:", activity, date);
+	try {
+		const resp = await axios.put(`/activity/${activity.id}`, {
+			customDate: date.toISOString(),
+		} as ActivityUpdateRequest);
+		console.log("updateActivity: Response status:", resp.status);
+		if (activity) {
+			activity.customDate = date.toISOString();
+		}
+		notify({ id: nid, text: "Updated!", type: "success" });
+		return activity;
 	} catch (err) {
 		console.error("updateActivity failed!", err);
-		notify({ id: nid, text: "Failed!", type: "error" });
+		notify({ id: nid, text: "Failed to Update!", type: "error" });
 	}
 }
 
-export function removeActivity(watchedId: number, activityId: number) {
+export async function removeActivity(activityId: number): Promise<boolean> {
 	const nid = notify({ text: "Deleting", type: "loading" });
-	axios
-		.delete("/activity/" + activityId)
-		.then((resp) => {
-			const wListItem = store.watchedList.find((w) => w.id === watchedId);
-			if (wListItem) {
-				wListItem.activity = wListItem.activity.filter(
-					(i) => i.id !== activityId,
-				);
-			}
-			notify({ id: nid, text: "Deleted!", type: "success" });
-		})
-		.catch((err) => {
-			console.error(err);
-			notify({ id: nid, text: "Failed to Delete!", type: "error" });
-		});
+	try {
+		await axios.delete("/activity/" + activityId);
+		console.log("removeActivity: Removed:", activityId);
+		notify({ id: nid, text: "Deleted!", type: "success" });
+		return true;
+	} catch (err) {
+		console.error("removeActivity: Failed!", err);
+		notify({ id: nid, text: "Failed to Delete!", type: "error" });
+	}
+	return false;
 }
 
 export async function contentExistsOnJellyfin(

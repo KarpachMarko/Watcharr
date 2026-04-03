@@ -19,10 +19,10 @@
 	import { store } from "@/store.svelte";
 	import {
 		ImportResponseType,
+		getContentTypeFromMedia,
 		type ImportResponse,
-		type ContentSearchTv,
-		type ContentSearchMovie,
 		type ImportedList,
+		type Media,
 		type WatchedStatus,
 	} from "@/types";
 	import axios from "axios";
@@ -32,7 +32,7 @@
 
 	interface ImportedListItemMultiProblem {
 		original: ImportedList;
-		results: (ContentSearchMovie | ContentSearchTv)[];
+		results: Media[];
 		callback: (err: Error | string | undefined) => void;
 	}
 
@@ -44,6 +44,15 @@
 	onDestroy(() => {
 		cancelled = true;
 	});
+
+	// This isn't reactive to avoid bugs (hopefully this isn't a bug)
+	let dropDownSupportedTypes = (() => {
+		let t = ["movie", "tv"];
+		if (store.serverFeatures?.games) {
+			t.push("game");
+		}
+		return t;
+	})();
 
 	// Set when current item being imported gets an IMPORT_MULTI
 	// response, which then shows the modal for user to pick correct item.
@@ -75,7 +84,7 @@
 					const year = el.match(yearRegex);
 					if (year && year.length > 0) {
 						l.year = Number(year[0].replaceAll(/\(|\)/g, ""));
-						l.name = l.name.replace(yearRegex, "").trim();
+						l.name = l.name?.replace(yearRegex, "").trim();
 					}
 					rList.push(l);
 				}
@@ -469,16 +478,19 @@
 			if (resp.data.type === ImportResponseType.IMPORT_MULTI) {
 				console.log("Import found multiple responses for content", resp.data);
 				let results = resp.data.results;
+				if (!results || results.length <= 0) {
+					item.state = ImportResponseType.IMPORT_NOTFOUND;
+					rList = rList;
+					return;
+				}
 				if (item.year) {
-					results = results.sort((a, b) => {
+					results.sort((a, b) => {
 						try {
-							const ar =
-								a.media_type === "movie" ? a.release_date : a.first_air_date;
+							const ar = a.releaseDate;
 							const ay = ar
 								? new Date(Date.parse(ar)).getFullYear()
 								: undefined;
-							const br =
-								b.media_type === "movie" ? b.release_date : b.first_air_date;
+							const br = b.releaseDate;
 							const by = br
 								? new Date(Date.parse(br)).getFullYear()
 								: undefined;
@@ -492,7 +504,7 @@
 				}
 				importMultiItem = {
 					original: item,
-					results: resp.data.results,
+					results: results,
 					callback: (err) => {
 						if (err) {
 							item.state = ImportResponseType.IMPORT_NOTFOUND;
@@ -507,13 +519,10 @@
 				item.state = ImportResponseType.IMPORT_SUCCESS;
 				const w = resp.data.watchedEntry;
 				if (w) {
-					const release =
-						w.content?.type === "movie"
-							? w.content?.release_date
-							: w.content?.first_air_date;
+					const release = w.media?.releaseDate;
 					if (release) item.year = new Date(Date.parse(release)).getFullYear();
-					item.type = w.content?.type;
-					store.watchedList.push(w);
+					const t = w.media ? getContentTypeFromMedia(w.media) : undefined;
+					if (t) item.type = t;
 				}
 				rList = rList;
 				res(0);
@@ -631,7 +640,7 @@
 								</td>
 								<td class="type">
 									<DropDown
-										options={["movie", "tv"]}
+										options={dropDownSupportedTypes}
 										bind:active={l.type}
 										placeholder="Type"
 										blendIn={true}
@@ -743,9 +752,27 @@
 							const item = rList.find(
 								(i) => i.name === importMultiItem?.original.name,
 							);
+							console.log(
+								"MultipleResultsFound: Poster clicked. Item in rList:",
+								item,
+							);
 							if (item) {
-								item.tmdbId = r.id;
-								item.type = r.media_type;
+								// We found the item in our import list, update it
+								// to match the selected choice and do the import with it.
+								item.type = getContentTypeFromMedia(r);
+								if (item.type === "game") {
+									item.igdbId = r.ids.igdb;
+								} else if (item.type === "movie" || item.type === "tv") {
+									item.tmdbId = r.ids.tmdb;
+								} else {
+									item.state = ImportResponseType.IMPORT_FAILED;
+									notify({
+										type: "error",
+										text: "Can't import selected result because it has an unsupported type associated with it!",
+										time: 10000,
+									});
+									return;
+								}
 								try {
 									await doImport(item);
 									importMultiItem?.callback(undefined);

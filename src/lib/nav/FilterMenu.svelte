@@ -14,6 +14,7 @@
 			store.activeFilters[type] = [...store.activeFilters[type], f];
 		}
 		store.activeFilters = store.activeFilters;
+		window.scrollTo({ top: 0 });
 	}
 </script>
 
@@ -24,7 +25,10 @@
 			<button
 				class="plain"
 				use:tooltip={{ text: "Clear", pos: "left" }}
-				onclick={() => clearActiveFilters()}
+				onclick={() => {
+					clearActiveFilters();
+					window.scrollTo({ top: 0 });
+				}}
 			>
 				<Icon i="close-circle" wh={18} />
 			</button>
@@ -32,20 +36,20 @@
 	</div>
 	<div class="type-filter">
 		<button
-			class={`${store.activeFilters.type.includes("tv") ? "active" : ""}`}
+			class:active={store.activeFilters.type.includes("tv")}
 			onclick={() => filterClicked("type", "tv")}
 		>
 			SHOW
 		</button>
 		<button
-			class={`${store.activeFilters.type.includes("movie") ? "active" : ""}`}
+			class:active={store.activeFilters.type.includes("movie")}
 			onclick={() => filterClicked("type", "movie")}
 		>
 			MOVIE
 		</button>
 		{#if store.serverFeatures?.games}
 			<button
-				class={`${store.activeFilters.type.includes("game") ? "active" : ""}`}
+				class:active={store.activeFilters.type.includes("game")}
 				onclick={() => filterClicked("type", "game")}
 			>
 				GAME
@@ -115,11 +119,6 @@
 			padding: 2px 3px;
 			border-radius: 8px;
 
-			&.manage-on {
-				color: #f3555a;
-				background-color: $text-color;
-			}
-
 			&:first-of-type {
 				margin-left: auto;
 			}
@@ -149,24 +148,14 @@
 	.type-filter {
 		display: flex;
 		flex-flow: row;
+		flex-wrap: wrap;
+		gap: 3px;
 		width: 100%;
 
 		button {
-			border-radius: 0;
+			flex: 1 1 45%;
 			padding: 8px 0;
-			width: 100%;
-
-			&:first-of-type {
-				border-radius: 5px 0 0 5px;
-			}
-
-			&:not(:first-of-type) {
-				border-left: unset;
-			}
-
-			&:last-of-type {
-				border-radius: 0 5px 5px 0;
-			}
+			border-radius: 10px;
 		}
 	}
 </style>

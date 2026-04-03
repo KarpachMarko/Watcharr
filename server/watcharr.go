@@ -1,9 +1,10 @@
+// Watcharr is licensed under the GPLv3 license.
+
 package main
 
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -13,25 +14,47 @@ import (
 	"path"
 	"time"
 
+	_ "embed"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
-	"gopkg.in/natefinch/lumberjack.v2"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
+	"github.com/sbondCo/Watcharr/config"
+	"github.com/sbondCo/Watcharr/database"
+	"github.com/sbondCo/Watcharr/database/entity"
+	"github.com/sbondCo/Watcharr/domain"
+	"github.com/sbondCo/Watcharr/feature/activity"
+	"github.com/sbondCo/Watcharr/feature/arr"
+	"github.com/sbondCo/Watcharr/feature/auth"
+	"github.com/sbondCo/Watcharr/feature/content"
+	"github.com/sbondCo/Watcharr/feature/discover"
+	"github.com/sbondCo/Watcharr/feature/feature"
+	"github.com/sbondCo/Watcharr/feature/follow"
+	"github.com/sbondCo/Watcharr/feature/game"
+	"github.com/sbondCo/Watcharr/feature/imprt"
+	"github.com/sbondCo/Watcharr/feature/jellyfin"
+	"github.com/sbondCo/Watcharr/feature/job"
+	"github.com/sbondCo/Watcharr/feature/plex"
+	"github.com/sbondCo/Watcharr/feature/profile"
+	"github.com/sbondCo/Watcharr/feature/search"
+	"github.com/sbondCo/Watcharr/feature/server"
+	"github.com/sbondCo/Watcharr/feature/setup"
+	"github.com/sbondCo/Watcharr/feature/tag"
+	"github.com/sbondCo/Watcharr/feature/task"
+	"github.com/sbondCo/Watcharr/feature/user"
+	"github.com/sbondCo/Watcharr/feature/watched"
+	"github.com/sbondCo/Watcharr/feature/watched/episode"
+	"github.com/sbondCo/Watcharr/feature/watched/season"
+	"github.com/sbondCo/Watcharr/logging"
+	"github.com/sbondCo/Watcharr/media/tmdb"
+	"github.com/sbondCo/Watcharr/router"
+	taskl "github.com/sbondCo/Watcharr/task"
 )
 
-type GormModel struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"deletedAt"`
-}
-
-var (
-	ServerInSetup = false
-	logLevel      = new(slog.LevelVar)
-)
+//go:embed VERSION
+var version string
 
 func main() {
 	err := godotenv.Load()
@@ -42,20 +65,66 @@ func main() {
 		}
 	}
 
-	multiw := setupLogging()
-	slog.Info("Watcharr Starting")
+	multiw := logging.Setup(path.Join(config.DataPath, "watcharr.log"))
+	slog.Info("Watcharr Starting", "version", version)
+	fmt.Printf(`
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣀⣀⣀⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣴⣶⣿⠿⠛⠛⠛⠻⠿⣿⣿⣿⣿⣿⣶⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⢀⣿⣿⣿⣿⣿⣷⣻⠶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠄⠂⠀⢀⣠⣾⣿⣿⣿⣿⣿⣿⣿⡄⠀⠀⠀⢀⣤⣾⣿⣿⣿⣿⣿⣿⡿⣽⣻⣳⢎⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠄⢡⠂⠄⣢⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⡷⣯⡞⣝⢆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠐⠀⠁⡐⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣳⣟⡾⣹⢎⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⠂⣼⣿⣿⣿⣿⡿⠿⠛⠋⠉⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠻⠿⣿⣿⣿⣿⣿⡿⣾⣝⣧⢻⡜⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢂⠐⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠂⢸⣿⡿⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠻⠿⣿⣳⢯⣞⡳⣎⠅⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⢈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠄⠁⠚⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠛⢯⡞⣵⣋⠆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠱⣍⠂⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⡞⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡄⢀⣾⡇⠀⣾⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⠁⣾⣿⡇⢰⣿⣿⠀⠀⣆⠀⠀⠀⠀⢰⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⢰⣿⠁⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⣼⡏⢰⣿⣿⠇⣾⣿⣿⡆⠀⣿⠀⠀⠀⠀⢸⣿⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠈⡇⠀⠀⠀⠀⠀⠀⠀⠀⠰⠃⠀⠒⠛⠃⠚⠿⣿⢰⣿⣿⣿⡇⣤⣿⣤⣶⣦⣀⢼⣿⣧⠀⢰⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⢠⣶⢰⣿⣿⣿⣧⡹⢓⣾⣾⣿⣿⣿⣧⣿⣿⣿⣿⣋⣁⣀⣀⣀⣁⠘⠃⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣾⡟⢋⠁⡀⠀⠉⠙⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠱⣚⣭⡿⢿⣿⣷⣦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⡄⢠⣆⠀⠀⠀⠀⣿⣏⡀⣾⠀⠀⠀⠀⣰⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏⣁⠀⢠⠀⠀⠉⠻⢿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⢠⢇⣾⣿⣷⠀⠀⠀⣿⣿⣿⣞⡓⠥⠬⣒⣷⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢿⠀⠀⠀⠀⠀⣦⠈⢳⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⢸⣾⣿⣿⣿⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣮⡢⢄⡀⠤⠾⢧⣦⣼⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⡇⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣶⣶⣿⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⣿⢁⣿⣿⠇⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣏⢾⡅⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠆⣼⣿⣿⣦⣾⠀⠀⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣾⣷⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠀⠀⠀⠀⠀⢀⠰⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⣼⣻⢿⣯⡿⣟⠇⠀⡜⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇⠀⠀⠀⠀⠀⠌⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⣰⢧⡟⡿⣾⡽⢏⣿⣾⣿⡌⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣛⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠐⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⢀⡰⣣⢻⡜⣯⢳⡝⣼⣿⣿⣿⣿⣆⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⢂⠐⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⢠⠎⡵⢣⢧⡹⣜⢣⣿⣿⣿⣿⣿⣿⣿⣷⡌⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠀⠀⠀⠀⠀⠀⢀⠂⠔⡀⢂⠐⡀⢂⠠⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠡⢚⠴⣉⠦⡑⢎⢣⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⣙⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⡩⠂⠀⠀⠀⠀⠀⣀⡔⢦⠃⢈⠐⡀⢂⠐⠠⠀⠄⠂⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠁⠎⡰⢡⠙⡌⣸⣿⣿⣿⣿⣿⣿⣿⣿⠿⠿⠟⠒⠌⠻⢿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠉⠀⠈⠀⠀⠀⠀⠀⣀⠶⡱⢎⢧⢋⠀⡐⢀⠂⠌⢀⠂⢀⠂⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠁⠢⠑⡨⣟⠿⠟⠟⠋⠋⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠛⠟⠛⠋⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢴⡩⢞⡱⢫⠜⡪⢅⠀⠂⠄⠂⠠⠀⠂⢀⠐⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢢⡙⢦⡙⡔⢣⠈⢀⠂⠈⡀⠐⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢤⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠂⠴⢉⠆⡁⠀⡀⠁⢀⠐⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠐⠡⠀⠀⠐⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠂⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 
-	if err = readConfig(); err != nil {
-		log.Fatal("Failed to read server config!", err)
-	}
+ ██╗    ██╗ █████╗ ████████╗ ██████╗██╗  ██╗ █████╗ ██████╗ ██████╗ 
+ ██║    ██║██╔══██╗╚══██╔══╝██╔════╝██║  ██║██╔══██╗██╔══██╗██╔══██╗
+ ██║ █╗ ██║███████║   ██║   ██║     ███████║███████║██████╔╝██████╔╝
+ ██║███╗██║██╔══██║   ██║   ██║     ██╔══██║██╔══██║██╔══██╗██╔══██╗
+ ╚███╔███╔╝██║  ██║   ██║   ╚██████╗██║  ██║██║  ██║██║  ██║██║  ██║
+  ╚══╝╚══╝ ╚═╝  ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
 
-	setLoggingLevel()
+  Layer:%s Starting now. Get ready!
+  
+  Thank you for running my (spaghetti) code on your system.`+"\n\n", version)
 
 	// Ensure data dir exists
-	err = ensureDirExists(DataPath)
+	err = ensureDirExists(config.DataPath)
 	if err != nil {
 		log.Fatal("Failed to create data dir:", err)
 	}
+
+	cfg, err := config.Get()
+	if err != nil {
+		log.Fatal("Failed to get server config!", err)
+	}
+
+	logging.SetLevel(cfg.DEBUG)
 
 	// Check if we want to be in DEV or PROD
 	isProd := true
@@ -64,28 +133,9 @@ func main() {
 		isProd = false
 	}
 
-	db, err := gorm.Open(sqlite.Open(path.Join(DataPath, "watcharr.db")), &gorm.Config{TranslateError: true})
+	db, err := database.New()
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
-	}
-
-	err = db.AutoMigrate(
-		&User{},
-		&UserServices{},
-		&Content{},
-		&Watched{},
-		&WatchedSeason{},
-		&WatchedEpisode{},
-		&Activity{},
-		&Token{},
-		&Follow{},
-		&Image{},
-		&Game{},
-		&ArrRequest{},
-		&Tag{},
-	)
-	if err != nil {
-		log.Fatal("Failed to auto migrate database:", err)
 	}
 
 	if isProd {
@@ -94,6 +144,13 @@ func main() {
 	}
 	gin.DefaultWriter = multiw
 	gine := gin.Default()
+
+	// Register our custom validators
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterValidation("validsearchtype", domain.ValidSearchType)
+		v.RegisterValidation("validdiscoverfilter", domain.ValidDiscoverFilter)
+	}
+
 	gine.Use(cors.New(cors.Config{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -126,70 +183,100 @@ func main() {
 			proxy.ServeHTTP(c.Writer, c.Request)
 		})
 	}
-	br := newBaseRouter(db, gine.Group("/api"))
+	api := gine.Group("/api")
+	br := router.NewBaseRouter(db, api, cfg)
+
+	t := tmdb.NewTMDB(cfg.TMDB_KEY)
+
+	plexService := plex.NewService(cfg)
+	authService := auth.NewService(db, cfg, plexService)
+	authTrustedHeaderService := auth.NewTrustedHeaderService(db, cfg, authService)
+	contentService := content.NewService(db, t)
+	activityService := activity.NewService(db)
+	userService := user.NewService(db)
+	userManageService := user.NewManageService(db)
+	gameService := game.NewService(db, &br.Cfg.TWITCH, activityService)
+	watchedService := watched.NewService(db, contentService, gameService, activityService)
+	watchedSeasonService := season.NewService(db, activityService)
+	watchedEpisodeService := episode.NewService(
+		db,
+		watchedService,
+		watchedSeasonService,
+		contentService,
+		activityService,
+		userService)
+	jellyfinService := jellyfin.NewService(cfg)
+	jellyfinSyncService := jellyfin.NewSyncService(
+		cfg,
+		jellyfinService,
+		watchedService,
+		watchedSeasonService,
+		watchedEpisodeService,
+		activityService)
+	plexSyncService := plex.NewSyncService(
+		plexService,
+		watchedService,
+		watchedSeasonService,
+		watchedEpisodeService,
+		activityService)
+	featureService := feature.NewService(cfg)
+	profileService := profile.NewService(db)
+	followService := follow.NewService(db)
+	tagService := tag.NewService(db, watchedService)
+	searchService := search.NewService(db, br.Cfg, contentService, watchedService)
+	discoverService := discover.NewService(db, br.Cfg, contentService)
+	importService := imprt.NewService(
+		db,
+		watchedService,
+		watchedSeasonService,
+		watchedEpisodeService,
+		contentService,
+		activityService,
+		tagService,
+		searchService)
+	importTraktService := imprt.NewTraktService(importService)
+
+	auth.NewRouter(br, authService, authTrustedHeaderService).AddRoutes()
+	content.NewRouter(br, contentService, watchedService).AddRoutes()
+	watched.NewRouter(br, t, watchedService).AddRoutes()
+	season.NewRouter(br, watchedSeasonService).AddRoutes()
+	episode.NewRouter(br, watchedEpisodeService).AddRoutes()
+	activity.NewRouter(br, activityService).AddRoutes()
+	profile.NewRouter(br, profileService).AddRoutes()
+	jellyfin.NewRouter(br, jellyfinService, jellyfinSyncService).AddRoutes()
+	plex.NewRouter(br, plexSyncService).AddRoutes()
+	user.NewRouter(br, userService, userManageService).AddRoutes()
+	follow.NewRouter(br, followService).AddRoutes()
+	imprt.NewRouter(br, importService, importTraktService).AddRoutes()
+	server.NewRouter(br, plexService, authTrustedHeaderService, userManageService).AddRoutes()
+	feature.NewRouter(br, featureService).AddRoutes()
+	arr.NewRouter(br, contentService).AddRoutes()
+	job.NewRouter(br).AddRoutes()
+	task.NewRouter(br).AddRoutes()
+	tag.NewRouter(br, tagService).AddRoutes()
+	game.NewRouter(br, gameService, watchedService).AddRoutes()
+	search.NewRouter(br, searchService, watchedService).AddRoutes()
+	discover.NewRouter(br, discoverService, watchedService).AddRoutes()
+
 	// Only add setup routes if there are no users found in db.
 	var userCount int64
-	if uresp := db.Model(&User{}).Count(&userCount); uresp.Error == nil {
+	if uresp := db.Model(&entity.User{}).Count(&userCount); uresp.Error == nil {
 		if userCount != 0 {
 			slog.Debug("registered users found.. skipped creating setup routes.")
 		} else {
 			slog.Info("No users found.. creating setup routes.")
-			ServerInSetup = true
-			br.addSetupRoutes()
+			setup.NewRouter(br, authService).AddRoutes()
 		}
 	} else {
-		slog.Error("Failed to check if any users exist.. not registering setup routes", "error", uresp.Error)
+		slog.Error("Failed to check if any users exist.. not registering setup routes",
+			"error", uresp.Error)
 	}
-	br.addAuthRoutes()
-	br.addContentRoutes()
-	br.addGameRoutes()
-	br.addWatchedRoutes()
-	br.addActivityRoutes()
-	br.addProfileRoutes()
-	br.addJellyfinRoutes()
-	br.addPlexRoutes()
-	br.addUserRoutes()
-	br.addFollowRoutes()
-	br.addImportRoutes()
-	br.addServerRoutes()
-	br.addFeatureRoutes()
-	br.addSonarrRoutes()
-	br.addRadarrRoutes()
-	br.addArrRequestRoutes()
-	br.addJobRoutes()
-	br.addTaskRoutes()
-	br.addTagRoutes()
-	br.rg.Static("/img", path.Join(DataPath, "img"))
 
-	go setupTasks(db)
+	api.Static("/img", path.Join(config.DataPath, "img"))
+
+	go taskl.SetupTasks(cfg, db)
 
 	gine.Run("0.0.0.0:3080")
-}
-
-// Setup slog defaults
-func setupLogging() io.Writer {
-	// logLevel = new(slog.LevelVar)
-	multiw := io.MultiWriter(&lumberjack.Logger{
-		Filename:   path.Join(DataPath, "watcharr.log"),
-		MaxSize:    1, // megabytes
-		MaxBackups: 3,
-		MaxAge:     28, // days
-		Compress:   false,
-	}, os.Stdout)
-	slog.SetDefault(slog.New(
-		slog.NewTextHandler(multiw, &slog.HandlerOptions{Level: logLevel}),
-	))
-	return multiw
-}
-
-// Set loggin level from config
-func setLoggingLevel() {
-	if Config.DEBUG {
-		logLevel.Set(slog.LevelDebug)
-	} else {
-		logLevel.Set(slog.LevelInfo)
-	}
-	slog.Info("Logging level set", "logging_level", logLevel)
 }
 
 // Run UI server

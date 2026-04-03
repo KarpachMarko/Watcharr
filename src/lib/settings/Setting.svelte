@@ -62,8 +62,6 @@
 	}
 
 	.setting-ctr {
-		margin: 0 15px;
-
 		&.row {
 			display: flex;
 			flex-flow: row;

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Watched } from "@/types";
+	import type { Tag, Watched } from "@/types";
 	import tooltip from "../actions/tooltip";
 	import Icon from "../Icon.svelte";
 	import TagMenu from "./TagMenu.svelte";
@@ -25,6 +25,27 @@
 			window.removeEventListener("scroll", onScroll);
 		};
 	});
+
+	function onTagClick(tag: Tag, remove: boolean) {
+		console.debug("Tag: Adding content to tag. Remove?:", remove);
+		if (remove) {
+			untagWatched(watchedItem.id, tag).then((s) => {
+				if (!s) return;
+				if (watchedItem.tags) {
+					watchedItem.tags = watchedItem.tags.filter((t) => t.id !== tag.id);
+				}
+			});
+			return;
+		}
+		tagWatched(watchedItem.id, tag).then((s) => {
+			if (!s) return;
+			if (!watchedItem.tags) {
+				watchedItem.tags = [tag];
+			} else {
+				watchedItem.tags.push(tag);
+			}
+		});
+	}
 </script>
 
 <div>
@@ -42,14 +63,7 @@
 		<TagMenu
 			titleText="Add To Tag"
 			selectedTags={watchedItem.tags}
-			onTagClick={(tag, remove) => {
-				console.debug("Tag: Adding content to tag. Remove?:", remove);
-				if (remove) {
-					untagWatched(watchedItem.id, tag);
-				} else {
-					tagWatched(watchedItem.id, tag);
-				}
-			}}
+			{onTagClick}
 			menuConfig={{
 				top: "50px",
 				right: "-78px",

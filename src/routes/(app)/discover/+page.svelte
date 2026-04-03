@@ -1,159 +1,199 @@
 <script lang="ts">
-	import { store } from "@/store.svelte";
-	import PageError from "@/lib/PageError.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
-	import axios from "axios";
-	import type {
-		TMDBDiscoverMovies,
-		TMDBDiscoverShows,
-		TMDBTrendingAll,
-		TMDBUpcomingMovies,
-		TMDBUpcomingShows,
-	} from "@/types";
+	import axios, { type GenericAbortSignal } from "axios";
 	import Poster from "@/lib/poster/Poster.svelte";
-	import { getWatchedDependedProps } from "@/lib/util/helpers";
+	import PageTitle from "@/lib/generic/PageTitle.svelte";
+	import MediaTypeFilter from "@/lib/search/MediaTypeFilter.svelte";
+	import infScroll from "@/lib/util/infScroll";
+	import paginatedLoader, {
+		PaginatedLoaderRunFnAction,
+	} from "@/lib/util/paginatedLoader.svelte";
+	import {
+		DiscoverFilter,
+		MediaTypeE,
+		SearchType,
+		type DiscoverRequest,
+		type Media,
+	} from "@/types";
+	import { page } from "$app/state";
+	import { afterNavigate, goto } from "$app/navigation";
+	import { onDestroy, onMount } from "svelte";
 	import PosterList from "@/lib/poster/PosterList.svelte";
+	import Error from "@/lib/Error.svelte";
+	import PersonPoster from "@/lib/poster/PersonPoster.svelte";
+	import FilterDropDown from "./FilterDropDown.svelte";
 
-	let wList = $derived(store.watchedList);
+	const scroll = infScroll({ callback: onScrollToBottom });
+	const dataLoader = paginatedLoader<Media, undefined>(load);
 
-	async function allTrending() {
-		return (await axios.get(`/content/trending`)).data as TMDBTrendingAll;
+	let discoverFilter: DiscoverFilter = $state(DiscoverFilter.trending);
+	let discoverType: SearchType | undefined = $derived.by(() => {
+		const t = page.url.searchParams.get("type");
+		if (t) {
+			return t as SearchType;
+		}
+		return SearchType.multi;
+	});
+	let nextLoadParams: DiscoverRequest = $derived({
+		page: dataLoader.state.page + 1,
+		type: discoverType,
+		filter: discoverFilter,
+	});
+
+	async function load(signal: GenericAbortSignal) {
+		console.debug("load: loadParams:", nextLoadParams);
+		if (nextLoadParams.page === dataLoader.state.page) {
+			console.warn("load: Already on this page, not loading it again!");
+			return;
+		}
+		const r = await axios.get(`/discover`, {
+			params: nextLoadParams,
+			signal,
+		});
+		scroll.dataLoaded();
+		return r;
 	}
 
-	async function trendingMovies() {
-		return (await axios.get(`/content/discover/movies`))
-			.data as TMDBDiscoverMovies;
+	async function onScrollToBottom() {
+		// If an error is being shown, no more infinite scroll.
+		if (dataLoader.state.reqLoadError) {
+			return;
+		}
+		dataLoader.runFn();
 	}
 
-	async function trendingShows() {
-		return (await axios.get(`/content/discover/tv`)).data as TMDBDiscoverShows;
+	function setActiveDiscoverType(to: SearchType | undefined) {
+		console.debug("setActiveDiscoverType: to:", to);
+		const curLocation = new URL(page.url);
+		if (!to || discoverType === to) {
+			curLocation.searchParams.delete("type");
+		} else {
+			curLocation.searchParams.set("type", to);
+		}
+		// Running the goto will cause afterNavigate hook to be called,
+		// which will run a fresh search, so nothing else to do here.
+		goto(`?${curLocation.searchParams.toString()}`);
 	}
 
-	async function upcomingMovies() {
-		return (await axios.get(`/content/upcoming/movies`))
-			.data as TMDBUpcomingMovies;
-	}
+	onMount(() => {
+		dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
+	});
 
-	async function upcomingShows() {
-		return (await axios.get(`/content/upcoming/tv`)).data as TMDBUpcomingShows;
-	}
+	afterNavigate(() => {
+		console.log(
+			"afterNavigate: Query changed, performing request.",
+			"searchParams:",
+			page.url.searchParams,
+		);
+		dataLoader.abortReq("navigated away");
+		dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
+	});
+
+	onDestroy(() => {
+		console.debug("DISCOVER PAGE DESTROYED");
+		scroll.destroy();
+		dataLoader.abortReq("page destroyed");
+	});
 </script>
 
 <svelte:head>
 	<title>Discover Content</title>
 </svelte:head>
 
-<div class="page">
-	<h1>Discover</h1>
-
-	<h2 class="norm">Trending Today</h2>
-	{#await allTrending()}
-		<Spinner />
-	{:then trending}
-		<PosterList type="vertical">
-			{#each trending.results as trend}
-				<!-- Possible a person gets returned, but i don't think anyone cares for them -->
-				{#if trend.media_type === "movie" || trend.media_type === "tv"}
-					<Poster
-						media={{ ...trend, media_type: trend.media_type }}
-						{...getWatchedDependedProps(trend.id, trend.media_type, wList)}
-						small={true}
-					/>
-				{/if}
-			{/each}
-		</PosterList>
-	{:catch err}
-		<PageError pretty="Failed to load currently trending!" error={err} />
-	{/await}
-
-	<h2 class="norm">Trending Movies</h2>
-	{#await trendingMovies()}
-		<Spinner />
-	{:then movies}
-		<PosterList type="vertical">
-			{#each movies.results as movie}
-				<Poster
-					media={{ ...movie, media_type: "movie" }}
-					{...getWatchedDependedProps(movie.id, "movie", wList)}
-					small={true}
+<div class="content">
+	<div class="inner">
+		<PageTitle title="Discover">
+			<div class="pagetitle-mediatypefilter">
+				<MediaTypeFilter
+					active={discoverType}
+					disabled={false}
+					onChange={(nowActive) => {
+						// Reset discoverFilter as we change type filter
+						// to avoid going into new type filter with unsupported
+						// discoverFilter that was set in previous type.
+						discoverFilter = DiscoverFilter.trending;
+						setActiveDiscoverType(nowActive as SearchType | undefined);
+					}}
 				/>
-			{/each}
-		</PosterList>
-	{:catch err}
-		<PageError pretty="Failed to load discovered movies!" error={err} />
-	{/await}
-
-	<h2 class="norm">Trending Shows</h2>
-	{#await trendingShows()}
-		<Spinner />
-	{:then shows}
-		<PosterList type="vertical">
-			{#each shows.results as tv}
-				<Poster
-					media={{ ...tv, media_type: "tv" }}
-					{...getWatchedDependedProps(tv.id, "tv", wList)}
-					small={true}
+			</div>
+			<div class="pagetitle-filterdropdown">
+				<FilterDropDown
+					{discoverType}
+					bind:active={discoverFilter}
+					onChange={() => {
+						console.log("Discover FilterDropDown Selected Change");
+						dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
+					}}
 				/>
-			{/each}
-		</PosterList>
-	{:catch err}
-		<PageError pretty="Failed to load discovered shows!" error={err} />
-	{/await}
+			</div>
+		</PageTitle>
 
-	<h2 class="norm">Upcoming Movies</h2>
-	{#await upcomingMovies()}
-		<Spinner />
-	{:then shows}
-		<PosterList type="vertical">
-			{#each shows.results as tv}
-				<Poster
-					media={{ ...tv, media_type: "movie" }}
-					{...getWatchedDependedProps(tv.id, "movie", wList)}
-					small={true}
-				/>
-			{/each}
+		<PosterList>
+			{#if dataLoader.state.data?.length > 0}
+				{#each dataLoader.state.data as w, i (`${i}-${w.type}`)}
+					{#if w.type === MediaTypeE.tmdbPerson}
+						<PersonPoster
+							id={w.ids.tmdb}
+							name={w.name}
+							path={w.extPosterPath}
+						/>
+					{:else if w.type === MediaTypeE.tmdbMovie || w.type === MediaTypeE.tmdbShow || w.type === MediaTypeE.igdbGame}
+						<Poster
+							media={w}
+							bind:watched={dataLoader.state.data[i].watched}
+							fluidSize
+						/>
+					{/if}
+				{/each}
+			{:else if !dataLoader.state.reqLoading && !dataLoader.state.reqLoadError}
+				<!-- If request is running or we have an error, no point in showing 'no results' message. -->
+				<h2 class="norm" title="Hovering over me doesn't change the facts ;(">
+					No Results!
+				</h2>
+			{/if}
 		</PosterList>
-	{:catch err}
-		<PageError pretty="Failed to load upcoming movies!" error={err} />
-	{/await}
 
-	<h2 class="norm">Upcoming Shows</h2>
-	{#await upcomingShows()}
-		<Spinner />
-	{:then shows}
-		<PosterList type="vertical">
-			{#each shows.results as tv}
-				<Poster
-					media={{ ...tv, media_type: "tv" }}
-					{...getWatchedDependedProps(tv.id, "tv", wList)}
-					small={true}
+		{#if dataLoader.state.reqLoading}
+			<div style="margin-bottom: 60px;">
+				<Spinner />
+			</div>
+		{/if}
+
+		{#if dataLoader.state.reqLoadError}
+			<div style="margin-bottom: 60px;">
+				<Error
+					pretty="Failed to load results!"
+					error={dataLoader.state.reqLoadError}
+					onRetry={() => {
+						dataLoader.state.reqLoadError = undefined;
+						dataLoader.runFn(PaginatedLoaderRunFnAction.ResetIfOnFirstOrNoPage);
+					}}
 				/>
-			{/each}
-		</PosterList>
-	{:catch err}
-		<PageError pretty="Failed to load upcoming shows!" error={err} />
-	{/await}
+			</div>
+		{/if}
+	</div>
 </div>
 
 <style lang="scss">
-	.page {
-		display: flex;
-		flex-flow: column;
+	.pagetitle-mediatypefilter {
+		@media screen and (max-width: 745px) {
+			width: 100%;
+			order: 2;
+		}
+	}
+
+	.pagetitle-filterdropdown {
 		margin-left: auto;
-		margin-right: auto;
-		padding: 20px 50px;
-		max-width: 1200px;
+	}
 
-		h1 {
-			margin-bottom: 15px;
-		}
+	.content {
+		display: flex;
+		width: 100%;
+		justify-content: center;
 
-		h2 {
-			font-variant: small-caps;
-		}
-
-		@media screen and (max-width: 500px) {
-			padding: 20px;
+		.inner {
+			width: 100%;
+			max-width: 1200px;
 		}
 	}
 </style>
